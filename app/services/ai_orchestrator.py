@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any
+from typing import TypeVar
 
 from app.core.config import Settings
 from app.models.analysis import (
@@ -13,6 +13,7 @@ from app.models.analysis import (
     RecruiterAssessment,
     VerificationQuestion,
 )
+from pydantic import BaseModel, Field
 from app.services.generation import generate_application_pack
 
 try:
@@ -27,6 +28,47 @@ class AIPipelineResult:
     evaluator_assessment: EvaluatorAssessment
     verification_questions: list[VerificationQuestion]
     aspirational_pack: AspirationalPack
+
+
+class RecruiterStageOutput(BaseModel):
+    shortlist_summary: str
+    priority_requirements: list[str] = Field(default_factory=list)
+    concerns: list[str] = Field(default_factory=list)
+
+
+class EvaluatorFlagOutput(BaseModel):
+    requirement_id: str
+    requirement_text: str
+    issue: str
+    severity: str = "medium"
+
+
+class EvaluatorStageOutput(BaseModel):
+    fit_score: int
+    summary: str
+    weak_claims: list[EvaluatorFlagOutput] = Field(default_factory=list)
+    uncertain_claims: list[EvaluatorFlagOutput] = Field(default_factory=list)
+
+
+class VerificationQuestionOutput(BaseModel):
+    requirement_id: str
+    requirement_text: str
+    question: str
+    reason: str
+    priority: str = "medium"
+
+
+class VerificationStageOutput(BaseModel):
+    verification_questions: list[VerificationQuestionOutput] = Field(default_factory=list)
+
+
+class ApplicantStageOutput(BaseModel):
+    tailored_cv_markdown: str
+    cover_letter_markdown: str
+    interview_notes_markdown: str
+
+
+StageOutputT = TypeVar("StageOutputT", bound=BaseModel)
 
 
 class AIPipeline:
@@ -78,20 +120,21 @@ class AIPipeline:
             ],
             "recruiter_concerns": analysis.jd_analysis.recruiter_concerns,
         }
-        response = self._json_stage_call(
+        response = self._structured_stage_call(
             model=self.settings.ai_model_recruiter,
             instructions=(
                 "You are recruiter_agent. Return compact JSON only with keys: "
                 "shortlist_summary (string), priority_requirements (string[]), concerns (string[])."
             ),
             payload=payload,
+            schema=RecruiterStageOutput,
         )
         if not response:
             return fallback
         return RecruiterAssessment(
-            shortlist_summary=str(response.get("shortlist_summary") or fallback.shortlist_summary),
-            priority_requirements=[str(item) for item in response.get("priority_requirements", [])][:6],
-            concerns=[str(item) for item in response.get("concerns", [])][:6],
+            shortlist_summary=response.shortlist_summary or fallback.shortlist_summary,
+            priority_requirements=response.priority_requirements[:6],
+            concerns=response.concerns[:6],
             model_tier=self.settings.ai_model_recruiter,
         )
 
@@ -130,7 +173,7 @@ class AIPipeline:
             "evidence_map": [item.model_dump(mode="json") for item in analysis.evidence_map],
             "warnings": analysis.warnings,
         }
-        response = self._json_stage_call(
+        response = self._structured_stage_call(
             model=self.settings.ai_model_evaluator,
             instructions=(
                 "You are evaluator_agent. Return compact JSON with keys: fit_score (int), summary (string), "
@@ -138,15 +181,16 @@ class AIPipeline:
                 "uncertain_claims (same schema)."
             ),
             payload=payload,
+            schema=EvaluatorStageOutput,
         )
         if not response:
             return fallback
 
         return EvaluatorAssessment(
-            fit_score=int(response.get("fit_score") or analysis.fit_summary.score),
-            summary=str(response.get("summary") or fallback.summary),
-            weak_claims=_parse_flags(response.get("weak_claims", [])),
-            uncertain_claims=_parse_flags(response.get("uncertain_claims", [])),
+            fit_score=response.fit_score or analysis.fit_summary.score,
+            summary=response.summary or fallback.summary,
+            weak_claims=_parse_flags(response.weak_claims),
+            uncertain_claims=_parse_flags(response.uncertain_claims),
             model_tier=self.settings.ai_model_evaluator,
         )
 
@@ -171,28 +215,27 @@ class AIPipeline:
             "follow_up_questions": [item.model_dump(mode="json") for item in analysis.follow_up_questions],
             "uncertain_claims": [item.model_dump(mode="json") for item in evaluator.uncertain_claims],
         }
-        response = self._json_stage_call(
+        response = self._structured_stage_call(
             model=self.settings.ai_model_verifier,
             instructions=(
                 "You are verification_agent. Return JSON with key verification_questions as an array of objects "
                 "{requirement_id, requirement_text, question, reason, priority}."
             ),
             payload=payload,
+            schema=VerificationStageOutput,
         )
         if not response:
             return fallback
 
         parsed: list[VerificationQuestion] = []
-        for item in response.get("verification_questions", []):
-            if not isinstance(item, dict):
-                continue
+        for item in response.verification_questions:
             parsed.append(
                 VerificationQuestion(
-                    requirement_id=str(item.get("requirement_id") or ""),
-                    requirement_text=str(item.get("requirement_text") or "Requirement"),
-                    question=str(item.get("question") or "Can you confirm this claim with a concrete example?"),
-                    reason=str(item.get("reason") or "Additional verification is required."),
-                    priority=_coerce_priority(item.get("priority")),
+                    requirement_id=item.requirement_id or "",
+                    requirement_text=item.requirement_text or "Requirement",
+                    question=item.question or "Can you confirm this claim with a concrete example?",
+                    reason=item.reason or "Additional verification is required.",
+                    priority=_coerce_priority(item.priority),
                     model_tier=self.settings.ai_model_verifier,
                 )
             )
@@ -222,7 +265,7 @@ class AIPipeline:
             "interview_notes_markdown": aspirational_pack.interview_notes_markdown,
             "label_requirement": "Keep output clearly aspirational and non-submittable.",
         }
-        response = self._json_stage_call(
+        response = self._structured_stage_call(
             model=self.settings.ai_model_applicant,
             instructions=(
                 "You are applicant_agent. Refine the aspirational sample and return JSON with keys "
@@ -230,60 +273,50 @@ class AIPipeline:
                 "Never present the output as already verified."
             ),
             payload=payload,
+            schema=ApplicantStageOutput,
         )
         if not response:
             return fallback
 
         return AspirationalPack(
-            tailored_cv_markdown=str(
-                response.get("tailored_cv_markdown") or aspirational_pack.tailored_cv_markdown
-            ),
-            cover_letter_markdown=str(
-                response.get("cover_letter_markdown") or aspirational_pack.cover_letter_markdown
-            ),
-            interview_notes_markdown=str(
-                response.get("interview_notes_markdown") or aspirational_pack.interview_notes_markdown
-            ),
+            tailored_cv_markdown=response.tailored_cv_markdown or aspirational_pack.tailored_cv_markdown,
+            cover_letter_markdown=response.cover_letter_markdown or aspirational_pack.cover_letter_markdown,
+            interview_notes_markdown=response.interview_notes_markdown or aspirational_pack.interview_notes_markdown,
             model_tier=self.settings.ai_model_applicant,
         )
 
-    def _json_stage_call(self, model: str, instructions: str, payload: dict[str, Any]) -> dict[str, Any] | None:
+    def _structured_stage_call(
+        self,
+        *,
+        model: str,
+        instructions: str,
+        payload: dict[str, object],
+        schema: type[StageOutputT],
+    ) -> StageOutputT | None:
         if self.client is None:
             return None
         try:
-            response = self.client.responses.create(
+            response = self.client.responses.parse(
                 model=model,
-                input=[
-                    {"role": "system", "content": instructions},
-                    {
-                        "role": "user",
-                        "content": json.dumps(payload, ensure_ascii=True),
-                    },
-                ],
+                instructions=instructions,
+                input=json.dumps(payload, ensure_ascii=True),
+                text_format=schema,
                 max_output_tokens=700,
             )
-            text = getattr(response, "output_text", "")
-            if not text:
-                return None
-            parsed = json.loads(text)
-            if isinstance(parsed, dict):
-                return parsed
+            return response.output_parsed
         except Exception:
             return None
-        return None
 
 
-def _parse_flags(items: list[Any]) -> list[EvaluatorFlag]:
+def _parse_flags(items: list[EvaluatorFlagOutput]) -> list[EvaluatorFlag]:
     parsed: list[EvaluatorFlag] = []
     for item in items:
-        if not isinstance(item, dict):
-            continue
         parsed.append(
             EvaluatorFlag(
-                requirement_id=str(item.get("requirement_id") or ""),
-                requirement_text=str(item.get("requirement_text") or "Requirement"),
-                issue=str(item.get("issue") or "Needs verification."),
-                severity=_coerce_priority(item.get("severity")),
+                requirement_id=item.requirement_id or "",
+                requirement_text=item.requirement_text or "Requirement",
+                issue=item.issue or "Needs verification.",
+                severity=_coerce_priority(item.severity),
             )
         )
     return parsed

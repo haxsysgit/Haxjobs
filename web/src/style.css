@@ -400,6 +400,37 @@ textarea:focus {
   gap: 10px;
 }
 
+.ai-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.info-panel {
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  padding: 10px;
+  background: rgba(8, 12, 19, 0.68);
+  display: grid;
+  gap: 8px;
+}
+
+.panel-label {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.compact-list {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-soft);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
 .question-card {
   border: 1px solid var(--line-soft);
   border-radius: 10px;
@@ -515,6 +546,10 @@ textarea:focus {
 
   .app-content {
     padding: 12px 12px 28px;
+  }
+
+  .ai-grid {
+    grid-template-columns: 1fr;
   }
 }
 

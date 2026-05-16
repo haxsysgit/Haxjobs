@@ -21,6 +21,7 @@ const demoOptionsPayload: DemoOptionsResponse = {
 
 const successPayload = {
   ok: true,
+  analysis_engine: "ai",
   metadata: {
     mode: "stretch",
     source: "demo",
@@ -87,6 +88,51 @@ const successPayload = {
       priority: "high"
     }
   ],
+  recruiter_assessment: {
+    shortlist_summary: "Top shortlist criteria extracted from the JD.",
+    priority_requirements: ["Strong Python fundamentals", "Production Vue experience"],
+    concerns: ["Code Quality"],
+    model_tier: "gpt-5.4-mini"
+  },
+  evaluator_assessment: {
+    fit_score: 72,
+    summary: "Evaluator stage complete.",
+    weak_claims: [
+      {
+        requirement_id: "req-2",
+        requirement_text: "Production Vue experience",
+        issue: "Needs a better concrete example.",
+        severity: "medium"
+      }
+    ],
+    uncertain_claims: [
+      {
+        requirement_id: "req-2",
+        requirement_text: "Production Vue experience",
+        issue: "Needs user confirmation.",
+        severity: "high"
+      }
+    ],
+    model_tier: "gpt-5.4-mini"
+  },
+  verification_questions: [
+    {
+      requirement_id: "req-2",
+      requirement_text: "Production Vue experience",
+      question: "Can you confirm a production Vue example?",
+      reason: "Current evidence is thin.",
+      priority: "high",
+      model_tier: "gpt-5.4-mini"
+    }
+  ],
+  aspirational_pack: {
+    label: "Aspirational sample (non-submittable until user-confirmed)",
+    non_submittable: true,
+    tailored_cv_markdown: "# Aspirational CV\n\n## Target Role\nBackend Engineer",
+    cover_letter_markdown: "# Aspirational Cover Letter",
+    interview_notes_markdown: "# Aspirational Interview Notes",
+    model_tier: "gpt-5.5"
+  },
   warnings: ["One gap needs a tighter example."],
   markdown_report: "# Analysis Metadata"
 };
@@ -216,6 +262,7 @@ describe("App", () => {
     await fireEvent.click(screen.getByTestId("demo-button"));
     await waitFor(() => expect(router.currentRoute.value.path).toBe("/review"));
     expect(screen.getByText(/Backend Engineer/)).toBeInTheDocument();
+    expect(screen.getByText(/Top shortlist criteria extracted from the JD/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Evidence" })).toBeInTheDocument();
     expect(screen.getAllByText("Kubernetes ownership").length).toBeGreaterThan(0);
   });
@@ -262,8 +309,9 @@ describe("App", () => {
     await waitFor(() => expect(router.currentRoute.value.path).toBe("/drafts"));
     await fireEvent.click(screen.getByRole("button", { name: "Generate" }));
     expect(await screen.findByText(/Tailored CV Draft/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "CV" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Cover Letter" })).toBeInTheDocument();
+    expect(screen.getByText(/non-submittable until user-confirmed/i)).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "CV" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Cover Letter" }).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Preview" })).toBeInTheDocument();
     await fireEvent.click(screen.getByRole("button", { name: "Raw" }));
     expect(screen.getByTestId("document-preview")).toHaveTextContent("# Tailored CV Draft");

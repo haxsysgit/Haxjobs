@@ -43,6 +43,9 @@ const focusRequirementId = computed(() => {
 });
 
 const canOpenDrafts = computed(() => canAccessOutputs());
+const recruiterAssessment = computed(() => report.value?.recruiter_assessment);
+const evaluatorAssessment = computed(() => report.value?.evaluator_assessment);
+const verificationQuestions = computed(() => report.value?.verification_questions ?? []);
 
 function setPanel(panel: ReviewPanel): void {
   router.replace({
@@ -96,6 +99,37 @@ function openRequirement(requirementId: string): void {
     <p v-if="!canOpenDrafts" class="status-line error-banner">
       Drafts locked until {{ unresolvedRequiredFollowUpCount() }} required answer(s) are filled.
     </p>
+
+    <section id="ai" class="stream-block" v-if="recruiterAssessment || evaluatorAssessment">
+      <h3>AI Pass</h3>
+      <p class="status-line">Engine {{ report.analysis_engine }} · Demo-ready structured JSON stages</p>
+      <div class="ai-grid">
+        <article class="info-panel" v-if="recruiterAssessment">
+          <p class="panel-label">Recruiter</p>
+          <p>{{ recruiterAssessment.shortlist_summary }}</p>
+          <p class="status-line">
+            {{ recruiterAssessment.priority_requirements.slice(0, 3).join(" · ") }}
+          </p>
+        </article>
+        <article class="info-panel" v-if="evaluatorAssessment">
+          <p class="panel-label">Evaluator</p>
+          <p>{{ evaluatorAssessment.summary }}</p>
+          <p class="status-line">
+            {{ evaluatorAssessment.uncertain_claims.length }} uncertain ·
+            {{ evaluatorAssessment.weak_claims.length }} flagged
+          </p>
+        </article>
+      </div>
+      <article class="info-panel" v-if="verificationQuestions.length">
+        <p class="panel-label">Verification</p>
+        <p class="status-line">Top prompts from the verification stage</p>
+        <ul class="compact-list">
+          <li v-for="question in verificationQuestions.slice(0, 3)" :key="question.requirement_id">
+            {{ question.question }}
+          </li>
+        </ul>
+      </article>
+    </section>
 
     <section class="stream-actions">
       <button

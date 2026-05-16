@@ -38,12 +38,16 @@ const navItems = computed<NavItem[]>(() => [
 const sectionLinks = computed<SectionLink[]>(() => {
   if (route.name === "review") {
     return [
+      { id: "ai", label: "AI" },
       { id: "evidence", label: "Evidence" },
       { id: "questions", label: "Questions" }
     ];
   }
   if (route.name === "drafts") {
-    return [{ id: "documents", label: "Documents" }];
+    return [
+      { id: "documents", label: "Documents" },
+      { id: "aspirational", label: "Aspirational" }
+    ];
   }
   return [
     { id: "intake", label: "Intake" },

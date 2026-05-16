@@ -4,6 +4,7 @@ import { useRouter, useRoute } from "vue-router";
 
 import DraftStudio, { type DraftDocument } from "../components/drafts/DraftStudio.vue";
 import { ApiError, generateApplicationPack } from "../lib/api";
+import { renderSimpleMarkdown } from "../lib/markdown";
 import { appState, setGeneratedPack } from "../state/app-state";
 
 const router = useRouter();
@@ -11,9 +12,11 @@ const route = useRoute();
 const loading = ref(false);
 const errorMessage = ref("");
 const copied = ref(false);
+const aspirationalDocument = ref<"cv" | "cover-letter" | "interview-notes">("cv");
 
 const report = computed(() => appState.analysis);
 const pack = computed(() => appState.generatedPack);
+const aspirationalPack = computed(() => report.value?.aspirational_pack ?? null);
 const activeDocument = computed<DraftDocument>(() => {
   const doc = route.query.doc;
   if (doc === "cv" || doc === "cover-letter" || doc === "interview-notes" || doc === "evidence-map") {
@@ -28,6 +31,21 @@ const answerList = computed(() =>
   )
 );
 const generationLabel = computed(() => (pack.value ? "Refresh" : "Generate"));
+const aspirationalBody = computed(() => {
+  if (!aspirationalPack.value) {
+    return "";
+  }
+  if (aspirationalDocument.value === "cv") {
+    return aspirationalPack.value.tailored_cv_markdown;
+  }
+  if (aspirationalDocument.value === "cover-letter") {
+    return aspirationalPack.value.cover_letter_markdown;
+  }
+  return aspirationalPack.value.interview_notes_markdown;
+});
+const renderedAspirationalBody = computed(() =>
+  aspirationalBody.value ? renderSimpleMarkdown(aspirationalBody.value) : ""
+);
 
 function setDocument(value: DraftDocument): void {
   router.replace({
@@ -162,6 +180,44 @@ function downloadCurrentDocument(): void {
         @update:document="setDocument"
       />
       <p v-else class="status-line">Generate once to open documents.</p>
+    </section>
+
+    <section id="aspirational" class="stream-block" v-if="aspirationalPack">
+      <h3>Aspirational Sample</h3>
+      <p class="status-line">
+        {{ aspirationalPack.label }} · model {{ aspirationalPack.model_tier }}
+      </p>
+      <div class="stream-actions">
+        <button
+          class="tab-button"
+          :class="{ active: aspirationalDocument === 'cv' }"
+          type="button"
+          @click="aspirationalDocument = 'cv'"
+        >
+          CV
+        </button>
+        <button
+          class="tab-button"
+          :class="{ active: aspirationalDocument === 'cover-letter' }"
+          type="button"
+          @click="aspirationalDocument = 'cover-letter'"
+        >
+          Cover Letter
+        </button>
+        <button
+          class="tab-button"
+          :class="{ active: aspirationalDocument === 'interview-notes' }"
+          type="button"
+          @click="aspirationalDocument = 'interview-notes'"
+        >
+          Interview Notes
+        </button>
+      </div>
+      <article
+        class="document-surface markdown-body"
+        data-testid="aspirational-rendered"
+        v-html="renderedAspirationalBody"
+      />
     </section>
   </section>
 </template>
