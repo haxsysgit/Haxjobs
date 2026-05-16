@@ -1,0 +1,699 @@
+current_phase: ''
+active_task:
+  name: none
+completed_tasks:
+- name: Implement the minimal Vue 3 + Vite + TypeScript frontend and FastAPI backend
+    evidence-first slice with a shared deterministic Python service layer, CLI wrapper,
+    API endpoints, fixture-based tests, and Markdown/JSON reporting.
+  result: success
+  summary: Scaffolded a new Python runtime package under app/ with Pydantic schemas,
+    deterministic CV/JD parsing, evidence mapping, Markdown reporting, FastAPI endpoints,
+    and a thin CLI wrapper. Added backend pytest coverage for PDF/TXT parsing, workflow
+    analysis, reporting, and API endpoints. Scaffolded a Vue 3 + Vite + TypeScript
+    single-page frontend under web/ with upload, JD paste, analysis, results, and
+    JSON/Markdown download flows, plus Vitest coverage and production build support.
+  completed: '2026-05-16T00:06:30.420065+00:00'
+- name: 'Implement the planned repo usability slice: add scripts/dev.sh runner, refactor
+    FastAPI app structure into app/main.py with route/service/model layering and demo
+    endpoints, fix frontend local API wiring and backend health UX, add demo analysis
+    flow and results filtering, update tests, and verify end-to-end.'
+  result: success
+  summary: 'Backend: introduced app/main.py create_app(), app/core config/setup, route
+    modules for health/analysis/demo, model modules for analysis and health, demo
+    fixture service, metadata-aware reporting, and compatibility exports through app/schemas.py
+    and app/api/server.py. Tooling: added scripts/dev.sh and .run ignore handling.
+    Frontend: added API client helpers, Vite /api proxy, backend health banner, mode
+    persistence, demo analysis flow, clearer backend-unavailable errors, and filterable/expandable
+    results UI. Tests: expanded pytest coverage for factory, health env state, demo
+    endpoints, and Vitest coverage for health states, API URL resolution, demo flow,
+    unavailable backend handling, session restore, and result filtering.'
+  completed: '2026-05-16T02:35:05.084118+00:00'
+blocked_tasks: []
+decisions: []
+unresolved_dependencies: []
+runs:
+- id: run-63abb035
+  task: Implement the minimal Vue 3 + Vite + TypeScript frontend and FastAPI backend
+    evidence-first slice with a shared deterministic Python service layer, CLI wrapper,
+    API endpoints, fixture-based tests, and Markdown/JSON reporting.
+  result: success
+  changes: Scaffolded a new Python runtime package under app/ with Pydantic schemas,
+    deterministic CV/JD parsing, evidence mapping, Markdown reporting, FastAPI endpoints,
+    and a thin CLI wrapper. Added backend pytest coverage for PDF/TXT parsing, workflow
+    analysis, reporting, and API endpoints. Scaffolded a Vue 3 + Vite + TypeScript
+    single-page frontend under web/ with upload, JD paste, analysis, results, and
+    JSON/Markdown download flows, plus Vitest coverage and production build support.
+  decisions: Kept the slice stateless and deterministic with no database, auth, or
+    model calls. Used pdftotext for PDF extraction, .env file inspection for llm_configured,
+    and one shared workflow function so CLI and API behavior stay aligned.
+  risks: The deterministic matcher is heuristic and intentionally conservative, so
+    some JD requirements may be over-broad or under-matched until later slices refine
+    requirement classification. Full browser-driven manual acceptance was not run
+    in this session; verification relied on pytest, Vitest, Vite build, and a CLI
+    fixture run.
+  timestamp: '2026-05-16T00:06:30.420065+00:00'
+  file_refs:
+  - .haxaml/facts.yaml
+  - .haxaml/rules.yaml
+  - .haxaml/acts.yaml
+  - .gitignore
+  - pyproject.toml
+  - app/__init__.py
+  - app/api/__init__.py
+  - app/api/server.py
+  - app/cli.py
+  - app/schemas.py
+  - app/services/__init__.py
+  - app/services/analysis.py
+  - app/services/documents.py
+  - app/services/reporting.py
+  - app/services/workflow.py
+  - tests/backend/test_analysis.py
+  - tests/backend/test_api.py
+  - tests/backend/test_documents.py
+  - web/index.html
+  - web/package-lock.json
+  - web/package.json
+  - web/src/App.test.ts
+  - web/src/App.vue
+  - web/src/lib/api.ts
+  - web/src/main.ts
+  - web/src/style.css
+  - web/src/test-setup.ts
+  - web/src/types.ts
+  - web/src/vite-env.d.ts
+  - web/tsconfig.json
+  - web/vite.config.ts
+  - AGENTS.md
+  - docs/HAXJOBS_AGENT_WORKFLOW_BLUEPRINT.md
+  - .haxaml/expect.yaml
+  - tests/jd/60x.txt
+  - tests/cv/Arinze_Agent_engineer_cv.pdf
+  module_refs: []
+  verification_id: verify-f60c7fc44b
+  keywords:
+  - implement
+  - minimal
+  - vite
+  - typescript
+  - frontend
+  - fastapi
+  - backend
+  - evidence
+  - first
+  - slice
+  - with
+  - shared
+- id: run-46ac25c9
+  task: 'Implement the planned repo usability slice: add scripts/dev.sh runner, refactor
+    FastAPI app structure into app/main.py with route/service/model layering and demo
+    endpoints, fix frontend local API wiring and backend health UX, add demo analysis
+    flow and results filtering, update tests, and verify end-to-end.'
+  result: success
+  changes: 'Backend: introduced app/main.py create_app(), app/core config/setup, route
+    modules for health/analysis/demo, model modules for analysis and health, demo
+    fixture service, metadata-aware reporting, and compatibility exports through app/schemas.py
+    and app/api/server.py. Tooling: added scripts/dev.sh and .run ignore handling.
+    Frontend: added API client helpers, Vite /api proxy, backend health banner, mode
+    persistence, demo analysis flow, clearer backend-unavailable errors, and filterable/expandable
+    results UI. Tests: expanded pytest coverage for factory, health env state, demo
+    endpoints, and Vitest coverage for health states, API URL resolution, demo flow,
+    unavailable backend handling, session restore, and result filtering.'
+  decisions: Kept the deterministic analysis engine unchanged by continuing to ignore
+    mode inside the scoring workflow while still returning the chosen mode in response
+    metadata. Exposed only a small whitelist of existing fixture files through the
+    demo endpoints. Used detached shell wrappers in scripts/dev.sh so the tracked
+    PIDs remain alive after the launcher exits.
+  risks: Haxaml verification returned pass_with_risks with one failed check but no
+    additional follow-up detail. The frontend copy action assumes navigator.clipboard
+    is available in the browser context; unsupported environments would need a fallback
+    if that becomes a real requirement.
+  timestamp: '2026-05-16T02:35:05.084118+00:00'
+  file_refs:
+  - .haxaml/facts.yaml
+  - .haxaml/rules.yaml
+  - .haxaml/acts.yaml
+  - app/main.py
+  - main.py
+  - app/core/config.py
+  - app/core/application.py
+  - app/api/routes/health.py
+  - app/api/routes/analysis.py
+  - app/api/routes/demo.py
+  - app/models/analysis.py
+  - app/models/health.py
+  - app/services/demo_fixtures.py
+  - app/services/workflow.py
+  - app/services/reporting.py
+  - app/services/analysis.py
+  - app/cli.py
+  - app/api/server.py
+  - app/api/__init__.py
+  - app/schemas.py
+  - pyproject.toml
+  - scripts/dev.sh
+  - .gitignore
+  - web/vite.config.ts
+  - web/src/lib/api.ts
+  - web/src/types.ts
+  - web/src/App.vue
+  - web/src/style.css
+  - web/src/App.test.ts
+  - web/src/lib/api.test.ts
+  - tests/backend/test_api.py
+  - tests/backend/test_app_factory.py
+  - AGENTS.md
+  - .agents/skills/haxaml/SKILL.md
+  - app/services/documents.py
+  - tests/backend/test_analysis.py
+  - tests/backend/test_documents.py
+  module_refs: []
+  verification_id: verify-c5e16ba5f1
+  keywords:
+  - implement
+  - planned
+  - repo
+  - usability
+  - slice
+  - scripts
+  - devsh
+  - runner
+  - refactor
+  - fastapi
+  - structure
+  - into
+sessions:
+- id: session-ffc98dcfc3
+  task: Implement the minimal Vue 3 + Vite + TypeScript frontend and FastAPI backend
+    evidence-first slice with a shared deterministic Python service layer, CLI wrapper,
+    API endpoints, fixture-based tests, and Markdown/JSON reporting.
+  description: Fresh implementation based on an existing approved plan for the first
+    workflow-first web slice.
+  execution_mode: governed
+  status: recorded
+  phase: record
+  risk_level: low
+  task_type: testing
+  guidance_type: implementation
+  readiness_status: ready_to_build_with_warnings
+  started: '2026-05-15T23:54:27.518799+00:00'
+  updated: '2026-05-16T00:06:30.609604+00:00'
+  plan:
+  - Review the readiness report and clarify any required questions.
+  - Call haxaml_context_pack to load task-scoped context.
+  - Apply the smallest logical change set within the scoped files.
+  - Run validations or tests for touched behavior.
+  - Call haxaml_session_verify before haxaml_session_record.
+  required_questions:
+  - What behavior should the tests cover?
+  - Are these unit tests, integration tests, or end-to-end tests?
+  - Should existing tests be extended or are these new tests?
+  - What does a passing test look like?
+  materials_needed:
+  - the code to be tested
+  - existing test files if extending
+  - test configuration or fixtures
+  done_criteria:
+  - tests cover the specified behavior
+  - tests pass in CI
+  - test names clearly describe what they verify
+  - no production code is changed as a side effect
+  likely_impact:
+  - test files
+  - test fixtures
+  - possibly test configuration
+  risks:
+  - tests that pass but do not actually verify the intended behavior
+  - over-mocking that hides real integration issues
+  missing_context: []
+  file_refs:
+  - .haxaml/facts.yaml
+  - .haxaml/rules.yaml
+  - .haxaml/acts.yaml
+  - .gitignore
+  - pyproject.toml
+  - app/__init__.py
+  - app/api/__init__.py
+  - app/api/server.py
+  - app/cli.py
+  - app/schemas.py
+  - app/services/__init__.py
+  - app/services/analysis.py
+  - app/services/documents.py
+  - app/services/reporting.py
+  - app/services/workflow.py
+  - tests/backend/test_analysis.py
+  - tests/backend/test_api.py
+  - tests/backend/test_documents.py
+  - web/index.html
+  - web/package-lock.json
+  - web/package.json
+  - web/src/App.test.ts
+  - web/src/App.vue
+  - web/src/lib/api.ts
+  - web/src/main.ts
+  - web/src/style.css
+  - web/src/test-setup.ts
+  - web/src/types.ts
+  - web/src/vite-env.d.ts
+  - web/tsconfig.json
+  - web/vite.config.ts
+  - AGENTS.md
+  - docs/HAXJOBS_AGENT_WORKFLOW_BLUEPRINT.md
+  - .haxaml/expect.yaml
+  - tests/jd/60x.txt
+  - tests/cv/Arinze_Agent_engineer_cv.pdf
+  module_refs: []
+  keywords:
+  - implement
+  - minimal
+  - vite
+  - typescript
+  - frontend
+  - fastapi
+  - backend
+  - evidence
+  - first
+  - slice
+  - with
+  - shared
+  context_pack_calls: 1
+  last_context_pack_at: '2026-05-15T23:54:36.140714+00:00'
+  last_context_pack_reason: Fresh context for implementation from approved plan.
+  last_context_pack_reason_category: other_context_shift
+  ended: '2026-05-16T00:06:30.609608+00:00'
+  verification_id: verify-f60c7fc44b
+- id: session-fd83033992
+  task: 'Implement the planned repo usability slice: add scripts/dev.sh runner, refactor
+    FastAPI app structure into app/main.py with route/service/model layering and demo
+    endpoints, fix frontend local API wiring and backend health UX, add demo analysis
+    flow and results filtering, update tests, and verify end-to-end.'
+  description: Carry the provided plan through implementation and verification in
+    one pass.
+  execution_mode: governed
+  status: recorded
+  phase: record
+  risk_level: medium
+  task_type: api_endpoint
+  guidance_type: implementation
+  readiness_status: ready_to_build_with_warnings
+  started: '2026-05-16T02:19:15.225799+00:00'
+  updated: '2026-05-16T02:35:05.511404+00:00'
+  plan:
+  - Review the readiness report and clarify any required questions.
+  - Call haxaml_context_pack to load task-scoped context.
+  - Apply the smallest logical change set within the scoped files.
+  - Run validations or tests for touched behavior.
+  - Call haxaml_session_verify before haxaml_session_record.
+  required_questions:
+  - What HTTP method and path should this endpoint use?
+  - What input does it expect and what does it return?
+  - Are there authentication or permission requirements?
+  - Does a similar endpoint already exist?
+  materials_needed:
+  - route structure or router file
+  - request and response schema
+  - auth or permission middleware
+  - existing similar endpoints for reference
+  done_criteria:
+  - endpoint responds correctly to valid input
+  - auth requirements are enforced
+  - error cases return appropriate status codes
+  - endpoint is tested
+  likely_impact:
+  - router or URL config
+  - handler or controller
+  - serializer or schema
+  - auth middleware
+  - tests
+  risks:
+  - missing auth check on a protected resource
+  - breaking change to an existing API contract
+  - unvalidated input reaching the handler
+  missing_context: []
+  file_refs:
+  - .haxaml/facts.yaml
+  - .haxaml/rules.yaml
+  - .haxaml/acts.yaml
+  - app/main.py
+  - main.py
+  - app/core/config.py
+  - app/core/application.py
+  - app/api/routes/health.py
+  - app/api/routes/analysis.py
+  - app/api/routes/demo.py
+  - app/models/analysis.py
+  - app/models/health.py
+  - app/services/demo_fixtures.py
+  - app/services/workflow.py
+  - app/services/reporting.py
+  - app/services/analysis.py
+  - app/cli.py
+  - app/api/server.py
+  - app/api/__init__.py
+  - app/schemas.py
+  - pyproject.toml
+  - scripts/dev.sh
+  - .gitignore
+  - web/vite.config.ts
+  - web/src/lib/api.ts
+  - web/src/types.ts
+  - web/src/App.vue
+  - web/src/style.css
+  - web/src/App.test.ts
+  - web/src/lib/api.test.ts
+  - tests/backend/test_api.py
+  - tests/backend/test_app_factory.py
+  - AGENTS.md
+  - .agents/skills/haxaml/SKILL.md
+  - app/services/documents.py
+  - tests/backend/test_analysis.py
+  - tests/backend/test_documents.py
+  module_refs: []
+  keywords:
+  - implement
+  - planned
+  - repo
+  - usability
+  - slice
+  - scripts
+  - devsh
+  - runner
+  - refactor
+  - fastapi
+  - structure
+  - into
+  context_pack_calls: 1
+  last_context_pack_at: '2026-05-16T02:19:24.775021+00:00'
+  last_context_pack_reason: ''
+  last_context_pack_reason_category: ''
+  ended: '2026-05-16T02:35:05.511411+00:00'
+  verification_id: verify-c5e16ba5f1
+verifications:
+- id: verify-f60c7fc44b
+  session_id: session-ffc98dcfc3
+  task: Implement the minimal Vue 3 + Vite + TypeScript frontend and FastAPI backend
+    evidence-first slice with a shared deterministic Python service layer, CLI wrapper,
+    API endpoints, fixture-based tests, and Markdown/JSON reporting.
+  verdict: pass
+  summary: Implemented the shared deterministic analysis workflow, FastAPI API, CLI
+    wrapper, fixture-based pytest coverage, Vue/Vite single-page frontend, Vitest
+    coverage, and verified the CLI plus frontend production build.
+  unresolved_questions:
+  - No full browser-driven manual acceptance session was run; verification covered
+    pytest, Vitest, Vite build, and a real CLI fixture run instead.
+  assumptions:
+  - Slice 1 remains deterministic and ignores the mode argument for analysis behavior.
+  - The health endpoint should treat llm_configured as whether .env contains OPENAI_API_KEY
+    rather than calling any model.
+  - The CLI should always write default JSON and Markdown artifacts into outputs/
+    when explicit paths are omitted.
+  follow_ups: []
+  checks:
+  - name: understood_task
+    passed: true
+    details: Task text was provided.
+  - name: inspected_context
+    passed: true
+    details: Inspected context includes required reads.
+  - name: changed_right_files
+    passed: true
+    details: Changed files or summary evidence was provided.
+  - name: risky_or_unrelated_touch
+    passed: true
+    details: No risky file patterns were reported.
+  - name: followed_rules
+    passed: true
+    details: No forbidden risky path was reported.
+  - name: updated_journal
+    passed: true
+    details: Journal update is enforced at session_record stage.
+  - name: unresolved_logged
+    passed: true
+    details: Unresolved items were explicitly captured or not required.
+  - name: explained_changes
+    passed: true
+    details: Summary explains what changed and why.
+  evidence_refs:
+  - .haxaml/facts.yaml
+  - .haxaml/rules.yaml
+  - .haxaml/acts.yaml
+  - .gitignore
+  - pyproject.toml
+  - app/__init__.py
+  - app/api/__init__.py
+  - app/api/server.py
+  - app/cli.py
+  - app/schemas.py
+  - app/services/__init__.py
+  - app/services/analysis.py
+  - app/services/documents.py
+  - app/services/reporting.py
+  - app/services/workflow.py
+  - tests/backend/test_analysis.py
+  - tests/backend/test_api.py
+  - tests/backend/test_documents.py
+  - web/index.html
+  - web/package-lock.json
+  - web/package.json
+  - web/src/App.test.ts
+  - web/src/App.vue
+  - web/src/lib/api.ts
+  - web/src/main.ts
+  - web/src/style.css
+  - web/src/test-setup.ts
+  - web/src/types.ts
+  - web/src/vite-env.d.ts
+  - web/tsconfig.json
+  - web/vite.config.ts
+  file_refs:
+  - .haxaml/facts.yaml
+  - .haxaml/rules.yaml
+  - .haxaml/acts.yaml
+  - .gitignore
+  - pyproject.toml
+  - app/__init__.py
+  - app/api/__init__.py
+  - app/api/server.py
+  - app/cli.py
+  - app/schemas.py
+  - app/services/__init__.py
+  - app/services/analysis.py
+  - app/services/documents.py
+  - app/services/reporting.py
+  - app/services/workflow.py
+  - tests/backend/test_analysis.py
+  - tests/backend/test_api.py
+  - tests/backend/test_documents.py
+  - web/index.html
+  - web/package-lock.json
+  - web/package.json
+  - web/src/App.test.ts
+  - web/src/App.vue
+  - web/src/lib/api.ts
+  - web/src/main.ts
+  - web/src/style.css
+  - web/src/test-setup.ts
+  - web/src/types.ts
+  - web/src/vite-env.d.ts
+  - web/tsconfig.json
+  - web/vite.config.ts
+  - AGENTS.md
+  - docs/HAXJOBS_AGENT_WORKFLOW_BLUEPRINT.md
+  - .haxaml/expect.yaml
+  - tests/jd/60x.txt
+  - tests/cv/Arinze_Agent_engineer_cv.pdf
+  module_refs: []
+  keywords:
+  - implement
+  - minimal
+  - vite
+  - typescript
+  - frontend
+  - fastapi
+  - backend
+  - evidence
+  - first
+  - slice
+  - with
+  - shared
+  timestamp: '2026-05-16T00:06:22.558034+00:00'
+- id: verify-c5e16ba5f1
+  session_id: session-fd83033992
+  task: 'Implement the planned repo usability slice: add scripts/dev.sh runner, refactor
+    FastAPI app structure into app/main.py with route/service/model layering and demo
+    endpoints, fix frontend local API wiring and backend health UX, add demo analysis
+    flow and results filtering, update tests, and verify end-to-end.'
+  verdict: pass_with_risks
+  summary: Implemented the backend app factory and route/model split, added demo fixture
+    endpoints and response metadata, added the repo-local dev runner, switched the
+    web app to relative /api calls with a Vite proxy and health-aware UX, and expanded
+    backend/frontend tests.
+  unresolved_questions: []
+  assumptions:
+  - Existing repo fixtures under tests/cv and tests/jd are safe to expose as a dev/demo-only
+    whitelist.
+  - The deterministic analysis pipeline should keep ignoring the selected mode for
+    scoring behavior in this pass while still returning the chosen mode in metadata.
+  follow_ups: []
+  checks:
+  - name: understood_task
+    passed: true
+    details: Task text was provided.
+  - name: inspected_context
+    passed: false
+    details: Inspected context includes required reads.
+  - name: changed_right_files
+    passed: true
+    details: Changed files or summary evidence was provided.
+  - name: risky_or_unrelated_touch
+    passed: true
+    details: No risky file patterns were reported.
+  - name: followed_rules
+    passed: true
+    details: No forbidden risky path was reported.
+  - name: updated_journal
+    passed: true
+    details: Journal update is enforced at session_record stage.
+  - name: unresolved_logged
+    passed: true
+    details: Unresolved items were explicitly captured or not required.
+  - name: explained_changes
+    passed: true
+    details: Summary explains what changed and why.
+  evidence_refs:
+  - .haxaml/facts.yaml
+  - .haxaml/rules.yaml
+  - .haxaml/acts.yaml
+  - app/main.py
+  - main.py
+  - app/core/config.py
+  - app/core/application.py
+  - app/api/routes/health.py
+  - app/api/routes/analysis.py
+  - app/api/routes/demo.py
+  - app/models/analysis.py
+  - app/models/health.py
+  - app/services/demo_fixtures.py
+  - app/services/workflow.py
+  - app/services/reporting.py
+  - app/services/analysis.py
+  - app/cli.py
+  - app/api/server.py
+  - app/api/__init__.py
+  - app/schemas.py
+  - pyproject.toml
+  - scripts/dev.sh
+  - .gitignore
+  - web/vite.config.ts
+  - web/src/lib/api.ts
+  - web/src/types.ts
+  - web/src/App.vue
+  - web/src/style.css
+  - web/src/App.test.ts
+  - web/src/lib/api.test.ts
+  - tests/backend/test_api.py
+  - tests/backend/test_app_factory.py
+  file_refs:
+  - .haxaml/facts.yaml
+  - .haxaml/rules.yaml
+  - .haxaml/acts.yaml
+  - app/main.py
+  - main.py
+  - app/core/config.py
+  - app/core/application.py
+  - app/api/routes/health.py
+  - app/api/routes/analysis.py
+  - app/api/routes/demo.py
+  - app/models/analysis.py
+  - app/models/health.py
+  - app/services/demo_fixtures.py
+  - app/services/workflow.py
+  - app/services/reporting.py
+  - app/services/analysis.py
+  - app/cli.py
+  - app/api/server.py
+  - app/api/__init__.py
+  - app/schemas.py
+  - pyproject.toml
+  - scripts/dev.sh
+  - .gitignore
+  - web/vite.config.ts
+  - web/src/lib/api.ts
+  - web/src/types.ts
+  - web/src/App.vue
+  - web/src/style.css
+  - web/src/App.test.ts
+  - web/src/lib/api.test.ts
+  - tests/backend/test_api.py
+  - tests/backend/test_app_factory.py
+  - AGENTS.md
+  - .agents/skills/haxaml/SKILL.md
+  - app/services/documents.py
+  - tests/backend/test_analysis.py
+  - tests/backend/test_documents.py
+  module_refs: []
+  keywords:
+  - implement
+  - planned
+  - repo
+  - usability
+  - slice
+  - scripts
+  - devsh
+  - runner
+  - refactor
+  - fastapi
+  - structure
+  - into
+  timestamp: '2026-05-16T02:34:44.561587+00:00'
+archive:
+  path: .haxaml/archive/acts-history.yaml
+  archive_mode: manual
+  last_archived_at: ''
+  archived_counts:
+    runs: 0
+    sessions: 0
+    verifications: 0
+  hot_limits:
+    runs: 5
+    sessions: 5
+    verifications: 5
+context_compaction:
+  sessions_started: 2
+  full_reads_completed: 0
+  default_pack: balanced
+  last_pack_tokens: 150
+  last_window_usage:
+    pct_4000: 3.75
+    pct_8000: 1.88
+    pct_32000: 0.47
+    pct_128000: 0.12
+  last_refresh_mode: full
+expect_sync:
+  required: false
+  pending_run_id: ''
+  pending_task: ''
+  pending_result: ''
+  pending_recorded_at: ''
+  last_synced_run_id: run-46ac25c9
+  last_synced_at: '2026-05-16T02:35:34.858993+00:00'
+  last_sync_status: done
+lifecycle_contract:
+  phase: guidance
+  required_next:
+  - haxaml_prebuild
+  active_session_id: ''
+  active_task: Prepare the first slice release by updating ignore rules, adding a
+    concise future-version playbook and research-backed CV fine-tuning plan, then
+    commit and tag the completed first usable slice.
+  last_tool: haxaml_about
+  last_verification_id: verify-c5e16ba5f1
+  last_verification_verdict: pass_with_risks
+  last_record_run_id: run-46ac25c9
+  last_record_result: success
+  updated_at: '2026-05-16T10:45:37.772456+00:00'
+about:
+  acknowledged_at: '2026-05-16T10:45:37.772424+00:00'
+  prompt_version: 0.6.7
+  haxaml_version: 0.7.4

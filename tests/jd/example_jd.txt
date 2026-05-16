@@ -1,0 +1,85 @@
+Full job description
+We have a fantastic new opportunity to join our team at Smartodds as a Python Engineer.
+
+Based in North London, Smartodds provides in-depth research and analysis on sporting events around the world, supported by world-class, bespoke software platforms. We are proud of our collaborative and dynamic culture, grounded in our core values of Boldness, Open-mindedness, Ownership, and Togetherness. We are a supportive and collaborative team - our environment is open, inclusive, and focused on doing great work together.
+
+About the role
+
+As a Python Engineer, you will be responsible for developing data pipelines and back-end solutions that meet specifications and business requirements. This will include delivering production-grade software and collaborating with the team to optimise processes to drive continuous improvement forward.
+
+Key Responsibilities
+
+    Hands-on development of our pipelines and back-end applications for the acquisitions of live and post-match sports data
+    Deliver high-quality, production-grade products in line with initial specifications and project requirements
+    Follow coding and deployment standards set by the data engineering leadership
+    Provide accurate project updates, feedback on progress and timelines for deliverables.
+    Perform code reviews
+    Identify and escalate bottlenecks or issues within the existing codebase and propose technical and infrastructural improvements
+    Provide 3rd line support and deploy hot-fixes as required
+    Investigate/debug issues as needed
+    Dedicate time to personal and professional growth by improving technical skills, expanding knowledge of relevant subjects (sports, injury, technology) and widening experience with other tools and techniques.
+
+Skills & Experience
+Required
+
+    Previous relevant experience within a mid-level Software Engineering position or at least 2+ years in a Junior Engineering role, working on back-end data solutions and warehousing, with exposure to the technologies listed below
+    BSc in computer science or a similar degree
+    Advanced knowledge of Python and API development
+    Good understanding of data solution architectures with batch processing required, and real time processing knowledge would be an advantage
+    Solid foundation with code-testing, preferably with TDD exposure
+
+Preferred (at least 2 out of the following)
+
+    Advanced knowledge of Django, ORMS
+    Experience with message bus (RabbitMQ/Kafka)
+    Experience with CI/CD, Docker, Kubernetes, Gitlab
+    Working knowledge with relational databases: PostgreSQL (ideally), MySQL, MSSQL
+    Interest in sports, such as football (at least), cricket, tennis, horse racing. Knowledge of their rules and idiosyncrasies
+
+Others
+
+    Ability to work in the UK
+
+What you can expect in return – Our Benefits
+
+From Day One
+
+    30 days holiday (in addition to bank & public holidays)
+    In-house chef*
+    In-house masseuse*
+    Team sporting events
+    25% discount on Brentford Football Club merchandise
+    Cycle to work scheme
+    Employee Assistance Programme
+    Interest-free travel season ticket loan
+    Offsite trips
+    Available on selected days
+
+
+After 3 Months
+
+    Pension - Employer Contribution starting at 5.5%, and employee starting at 2.5%
+    Income protection – 75% of salary (subject to terms & conditions)
+
+After Probation
+
+    Private Medical Insurance - including coverage of any excess payment
+    Health Cash Plan via Medicash
+    Life Assurance (4 x times earnings at time of death)
+    Enhanced Company Sick Pay
+    A discretionary annual bonus
+
+After 2 Years
+
+    Increase in Employer Pension to 6% (to a minimum employee contribution of 3%)
+    Enhanced Maternity Pay
+    Enhanced Paternity Pay
+
+After 4 Years
+
+    Increase in Employer’s Pension to 7% (to a minimum employee contribution of 3.5%)
+
+
+If this sounds like the right fit, we would love to hear from you. Please submit your CV explaining your interest in football analytics and highlighting relevant technical experience
+
+RM6Tctb6Lh

@@ -1,0 +1,59 @@
+Full job description
+
+About us:
+
+Founded in 2015, B2C2 is a global leader for institutional liquidity within digital assets. We bring 24/7 365 days a year deep, reliable pricing for spot, futures, options, CFDs, and NDFs across all market conditions. Our growing team has deep expertise across pricing, structuring, risk, systems, and regulation.
+
+B2C2 bridges the gap between traditional financial and digital assets, and is relied upon by brokerages, exchanges, banks, fund managers, and other institutions to provide 24/7 liquidity. Headquartered in London, with global offices in Paris, Jersey City, Tokyo, Singapore, and Luxembourg, our fast-growing team has expertise in traditional financial and crypto markets.
+
+We pride ourselves on our company culture and ability to attract not only the top talent but the right people. If you are looking for a role in an exciting new industry, at a dynamic company please keep reading.
+
+
+About the role:
+
+This is an opportunity to work on a wide range of different challenges across multiple teams with the opportunity to learn in many different business domains. The work in this role will directly benefit many different stakeholders across the business. contributing to strategic business objectives as well as improvements to our stack. You will be collaborating with cross-functional teams to understand project requirements and contribute to the overall system design, working closely with developers and business stakeholders in this exciting position.
+
+Technologies in common use include: Django + DRF + Celery, Python 3.11, AWS EKS for Kubernetes, Amazon Aurora PostgreSQL, Amazon ElastiCache for Redis and Amazon MSK for Kafka.
+
+Duties and Responsibilities:
+
+    Develop and maintain efficient Python-based applications and components, ensuring high-quality code and adherence to coding standards
+    Maintain and enhance in-house Python shared libraries, ensuring their reliability and effectiveness
+    Write robust, maintainable, thoroughly-tested and well-documented code to meet project goals and deadlines
+    Troubleshoot and resolve software defects and technical issues to minimize disruption in revenue-generating processes
+    Collaborate with cross-functional teams to define and implement new features
+    Participate in code reviews and incorporate feedback
+    Maintain and enforce good quality internal documentation
+
+Required Skills and experience:
+
+    1 years of software development in Python
+    Knowledge of relational databases and SQL
+    Understanding of web technologies and protocols (e.g. HTTP, WebSocket)
+    Clean and efficient coding style
+    Comfortable writing automated tests for own code
+    Experience with Django+DRF or another commonly used Python web framework
+    Experience with Celery, PostgreSQL, Kafka, Redis or gRPC
+    Some experience with Linux, Docker, Kubernetes and/or AWS
+    Interest in crypto and/or trading
+    ReactJS experience / front end
+
+What we offer:
+
+    An amazing global culture, who are ambitious, innovative and fun while working with the highest levels of honesty and integrity.
+    Two discretionary bonus awards a year.
+    A range of benefits in line with local market practice.
+    Regular fun events and activities, as well as Social Impact volunteering days.
+
+A strong culture is a common denominator among the most successful companies and B2C2 is proud to be a values-based company.
+
+    Ambitious - Striving to make history through world class achievements
+    Innovative - Forward looking in our solutions for clients and employees
+    Meritocratic - Rewarding positive contribution across the organisation
+    Collegiate - Achieving through teamwork through a healthy environment
+    Risk Aware – Informed decision making and considered in our practices
+
+
+Equal Employment Opportunities Policy:
+
+B2C2 is committed to a policy of equal employment opportunity for applicants and employees and we welcome applicants from all backgrounds. It is the policy of B2C2 to apply recruiting, hiring, training, promotion, compensation and professional development practices without regard to actual or perceived race, colour, religion, sex (including pregnancy, sexual orientation and gender identity), national origin, age, disability or certain classifications based on genetic information, or because someone is married or in a civil partnership or any other characteristic protected by federal, state or local laws, regulations or ordinances. As such, B2C2 will not tolerate discrimination against any of our employees on the basis of membership in a protected category. We are also committed to creating an inclusive environment to ensure we attract, engage, promote and retain the best talent. We will consider flexible working arrangements for any of our roles.

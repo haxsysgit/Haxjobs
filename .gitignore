@@ -1,0 +1,15 @@
+.pytest_cache/
+.venv/
+.run/
+__pycache__/
+*.pyc
+.coverage
+*.egg-info/
+htmlcov/
+node_modules/
+web/dist/
+outputs/*.json
+outputs/*.md
+.env
+academic-research-skills/
+docs/HAXJOBS_AGENT_WORKFLOW_BLUEPRINT.md
