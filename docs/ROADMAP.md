@@ -23,30 +23,33 @@ Definition of done:
 
 ## v0.2
 
-Turn analysis into application output.
+Turn analysis into the first routed application workspace.
 
-- Tailored CV draft
-- Tailored cover letter draft
-- Interview notes draft
-- Exported application pack
-- Better output formatting for ATS-friendly resumes
+- First tailored outputs: `tailored_cv.md`, `cover_letter.md`, `interview_notes.md`, `evidence_map.json`, and `application_pack.json`
+- Deterministic output generation that depends on the completed evidence map instead of bypassing it
+- Routed web workflow with `vue-router` and a simple three-step Workspace, Review, and Drafts flow
+- Card-based analysis and output UX that is readable, interactive, and export-friendly instead of one long text-heavy page
+- Copy, download, and regenerate actions inside the outputs workspace
+- Demo flow and backend health checks kept inside the routed input experience
 
 Definition of done:
 
-- Final writing traces back to the evidence map and does not introduce unsupported claims.
+- Final writing traces back to the evidence map, the routed web app is usable without dense scrolling, and output export is part of the core release rather than optional polish.
 
 ## v0.3
 
-Add role-aware tailoring.
+Shift to an AI-first, staged workflow while preserving evidence-first safety.
 
-- Resume profile presets for software, product, data, design, customer success, operations
-- Academic CV path
-- Federal resume path
-- Better keyword extraction by role family
+- Keep the same `Workspace -> Review -> Drafts` product flow and API routes
+- Add AI stage roles: `recruiter_agent`, `applicant_agent`, `evaluator_agent`, `verification_agent`
+- Use tiered models (smaller models for extraction/evaluation, stronger model for final aspirational synthesis)
+- Add additive AI fields on `/api/analyze`: `analysis_engine`, `recruiter_assessment`, `evaluator_assessment`, `verification_questions`, `aspirational_pack`
+- Add `user_claim_confirmations[]` support on `/api/generate-application-pack`
+- Generate an aspirational sample track in parallel, clearly labeled non-submittable until confirmed
 
 Definition of done:
 
-- The system changes emphasis, section order, and wording based on target role type instead of using one generic resume style.
+- The app produces recruiter/evaluator/verification outputs with explicit claim confirmation paths and a clearly separated aspirational track, without breaking existing deterministic contracts.
 
 ## v0.4
 

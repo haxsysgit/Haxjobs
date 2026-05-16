@@ -2,6 +2,8 @@ import type {
   AnalysisMode,
   AnalysisResponse,
   DemoOptionsResponse,
+  GenerateApplicationPackRequest,
+  GenerateApplicationPackResponse,
   HealthResponse
 } from "../types";
 
@@ -86,5 +88,17 @@ export async function analyzeDemo(
       jd_fixture: jdFixture,
       mode
     })
+  });
+}
+
+export async function generateApplicationPack(
+  payload: GenerateApplicationPackRequest
+): Promise<GenerateApplicationPackResponse> {
+  return requestJson<GenerateApplicationPackResponse>("/api/generate-application-pack", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
   });
 }

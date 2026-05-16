@@ -2,9 +2,15 @@ from __future__ import annotations
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
-from app.models.analysis import AnalyzeResponse, DEFAULT_MODE, MODE_OPTIONS
+from app.models.analysis import (
+    AnalyzeResponse,
+    DEFAULT_MODE,
+    MODE_OPTIONS,
+    GenerateApplicationPackRequest,
+    GenerateApplicationPackResponse,
+)
 from app.services.documents import UnsupportedDocumentError, extract_text_from_upload
-from app.services.workflow import analyze_upload
+from app.services.workflow import analyze_upload, generate_pack_from_analysis
 
 router = APIRouter(tags=["analysis"])
 
@@ -26,4 +32,16 @@ async def analyze_endpoint(
         jd_text=jd_text.strip(),
         mode=mode,
         cv_label=cv_file.filename or "Uploaded CV",
+    )
+
+
+@router.post("/api/generate-application-pack", response_model=GenerateApplicationPackResponse)
+def generate_application_pack_endpoint(
+    payload: GenerateApplicationPackRequest,
+) -> GenerateApplicationPackResponse:
+    return generate_pack_from_analysis(
+        analysis=payload.analysis,
+        follow_up_answers=payload.follow_up_answers,
+        user_claim_confirmations=payload.user_claim_confirmations,
+        user_notes=payload.user_notes,
     )

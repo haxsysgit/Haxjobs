@@ -39,6 +39,11 @@ def test_analyze_endpoint_accepts_pdf_fixture() -> None:
     }
     assert payload["fit_summary"]["score"] >= 0
     assert payload["evidence_map"]
+    assert payload["analysis_engine"] == "ai"
+    assert payload["recruiter_assessment"]["shortlist_summary"]
+    assert payload["evaluator_assessment"]["summary"]
+    assert payload["verification_questions"]
+    assert payload["aspirational_pack"]["non_submittable"] is True
     assert payload["markdown_report"]
 
 
@@ -99,4 +104,53 @@ def test_analyze_demo_endpoint_returns_valid_report() -> None:
         "jd_label": "60x Agent Engineer JD",
     }
     assert payload["fit_summary"]["score"] >= 0
+    assert payload["analysis_engine"] == "ai"
+    assert payload["aspirational_pack"]["tailored_cv_markdown"]
     assert payload["warnings"]
+
+
+def test_generate_application_pack_endpoint_returns_expected_artifacts() -> None:
+    client = make_client()
+    analysis_payload = client.post(
+        "/api/analyze-demo",
+        json={
+            "cv_fixture": "Arinze_Agent_engineer_cv.pdf",
+            "jd_fixture": "60x.txt",
+            "mode": "stretch",
+        },
+    ).json()
+    response = client.post(
+        "/api/generate-application-pack",
+        json={
+            "analysis": analysis_payload,
+            "follow_up_answers": [
+                {
+                    "requirement_id": analysis_payload["follow_up_questions"][0]["requirement_id"],
+                    "answer": "Built a production FastAPI service and can explain the rollout details.",
+                }
+            ],
+            "user_claim_confirmations": [
+                {
+                    "requirement_id": analysis_payload["evidence_map"][0]["requirement_id"],
+                    "status": "confirmed",
+                    "notes": "Confirmed from production project notes.",
+                }
+            ],
+            "user_notes": "Keep the tone direct and defensible.",
+        },
+    )
+    payload = response.json()
+    assert response.status_code == 200
+    assert payload["metadata"]["generated_documents"] == [
+        "tailored_cv_markdown",
+        "cover_letter_markdown",
+        "interview_notes_markdown",
+        "evidence_map_json",
+        "application_pack_json",
+    ]
+    assert payload["tailored_cv_markdown"]
+    assert payload["cover_letter_markdown"]
+    assert payload["interview_notes_markdown"]
+    assert payload["evidence_map_json"]
+    assert payload["application_pack_json"]["documents"]["tailored_cv_markdown"]
+    assert payload["application_pack_json"]["user_claim_confirmations"][0]["status"] == "confirmed"

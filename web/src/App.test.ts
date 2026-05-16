@@ -1,11 +1,18 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/vue";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/vue";
 
 import App from "./App.vue";
+import { createHaxjobsRouter } from "./router";
+import {
+  appState,
+  clearWorkflowResults,
+  initializeAppStatePersistence,
+  setDemoOptions,
+  setHealthStatus
+} from "./state/app-state";
+import type { DemoOptionsResponse } from "./types";
 
-const demoOptionsPayload = {
-  cv_fixtures: [
-    { id: "Arinze_Agent_engineer_cv.pdf", label: "Agent Engineer CV" }
-  ],
+const demoOptionsPayload: DemoOptionsResponse = {
+  cv_fixtures: [{ id: "Arinze_Agent_engineer_cv.pdf", label: "Agent Engineer CV" }],
   jd_fixtures: [{ id: "60x.txt", label: "60x Agent Engineer JD" }],
   default_cv_fixture: "Arinze_Agent_engineer_cv.pdf",
   default_jd_fixture: "60x.txt",
@@ -77,25 +84,39 @@ const successPayload = {
       requirement_text: "Vue experience",
       question: "Can you point to a concrete Vue example?",
       reason: "Needs stronger evidence.",
-      priority: "medium"
+      priority: "high"
     }
   ],
   warnings: ["One gap needs a tighter example."],
   markdown_report: "# Analysis Metadata"
 };
 
-function makeFile(name = "sample.txt"): File {
-  return new File(["CV content"], name, { type: "text/plain" });
-}
-
-function uploadFile(file: File): void {
-  const input = screen.getByTestId("cv-upload") as HTMLInputElement;
-  Object.defineProperty(input, "files", {
-    configurable: true,
-    value: [file]
-  });
-  input.dispatchEvent(new Event("change"));
-}
+const generatedPackPayload = {
+  metadata: {
+    mode: "stretch",
+    role_title: "Backend Engineer",
+    source: "demo",
+    aspirational: false,
+    follow_up_answer_count: 1,
+    unanswered_follow_up_count: 0,
+    generated_documents: [
+      "tailored_cv_markdown",
+      "cover_letter_markdown",
+      "interview_notes_markdown",
+      "evidence_map_json",
+      "application_pack_json"
+    ]
+  },
+  tailored_cv_markdown: "# Tailored CV Draft\n\n## Target Role\nBackend Engineer",
+  cover_letter_markdown: "# Cover Letter Draft\n\nDear Hiring Team,",
+  interview_notes_markdown: "# Interview Notes\n\n## Strongest Talking Points",
+  evidence_map_json: successPayload.evidence_map,
+  application_pack_json: {
+    documents: {
+      tailored_cv_markdown: "# Tailored CV Draft"
+    }
+  }
+};
 
 function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
@@ -104,7 +125,38 @@ function jsonResponse(payload: unknown, status = 200): Response {
   });
 }
 
-function mockReadyBackend(): void {
+async function renderApp(startPath = "/") {
+  window.history.replaceState({}, "", startPath);
+  const router = createHaxjobsRouter();
+  await router.push(startPath);
+  await router.isReady();
+  render(App, {
+    global: {
+      plugins: [router]
+    }
+  });
+  return { router };
+}
+
+function resetState(): void {
+  clearWorkflowResults();
+  appState.selectedMode = "stretch";
+  appState.jdText = "";
+  appState.userNotes = "";
+  appState.demoCvFixture = "";
+  appState.demoJdFixture = "";
+  appState.demoOptions = null;
+  setHealthStatus("connecting", "Checking backend connectivity.", "Waiting for /api/health.");
+}
+
+function mockReadyBackend(
+  overrides: {
+    analyze?: typeof successPayload;
+    generate?: typeof generatedPackPayload;
+  } = {}
+): void {
+  const analyzePayload = overrides.analyze ?? successPayload;
+  const generatePayload = overrides.generate ?? generatedPackPayload;
   vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
     const url = String(input);
     if (url.endsWith("/api/health")) {
@@ -114,10 +166,13 @@ function mockReadyBackend(): void {
       return Promise.resolve(jsonResponse(demoOptionsPayload));
     }
     if (url.endsWith("/api/analyze-demo")) {
-      return Promise.resolve(jsonResponse(successPayload));
+      return Promise.resolve(jsonResponse(analyzePayload));
     }
     if (url.endsWith("/api/analyze")) {
-      return Promise.resolve(jsonResponse(successPayload));
+      return Promise.resolve(jsonResponse(analyzePayload));
+    }
+    if (url.endsWith("/api/generate-application-pack")) {
+      return Promise.resolve(jsonResponse(generatePayload));
     }
     throw new Error(`Unexpected request: ${url} ${init?.method ?? "GET"}`);
   });
@@ -126,7 +181,11 @@ function mockReadyBackend(): void {
 describe("App", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    cleanup();
     sessionStorage.clear();
+    initializeAppStatePersistence();
+    resetState();
+    setDemoOptions(demoOptionsPayload);
     Object.assign(navigator, {
       clipboard: {
         writeText: vi.fn().mockResolvedValue(undefined)
@@ -134,73 +193,111 @@ describe("App", () => {
     });
   });
 
-  it("shows a ready health banner when the backend responds", async () => {
+  it("shows the input route without a ready health banner when the backend responds", async () => {
     mockReadyBackend();
-    render(App);
-    expect(await screen.findByText("Backend ready")).toBeInTheDocument();
-    expect(screen.getByText(/OPENAI_API_KEY is not loaded/)).toBeInTheDocument();
+    await renderApp("/");
+    await waitFor(() => expect(screen.getByTestId("demo-button")).toBeEnabled());
+    expect(screen.queryByTestId("health-banner")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /workflow/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /workspace/i })).toBeInTheDocument();
   });
 
-  it("shows a backend unavailable banner when health checks fail", async () => {
-    vi.spyOn(globalThis, "fetch").mockRejectedValue(new TypeError("NetworkError"));
-    render(App);
-    const banner = await screen.findByTestId("health-banner");
-    await waitFor(() => {
-      expect(within(banner).getByText("Backend unavailable")).toBeInTheDocument();
-    });
-    expect(within(banner).getByText(/Start `\.\/scripts\/dev\.sh start`/)).toBeInTheDocument();
-    expect(screen.getByTestId("analyze-button")).toBeDisabled();
+  it("redirects guarded analysis access back to input when state is missing", async () => {
+    mockReadyBackend();
+    const { router } = await renderApp("/review");
+    await waitFor(() => expect(router.currentRoute.value.path).toBe("/"));
+    expect(screen.getByRole("heading", { name: /workspace/i })).toBeInTheDocument();
   });
 
-  it("restores JD text and mode from session storage", async () => {
-    sessionStorage.setItem("haxjobs.jdText", "Stored JD text");
-    sessionStorage.setItem("haxjobs.mode", "ideal");
+  it("runs the demo flow and lands on the routed review dashboard", async () => {
     mockReadyBackend();
-    render(App);
-    expect(await screen.findByDisplayValue("Stored JD text")).toBeInTheDocument();
-    expect(screen.getByTestId("mode-select")).toHaveValue("ideal");
-  });
-
-  it("renders demo analysis results and filters gaps correctly", async () => {
-    mockReadyBackend();
-    render(App);
-    await screen.findByText("Backend ready");
+    const { router } = await renderApp("/");
     await waitFor(() => expect(screen.getByTestId("demo-button")).toBeEnabled());
     await fireEvent.click(screen.getByTestId("demo-button"));
-    await waitFor(() => {
-      expect(screen.getByText("Backend Engineer")).toBeInTheDocument();
-      expect(screen.getByText("Evidence Map")).toBeInTheDocument();
-    });
-    expect(screen.getByText("Strong Python fundamentals")).toBeInTheDocument();
-    expect(screen.getByText("Kubernetes ownership")).toBeInTheDocument();
-    await fireEvent.click(screen.getByRole("button", { name: "Gaps" }));
-    expect(screen.queryByText("Strong Python fundamentals")).not.toBeInTheDocument();
-    expect(screen.getByText("Kubernetes ownership")).toBeInTheDocument();
+    await waitFor(() => expect(router.currentRoute.value.path).toBe("/review"));
+    expect(screen.getByText(/Backend Engineer/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Evidence" })).toBeInTheDocument();
+    expect(screen.getAllByText("Kubernetes ownership").length).toBeGreaterThan(0);
   });
 
-  it("shows a clear backend unavailable message when upload analysis cannot reach the API", async () => {
-    vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
-      const url = String(input);
-      if (url.endsWith("/api/health")) {
-        return Promise.resolve(jsonResponse({ ok: true, llm_configured: true }));
+  it("blocks interview mode from reaching drafts until required answers are filled", async () => {
+    mockReadyBackend({
+      analyze: {
+        ...successPayload,
+        metadata: { ...successPayload.metadata, mode: "interview" }
       }
-      if (url.endsWith("/api/demo-options")) {
-        return Promise.resolve(jsonResponse(demoOptionsPayload));
-      }
-      if (url.endsWith("/api/analyze")) {
-        return Promise.reject(new TypeError("NetworkError"));
-      }
-      throw new Error(`Unexpected request: ${url}`);
     });
-    render(App);
-    await screen.findByText("Backend ready");
-    uploadFile(makeFile());
-    await fireEvent.update(screen.getByTestId("jd-input"), "Backend Engineer JD");
-    await fireEvent.click(screen.getByTestId("analyze-button"));
+    const { router } = await renderApp("/");
+    await waitFor(() => expect(screen.getByTestId("demo-button")).toBeEnabled());
+    await fireEvent.update(screen.getByTestId("mode-select"), "interview");
+    await fireEvent.click(screen.getByTestId("demo-button"));
+    await waitFor(() => expect(router.currentRoute.value.path).toBe("/review"));
+    await router.push("/drafts");
     await waitFor(() => {
-      expect(screen.getByRole("alert")).toHaveTextContent(
-        "Backend unavailable. Start `./scripts/dev.sh start` and try again."
-      );
+      expect(router.currentRoute.value.path).toBe("/review");
+      expect(router.currentRoute.value.query.panel).toBe("questions");
     });
+    expect(screen.getByRole("heading", { name: "Follow-up Questions" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Drafts" })).toBeDisabled();
+  });
+
+  it("renders the draft studio and supports copy plus download actions", async () => {
+    mockReadyBackend();
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    const createUrlSpy = vi.fn(() => "blob:test");
+    const revokeUrlSpy = vi.fn();
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: createUrlSpy
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: revokeUrlSpy
+    });
+    const { router } = await renderApp("/");
+    await waitFor(() => expect(screen.getByTestId("demo-button")).toBeEnabled());
+    await fireEvent.click(screen.getByTestId("demo-button"));
+    await waitFor(() => expect(router.currentRoute.value.path).toBe("/review"));
+    await fireEvent.click(screen.getByRole("button", { name: "Drafts" }));
+    await waitFor(() => expect(router.currentRoute.value.path).toBe("/drafts"));
+    await fireEvent.click(screen.getByRole("button", { name: "Generate" }));
+    expect(await screen.findByText(/Tailored CV Draft/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "CV" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cover Letter" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Preview" })).toBeInTheDocument();
+    await fireEvent.click(screen.getByRole("button", { name: "Raw" }));
+    expect(screen.getByTestId("document-preview")).toHaveTextContent("# Tailored CV Draft");
+    await fireEvent.click(screen.getByTestId("copy-output-button"));
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+      expect.stringContaining("Tailored CV Draft")
+    );
+    await fireEvent.click(screen.getByTestId("download-output-button"));
+    expect(createUrlSpy).toHaveBeenCalled();
+    expect(clickSpy).toHaveBeenCalled();
+    expect(revokeUrlSpy).toHaveBeenCalled();
+  });
+
+  it("persists workflow state into session storage for refresh recovery", async () => {
+    mockReadyBackend();
+    await renderApp("/");
+    await waitFor(() => expect(screen.getByTestId("demo-button")).toBeEnabled());
+    await fireEvent.update(screen.getByTestId("jd-input"), "Stored JD text");
+    await fireEvent.update(screen.getByTestId("mode-select"), "ideal");
+    await waitFor(() => {
+      const persisted = sessionStorage.getItem("haxjobs.app-state.v0.2") ?? "";
+      expect(persisted).toContain("Stored JD text");
+      expect(persisted).toContain("\"selectedMode\":\"ideal\"");
+    });
+  });
+
+  it("shows resume actions on the workspace after an analysis exists", async () => {
+    mockReadyBackend();
+    const { router } = await renderApp("/");
+    await waitFor(() => expect(screen.getByTestId("demo-button")).toBeEnabled());
+    await fireEvent.click(screen.getByTestId("demo-button"));
+    await waitFor(() => expect(router.currentRoute.value.path).toBe("/review"));
+    await router.push("/");
+    expect(await screen.findByRole("button", { name: "Resume Drafts" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start Fresh" })).toBeInTheDocument();
   });
 });

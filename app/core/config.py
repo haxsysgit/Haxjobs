@@ -16,6 +16,10 @@ class Settings(BaseModel):
         "http://localhost:5173",
     )
     openai_api_key: str | None = Field(default=None, repr=False)
+    ai_model_recruiter: str = "gpt-5.4-mini"
+    ai_model_evaluator: str = "gpt-5.4-mini"
+    ai_model_verifier: str = "gpt-5.4-mini"
+    ai_model_applicant: str = "gpt-5.5"
 
     @property
     def llm_configured(self) -> bool:
@@ -24,7 +28,13 @@ class Settings(BaseModel):
 
     @classmethod
     def from_env(cls) -> "Settings":
-        return cls(openai_api_key=os.getenv("OPENAI_API_KEY"))
+        return cls(
+            openai_api_key=os.getenv("OPENAI_API_KEY"),
+            ai_model_recruiter=os.getenv("HAXJOBS_MODEL_RECRUITER", "gpt-5.4-mini"),
+            ai_model_evaluator=os.getenv("HAXJOBS_MODEL_EVALUATOR", "gpt-5.4-mini"),
+            ai_model_verifier=os.getenv("HAXJOBS_MODEL_VERIFIER", "gpt-5.4-mini"),
+            ai_model_applicant=os.getenv("HAXJOBS_MODEL_APPLICANT", "gpt-5.5"),
+        )
 
 
 @lru_cache(maxsize=1)

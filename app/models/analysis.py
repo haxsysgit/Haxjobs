@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -23,6 +23,8 @@ PriorityLabel = Literal["high", "medium", "low"]
 AnalysisMode = Literal["safe", "stretch", "interview", "ideal"]
 AnalysisSource = Literal["upload", "demo"]
 MODE_OPTIONS = Literal["safe", "stretch", "interview", "ideal"]
+AnalysisEngine = Literal["ai"]
+ClaimConfirmationStatus = Literal["confirmed", "rejected", "uncertain"]
 DEFAULT_MODE: AnalysisMode = "stretch"
 
 
@@ -92,6 +94,46 @@ class FollowUpQuestion(BaseModel):
     priority: PriorityLabel
 
 
+class RecruiterAssessment(BaseModel):
+    shortlist_summary: str
+    priority_requirements: list[str] = Field(default_factory=list)
+    concerns: list[str] = Field(default_factory=list)
+    model_tier: str = "fallback"
+
+
+class EvaluatorFlag(BaseModel):
+    requirement_id: str
+    requirement_text: str
+    issue: str
+    severity: PriorityLabel = "medium"
+
+
+class EvaluatorAssessment(BaseModel):
+    fit_score: int
+    summary: str
+    weak_claims: list[EvaluatorFlag] = Field(default_factory=list)
+    uncertain_claims: list[EvaluatorFlag] = Field(default_factory=list)
+    model_tier: str = "fallback"
+
+
+class VerificationQuestion(BaseModel):
+    requirement_id: str
+    requirement_text: str
+    question: str
+    reason: str
+    priority: PriorityLabel = "medium"
+    model_tier: str = "fallback"
+
+
+class AspirationalPack(BaseModel):
+    label: str = "Aspirational sample (non-submittable until user-confirmed)"
+    non_submittable: bool = True
+    tailored_cv_markdown: str
+    cover_letter_markdown: str
+    interview_notes_markdown: str
+    model_tier: str = "fallback"
+
+
 class AnalysisReport(BaseModel):
     fit_summary: FitSummary
     jd_analysis: JDAnalysis
@@ -103,14 +145,57 @@ class AnalysisReport(BaseModel):
 
 class AnalyzeResponse(BaseModel):
     ok: bool = True
+    analysis_engine: AnalysisEngine = "ai"
     metadata: AnalysisMetadata
     fit_summary: FitSummary
     jd_analysis: JDAnalysis
     candidate_evidence: list[EvidenceItem]
     evidence_map: list[EvidenceMatch]
     follow_up_questions: list[FollowUpQuestion]
+    recruiter_assessment: RecruiterAssessment | None = None
+    evaluator_assessment: EvaluatorAssessment | None = None
+    verification_questions: list[VerificationQuestion] = Field(default_factory=list)
+    aspirational_pack: AspirationalPack | None = None
     warnings: list[str]
     markdown_report: str
+
+
+class FollowUpAnswer(BaseModel):
+    requirement_id: str
+    answer: str = ""
+    skipped: bool = False
+
+
+class UserClaimConfirmation(BaseModel):
+    requirement_id: str
+    status: ClaimConfirmationStatus
+    notes: str = ""
+
+
+class GenerateApplicationPackRequest(BaseModel):
+    analysis: AnalyzeResponse
+    follow_up_answers: list[FollowUpAnswer] = Field(default_factory=list)
+    user_claim_confirmations: list[UserClaimConfirmation] = Field(default_factory=list)
+    user_notes: str | None = None
+
+
+class GenerationMetadata(BaseModel):
+    mode: AnalysisMode
+    role_title: str
+    source: AnalysisSource
+    aspirational: bool = False
+    follow_up_answer_count: int = 0
+    unanswered_follow_up_count: int = 0
+    generated_documents: list[str] = Field(default_factory=list)
+
+
+class GenerateApplicationPackResponse(BaseModel):
+    metadata: GenerationMetadata
+    tailored_cv_markdown: str
+    cover_letter_markdown: str
+    interview_notes_markdown: str
+    evidence_map_json: list[EvidenceMatch]
+    application_pack_json: dict[str, Any]
 
 
 class AnalyzeDemoRequest(BaseModel):
