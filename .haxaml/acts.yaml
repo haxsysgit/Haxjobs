@@ -1,6 +1,12 @@
 current_phase: ''
 active_task:
-  name: none
+  name: Merge branch v0.3-ai-first back into main so the repository has one active
+    branch again, then push and remove the extra branch locally and remotely if the
+    merge is a clean fast-forward.
+  description: Repo-state cleanup after verified v0.3 branch work; prefer fast-forward
+    merge to preserve tested history exactly.
+  started: '2026-05-16T19:58:46.244593+00:00'
+  assignee: agent
 completed_tasks:
 - name: Implement the minimal Vue 3 + Vite + TypeScript frontend and FastAPI backend
     evidence-first slice with a shared deterministic Python service layer, CLI wrapper,
@@ -671,6 +677,80 @@ sessions:
   last_context_pack_reason_category: ''
   ended: '2026-05-16T19:48:09.433758+00:00'
   verification_id: verify-9cb045931e
+- id: session-9f84e5cb70
+  task: Merge branch v0.3-ai-first back into main so the repository has one active
+    branch again, then push and remove the extra branch locally and remotely if the
+    merge is a clean fast-forward.
+  description: Repo-state cleanup after verified v0.3 branch work; prefer fast-forward
+    merge to preserve tested history exactly.
+  execution_mode: governed
+  status: planned
+  phase: prebuild
+  risk_level: medium
+  task_type: refactor
+  guidance_type: implementation
+  readiness_status: ready_to_build_with_warnings
+  started: '2026-05-16T19:58:46.244593+00:00'
+  updated: '2026-05-16T19:58:46.244593+00:00'
+  plan:
+  - Review the readiness report and clarify any required questions.
+  - Call haxaml_context_pack to load task-scoped context.
+  - Apply the smallest logical change set within the scoped files.
+  - Run validations or tests for touched behavior.
+  - Call haxaml_session_verify before haxaml_session_record.
+  required_questions:
+  - What is the specific scope of the refactor?
+  - Should behavior remain identical after the refactor?
+  - Are there known callers or dependents of the code being changed?
+  - What is the stopping condition for this refactor?
+  materials_needed:
+  - current code structure
+  - known callers or dependents
+  - existing test coverage
+  done_criteria:
+  - behavior is preserved or improvement is documented
+  - all existing tests pass after refactor
+  - scope did not expand beyond the defined boundary
+  likely_impact:
+  - the module being refactored
+  - callers or dependents of changed interfaces
+  - tests
+  risks:
+  - scope creep beyond the agreed boundary
+  - breaking callers that were not identified upfront
+  - refactor that changes behavior silently
+  missing_context: []
+  file_refs:
+  - .haxaml/facts.yaml
+  - .haxaml/rules.yaml
+  - .haxaml/acts.yaml
+  - .haxaml/expect.yaml
+  - .haxaml/facts.yaml
+  - .haxaml/rules.yaml
+  - .haxaml/acts.yaml
+  - app/services/ai_orchestrator.py
+  - tests/backend/test_ai_orchestrator.py
+  - web/src/components/layout/WorkflowShell.vue
+  - web/src/pages/ReviewPage.vue
+  - web/src/pages/DraftsPage.vue
+  module_refs: []
+  keywords:
+  - merge
+  - branch
+  - first
+  - back
+  - into
+  - main
+  - repository
+  - active
+  - again
+  - then
+  - push
+  - remove
+  context_pack_calls: 1
+  last_context_pack_at: '2026-05-16T19:58:51.468367+00:00'
+  last_context_pack_reason: ''
+  last_context_pack_reason_category: ''
 verifications:
 - id: verify-963c8e4ea8
   session_id: session-d52dda6c00
@@ -1057,14 +1137,14 @@ archive:
     sessions: 5
     verifications: 5
 context_compaction:
-  sessions_started: 9
+  sessions_started: 10
   full_reads_completed: 0
-  default_pack: balanced
-  last_pack_tokens: 155
+  default_pack: minimal
+  last_pack_tokens: 148
   last_window_usage:
-    pct_4000: 3.88
-    pct_8000: 1.94
-    pct_32000: 0.48
+    pct_4000: 3.7
+    pct_8000: 1.85
+    pct_32000: 0.46
     pct_128000: 0.12
   last_refresh_mode: full
 expect_sync:
@@ -1077,18 +1157,21 @@ expect_sync:
   last_synced_at: '2026-05-16T19:48:14.632430+00:00'
   last_sync_status: done
 lifecycle_contract:
-  phase: sync
+  phase: context
   required_next:
-  - haxaml_guidance
-  active_session_id: ''
-  active_task: ''
-  last_tool: haxaml_expect_sync
+  - haxaml_context_fetch
+  - haxaml_session_verify
+  active_session_id: session-9f84e5cb70
+  active_task: Merge branch v0.3-ai-first back into main so the repository has one
+    active branch again, then push and remove the extra branch locally and remotely
+    if the merge is a clean fast-forward.
+  last_tool: haxaml_context_pack
   last_verification_id: verify-9cb045931e
   last_verification_verdict: pass
   last_record_run_id: run-452ae1a8
   last_record_result: success
-  updated_at: '2026-05-16T19:48:14.632450+00:00'
+  updated_at: '2026-05-16T19:58:51.468382+00:00'
 about:
-  acknowledged_at: '2026-05-16T19:42:18.785853+00:00'
+  acknowledged_at: '2026-05-16T19:58:35.198747+00:00'
   prompt_version: 0.6.7
   haxaml_version: 0.7.4
