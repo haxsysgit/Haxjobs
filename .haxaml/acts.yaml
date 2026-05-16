@@ -1,12 +1,6 @@
 current_phase: ''
 active_task:
-  name: Implement v0.2 final UX pass with full-page low-text layout and sidebar anchors,
-    run tests/build, create release commit + annotated tag v0.2.0, then start v0.3
-    AI-first orchestration and additive API fields/tests including aspirational track.
-  description: Execute release-close + kickoff sequence in one pass while keeping
-    API backward compatibility.
-  started: '2026-05-16T19:08:27.932253+00:00'
-  assignee: agent
+  name: none
 completed_tasks:
 - name: Implement the minimal Vue 3 + Vite + TypeScript frontend and FastAPI backend
     evidence-first slice with a shared deterministic Python service layer, CLI wrapper,
@@ -85,6 +79,20 @@ completed_tasks:
     surface while compressing metadata/session furniture. Updated frontend tests for
     new labels and backend-ready visibility behavior.
   completed: '2026-05-16T13:17:41.424790+00:00'
+- name: Implement v0.2 final UX pass with full-page low-text layout and sidebar anchors,
+    run tests/build, create release commit + annotated tag v0.2.0, then start v0.3
+    AI-first orchestration and additive API fields/tests including aspirational track.
+  result: success
+  summary: 'Frontend: converted shell to static left sidebar + per-route section anchors;
+    removed card-grid framing in Workspace/Review/Drafts and simplified controls and
+    copy. Backend: introduced AI-stage orchestrator (recruiter/applicant/evaluator/verification)
+    with OpenAI SDK path and deterministic fallback; AnalyzeResponse now carries analysis_engine,
+    recruiter/evaluator assessments, verification_questions, and aspirational_pack.
+    Generation now accepts user_claim_confirmations and treats confirmed claims as
+    resolved while preserving backward compatibility. Tests: added orchestrator unit
+    coverage and expanded API/generation assertions; updated frontend tests for new
+    layout and v0.3 state key.'
+  completed: '2026-05-16T19:23:47.060900+00:00'
 blocked_tasks: []
 decisions: []
 unresolved_dependencies: []
@@ -498,6 +506,73 @@ runs:
   - heavy
   - remove
   - value
+- id: run-5cd486c7
+  task: Implement v0.2 final UX pass with full-page low-text layout and sidebar anchors,
+    run tests/build, create release commit + annotated tag v0.2.0, then start v0.3
+    AI-first orchestration and additive API fields/tests including aspirational track.
+  result: success
+  changes: 'Frontend: converted shell to static left sidebar + per-route section anchors;
+    removed card-grid framing in Workspace/Review/Drafts and simplified controls and
+    copy. Backend: introduced AI-stage orchestrator (recruiter/applicant/evaluator/verification)
+    with OpenAI SDK path and deterministic fallback; AnalyzeResponse now carries analysis_engine,
+    recruiter/evaluator assessments, verification_questions, and aspirational_pack.
+    Generation now accepts user_claim_confirmations and treats confirmed claims as
+    resolved while preserving backward compatibility. Tests: added orchestrator unit
+    coverage and expanded API/generation assertions; updated frontend tests for new
+    layout and v0.3 state key.'
+  decisions: Kept existing API endpoints and deterministic analysis core while layering
+    additive AI fields. Used model-tier environment settings for stage-cost control
+    and retained no-key fallback to keep local/dev and tests stable. Released all
+    current workspace changes as v0.2.0 baseline, then created/pushed v0.3-ai-first
+    branch for post-tag iteration.
+  risks: OpenAI stage parsing depends on model returning strict JSON; fallback path
+    handles failures but AI quality can vary. v0.2 tag includes kickoff AI additions
+    in the same release commit due existing in-flight tree integration context.
+  timestamp: '2026-05-16T19:23:47.060900+00:00'
+  file_refs:
+  - .haxaml/facts.yaml
+  - .haxaml/rules.yaml
+  - .haxaml/acts.yaml
+  - web/src/components/layout/WorkflowShell.vue
+  - web/src/pages/WorkspacePage.vue
+  - web/src/pages/ReviewPage.vue
+  - web/src/pages/DraftsPage.vue
+  - web/src/components/review/EvidenceMapBoard.vue
+  - web/src/components/review/FollowUpQuestionsPanel.vue
+  - web/src/components/drafts/DraftStudio.vue
+  - web/src/style.css
+  - web/src/App.test.ts
+  - web/src/state/app-state.ts
+  - app/services/ai_orchestrator.py
+  - app/models/analysis.py
+  - app/services/workflow.py
+  - app/services/generation.py
+  - app/api/routes/analysis.py
+  - app/core/config.py
+  - tests/backend/test_api.py
+  - tests/backend/test_generation.py
+  - tests/backend/test_ai_orchestrator.py
+  - docs/ROADMAP.md
+  - pyproject.toml
+  - .haxaml/expect.yaml
+  - web/src/*
+  - app/services/*
+  - tests/backend/*
+  module_refs: []
+  verification_id: verify-9ee9b375d3
+  keywords:
+  - implement
+  - final
+  - pass
+  - with
+  - full
+  - page
+  - text
+  - layout
+  - sidebar
+  - anchors
+  - tests
+  - build
 sessions:
 - id: session-ffc98dcfc3
   task: Implement the minimal Vue 3 + Vite + TypeScript frontend and FastAPI backend
@@ -1157,14 +1232,14 @@ sessions:
   description: Execute release-close + kickoff sequence in one pass while keeping
     API backward compatibility.
   execution_mode: governed
-  status: planned
-  phase: prebuild
+  status: recorded
+  phase: record
   risk_level: low
   task_type: frontend_feature
   guidance_type: implementation
   readiness_status: ready_to_build_with_warnings
   started: '2026-05-16T19:08:27.932253+00:00'
-  updated: '2026-05-16T19:08:27.932253+00:00'
+  updated: '2026-05-16T19:23:48.488060+00:00'
   plan:
   - Review the readiness report and clarify any required questions.
   - Call haxaml_context_pack to load task-scoped context.
@@ -1198,15 +1273,31 @@ sessions:
   - .haxaml/facts.yaml
   - .haxaml/rules.yaml
   - .haxaml/acts.yaml
+  - web/src/components/layout/WorkflowShell.vue
+  - web/src/pages/WorkspacePage.vue
+  - web/src/pages/ReviewPage.vue
+  - web/src/pages/DraftsPage.vue
+  - web/src/components/review/EvidenceMapBoard.vue
+  - web/src/components/review/FollowUpQuestionsPanel.vue
+  - web/src/components/drafts/DraftStudio.vue
+  - web/src/style.css
+  - web/src/App.test.ts
+  - web/src/state/app-state.ts
+  - app/services/ai_orchestrator.py
+  - app/models/analysis.py
+  - app/services/workflow.py
+  - app/services/generation.py
+  - app/api/routes/analysis.py
+  - app/core/config.py
+  - tests/backend/test_api.py
+  - tests/backend/test_generation.py
+  - tests/backend/test_ai_orchestrator.py
+  - docs/ROADMAP.md
+  - pyproject.toml
   - .haxaml/expect.yaml
-  - .haxaml/facts.yaml
-  - .haxaml/rules.yaml
-  - .haxaml/acts.yaml
-  - web/package.json
-  - web/package-lock.json
-  - web/src/App.vue
-  - web/src/main.ts
-  - web/src/router.ts
+  - web/src/*
+  - app/services/*
+  - tests/backend/*
   module_refs: []
   keywords:
   - implement
@@ -1225,6 +1316,8 @@ sessions:
   last_context_pack_at: '2026-05-16T19:08:32.217687+00:00'
   last_context_pack_reason: ''
   last_context_pack_reason_category: ''
+  ended: '2026-05-16T19:23:48.488064+00:00'
+  verification_id: verify-9ee9b375d3
 verifications:
 - id: verify-f60c7fc44b
   session_id: session-ffc98dcfc3
@@ -1954,6 +2047,118 @@ verifications:
   - remove
   - value
   timestamp: '2026-05-16T13:17:33.378717+00:00'
+- id: verify-9ee9b375d3
+  session_id: session-73c7a83d2a
+  task: Implement v0.2 final UX pass with full-page low-text layout and sidebar anchors,
+    run tests/build, create release commit + annotated tag v0.2.0, then start v0.3
+    AI-first orchestration and additive API fields/tests including aspirational track.
+  verdict: pass
+  summary: Implemented full-page sidebar-driven UI, added AI-first multi-stage orchestration
+    with additive analyze fields and claim-confirmation generation payload support,
+    released commit/tag v0.2.0 on main, and created/pushed branch v0.3-ai-first for
+    follow-up work.
+  unresolved_questions:
+  - No unresolved functional blockers; release and branch push were successful.
+  assumptions:
+  - Existing pending workspace changes represented intended v0.2 baseline work and
+    should not be reverted.
+  - AI pipeline should remain operational with deterministic fallback when OpenAI
+    key/sdk path is unavailable.
+  follow_ups: []
+  checks:
+  - name: understood_task
+    passed: true
+    details: Task text was provided.
+  - name: inspected_context
+    passed: true
+    details: Inspected context includes required reads.
+  - name: changed_right_files
+    passed: true
+    details: Changed files or summary evidence was provided.
+  - name: risky_or_unrelated_touch
+    passed: true
+    details: No risky file patterns were reported.
+  - name: followed_rules
+    passed: true
+    details: No forbidden risky path was reported.
+  - name: updated_journal
+    passed: true
+    details: Journal update is enforced at session_record stage.
+  - name: unresolved_logged
+    passed: true
+    details: Unresolved items were explicitly captured or not required.
+  - name: explained_changes
+    passed: true
+    details: Summary explains what changed and why.
+  evidence_refs:
+  - .haxaml/facts.yaml
+  - .haxaml/rules.yaml
+  - .haxaml/acts.yaml
+  - web/src/components/layout/WorkflowShell.vue
+  - web/src/pages/WorkspacePage.vue
+  - web/src/pages/ReviewPage.vue
+  - web/src/pages/DraftsPage.vue
+  - web/src/components/review/EvidenceMapBoard.vue
+  - web/src/components/review/FollowUpQuestionsPanel.vue
+  - web/src/components/drafts/DraftStudio.vue
+  - web/src/style.css
+  - web/src/App.test.ts
+  - web/src/state/app-state.ts
+  - app/services/ai_orchestrator.py
+  - app/models/analysis.py
+  - app/services/workflow.py
+  - app/services/generation.py
+  - app/api/routes/analysis.py
+  - app/core/config.py
+  - tests/backend/test_api.py
+  - tests/backend/test_generation.py
+  - tests/backend/test_ai_orchestrator.py
+  - docs/ROADMAP.md
+  - pyproject.toml
+  file_refs:
+  - .haxaml/facts.yaml
+  - .haxaml/rules.yaml
+  - .haxaml/acts.yaml
+  - web/src/components/layout/WorkflowShell.vue
+  - web/src/pages/WorkspacePage.vue
+  - web/src/pages/ReviewPage.vue
+  - web/src/pages/DraftsPage.vue
+  - web/src/components/review/EvidenceMapBoard.vue
+  - web/src/components/review/FollowUpQuestionsPanel.vue
+  - web/src/components/drafts/DraftStudio.vue
+  - web/src/style.css
+  - web/src/App.test.ts
+  - web/src/state/app-state.ts
+  - app/services/ai_orchestrator.py
+  - app/models/analysis.py
+  - app/services/workflow.py
+  - app/services/generation.py
+  - app/api/routes/analysis.py
+  - app/core/config.py
+  - tests/backend/test_api.py
+  - tests/backend/test_generation.py
+  - tests/backend/test_ai_orchestrator.py
+  - docs/ROADMAP.md
+  - pyproject.toml
+  - .haxaml/expect.yaml
+  - web/src/*
+  - app/services/*
+  - tests/backend/*
+  module_refs: []
+  keywords:
+  - implement
+  - final
+  - pass
+  - with
+  - full
+  - page
+  - text
+  - layout
+  - sidebar
+  - anchors
+  - tests
+  - build
+  timestamp: '2026-05-16T19:23:36.967376+00:00'
 archive:
   path: .haxaml/archive/acts-history.yaml
   archive_mode: manual
@@ -1983,25 +2188,21 @@ expect_sync:
   pending_task: ''
   pending_result: ''
   pending_recorded_at: ''
-  last_synced_run_id: run-6f757b34
-  last_synced_at: '2026-05-16T13:18:00.611840+00:00'
+  last_synced_run_id: run-5cd486c7
+  last_synced_at: '2026-05-16T19:24:02.136959+00:00'
   last_sync_status: done
 lifecycle_contract:
-  phase: context
+  phase: sync
   required_next:
-  - haxaml_context_fetch
-  - haxaml_session_verify
-  active_session_id: session-73c7a83d2a
-  active_task: Implement v0.2 final UX pass with full-page low-text layout and sidebar
-    anchors, run tests/build, create release commit + annotated tag v0.2.0, then start
-    v0.3 AI-first orchestration and additive API fields/tests including aspirational
-    track.
-  last_tool: haxaml_context_pack
-  last_verification_id: verify-27d2691826
-  last_verification_verdict: pass_with_risks
-  last_record_run_id: run-6f757b34
+  - haxaml_guidance
+  active_session_id: ''
+  active_task: ''
+  last_tool: haxaml_expect_sync
+  last_verification_id: verify-9ee9b375d3
+  last_verification_verdict: pass
+  last_record_run_id: run-5cd486c7
   last_record_result: success
-  updated_at: '2026-05-16T19:08:32.217710+00:00'
+  updated_at: '2026-05-16T19:24:02.137030+00:00'
 about:
   acknowledged_at: '2026-05-16T19:08:14.652523+00:00'
   prompt_version: 0.6.7
