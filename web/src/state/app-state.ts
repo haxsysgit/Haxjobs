@@ -28,7 +28,7 @@ export interface AppState extends PersistedAppState {
   healthDetail: string;
 }
 
-const STORAGE_KEY = "haxjobs.app-state.v0.2";
+const STORAGE_KEY = "haxjobs.app-state.v0.3";
 const MAX_PERSIST_BYTES = 220_000;
 
 function defaultState(): AppState {

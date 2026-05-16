@@ -284,7 +284,7 @@ describe("App", () => {
     await fireEvent.update(screen.getByTestId("jd-input"), "Stored JD text");
     await fireEvent.update(screen.getByTestId("mode-select"), "ideal");
     await waitFor(() => {
-      const persisted = sessionStorage.getItem("haxjobs.app-state.v0.2") ?? "";
+      const persisted = sessionStorage.getItem("haxjobs.app-state.v0.3") ?? "";
       expect(persisted).toContain("Stored JD text");
       expect(persisted).toContain("\"selectedMode\":\"ideal\"");
     });
