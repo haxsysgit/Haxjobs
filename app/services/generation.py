@@ -20,6 +20,20 @@ MATCH_RANK = {
 }
 ALWAYS_ALLOWED_CLAIMS = {"Confirmed"}
 STRETCH_ALLOWED_CLAIMS = {"Confirmed", "Inferred", "Stretch Wording"}
+CV_HIGHLIGHT_LIMIT = 7
+CV_SKILL_LIMIT = 12
+INTERVIEW_TRIGGER_TERMS = (
+    "interview",
+    "walk through",
+    "walkthrough",
+    "case study",
+    "portfolio",
+    "examples of systems",
+    "examples of work",
+    "video",
+    "loom",
+    "presentation",
+)
 
 
 def generate_application_pack(
@@ -77,7 +91,6 @@ def generate_application_pack(
             "tailored_cv_markdown",
             "cover_letter_markdown",
             "interview_notes_markdown",
-            "evidence_map_json",
             "application_pack_json",
         ],
     )
@@ -89,6 +102,10 @@ def generate_application_pack(
             "tailored_cv_markdown": tailored_cv_markdown,
             "cover_letter_markdown": cover_letter_markdown,
             "interview_notes_markdown": interview_notes_markdown,
+        },
+        "internal_guardrails": {
+            "evidence_map": [match.model_dump(mode="json") for match in analysis.evidence_map],
+            "warnings": analysis.warnings,
         },
         "evidence_map": [match.model_dump(mode="json") for match in analysis.evidence_map],
         "follow_up_answers": [
@@ -214,7 +231,7 @@ def _build_tailored_cv(
     if analysis.metadata.mode == "ideal":
         lines.extend(
             [
-                "# Aspirational Tailored CV Sample",
+                "# Aspirational Candidate Profile",
                 "",
                 "> Ideal mode: this sample shows the shape of the candidate the JD appears to want.",
                 "> It is not a claim that the current candidate already has this full background.",
@@ -225,40 +242,40 @@ def _build_tailored_cv(
         lines.extend(["# Tailored CV Draft", ""])
     lines.extend(
         [
-            f"## Target Role",
-            analysis.jd_analysis.role_title,
+            f"Target role: {analysis.jd_analysis.role_title}",
             "",
-            "## Professional Summary",
+            "> Format target: concise ATS-friendly CV, normally 2 pages and never more than 3 pages unless the role is academic, federal, or explicitly requests a long CV.",
+            "",
+            "## Summary",
         ]
     )
     summary_points = _summary_points(analysis, included_matches, unresolved_matches, answers)
     for point in summary_points:
         lines.append(f"- {point}")
-    lines.extend(["", "## Evidence-Aligned Highlights"])
+    lines.extend(["", "## Role-Fit Highlights"])
     if included_matches:
-        for match in included_matches[:6]:
+        for match in included_matches[:CV_HIGHLIGHT_LIMIT]:
             lines.append(f"- {match.suggested_safe_wording}")
             answer = answers.get(match.requirement_id)
             if _has_resolved_answer(answer):
-                lines.append(f"- User-confirmed example for {match.requirement_text}: {answer.answer}")
+                lines.append(f"- {answer.answer}")
             confirmation = claim_confirmations.get(match.requirement_id)
             if _has_confirmed_claim(confirmation) and confirmation.notes:
-                lines.append(
-                    f"- Claim confirmation note for {match.requirement_text}: {confirmation.notes}"
-                )
+                lines.append(f"- {confirmation.notes}")
     else:
-        lines.append("- Keep the CV conservative. The current evidence map does not support stronger tailored claims yet.")
-    lines.extend(["", "## Skills Alignment"])
-    required = ", ".join(analysis.jd_analysis.required_skills) or "No clear required skill signals extracted"
-    desirable = ", ".join(analysis.jd_analysis.desirable_skills) or "No clear nice-to-have skills extracted"
-    lines.append(f"- Required signals to foreground: {required}")
-    lines.append(f"- Nice-to-have signals to position carefully: {desirable}")
-    lines.extend(["", "## Gaps To Handle Carefully"])
-    gap_lines = _gap_lines(unresolved_matches)
-    for line in gap_lines:
-        lines.append(f"- {line}")
+        lines.append("- Position the strongest reusable profile themes against this JD and keep the wording concrete.")
+    lines.extend(["", "## Skills"])
+    skill_signals = _skill_signals(analysis)
+    if skill_signals:
+        lines.append(", ".join(skill_signals))
+    else:
+        lines.append("Role-relevant skills should be selected from the candidate profile and this job description.")
+    if unresolved_matches:
+        lines.extend(["", "## Interview-Ready Positioning Notes"])
+        for line in _positioning_notes(unresolved_matches):
+            lines.append(f"- {line}")
     if user_notes and user_notes.strip():
-        lines.extend(["", "## User Notes To Respect", f"- {user_notes.strip()}"])
+        lines.extend(["", "## User Direction", f"- {user_notes.strip()}"])
     return "\n".join(lines).strip()
 
 
@@ -282,8 +299,8 @@ def _build_cover_letter(
     else:
         lines.extend(
             [
-                f"I am applying for the {analysis.jd_analysis.role_title} role with an evidence-first approach to the match.",
-                f"The current fit map scores this role as {analysis.fit_summary.label.lower()} at {analysis.fit_summary.score}/100, with the strongest support coming from documented backend, API, and workflow evidence.",
+                f"I am applying for the {analysis.jd_analysis.role_title} role because the work maps closely to the systems I have been building: practical software, operational workflows, and role-specific problem solving.",
+                f"My strongest fit is around {analysis.fit_summary.summary}",
                 "",
             ]
         )
@@ -298,7 +315,7 @@ def _build_cover_letter(
         lines.append("")
     if unresolved_matches:
         lines.append(
-            "I would position the remaining weaker areas honestly, using transferable examples where they exist and treating direct gaps as gaps rather than overstated experience."
+            "Where the role asks for adjacent experience, I would bring a practical learning mindset and connect it to the closest systems I have already delivered."
         )
         lines.append("")
     if user_notes and user_notes.strip():
@@ -316,7 +333,8 @@ def _build_interview_notes(
     claim_confirmations: dict[str, UserClaimConfirmation],
     user_notes: str | None,
 ) -> str:
-    lines = ["# Interview Notes", ""]
+    requested = _jd_requests_interview_artifact(analysis)
+    lines = ["# Application Notes", ""]
     if analysis.metadata.mode == "ideal":
         lines.extend(
             [
@@ -331,8 +349,8 @@ def _build_interview_notes(
             f"{_talking_point(match, answers.get(match.requirement_id), claim_confirmations.get(match.requirement_id))}"
         )
     if not included_matches:
-        lines.append("- No safe talking points were generated from the current evidence set.")
-    lines.extend(["", "## Claims To Defend Carefully"])
+        lines.append("- Lead with the strongest reusable profile themes that overlap with this role.")
+    lines.extend(["", "## Smart Positioning"])
     careful = [
         match
         for match in analysis.evidence_map
@@ -341,30 +359,29 @@ def _build_interview_notes(
     if careful:
         for match in _sorted_matches(careful)[:5]:
             answer = answers.get(match.requirement_id)
-            line = f"{match.requirement_text}: {match.risk_warning or match.suggested_safe_wording}"
+            line = f"{match.requirement_text}: {_soft_positioning(match)}"
             if _has_resolved_answer(answer):
-                line = f"{line} User-confirmed example: {answer.answer}"
+                line = f"{line} Example to use: {answer.answer}"
             confirmation = claim_confirmations.get(match.requirement_id)
             if _has_confirmed_claim(confirmation) and confirmation.notes:
-                line = f"{line} Claim confirmation: {confirmation.notes}"
+                line = f"{line} Context: {confirmation.notes}"
             lines.append(f"- {line}")
     else:
-        lines.append("- No defensive claim handling notes were needed from this pass.")
-    lines.extend(["", "## Follow-up Questions"])
-    for question in analysis.follow_up_questions:
-        answer = answers.get(question.requirement_id)
-        status = _question_status(answer)
-        lines.append(f"- [{question.priority}] {question.question}")
-        lines.append(f"- Status: {status}")
-        if _has_resolved_answer(answer):
-            lines.append(f"- Answer: {answer.answer}")
-        elif answer and answer.skipped:
-            lines.append("- Answer: Skipped for now.")
-    if not analysis.follow_up_questions:
-        lines.append("- No follow-up questions were generated.")
-    lines.extend(["", "## Gaps To Address Honestly"])
-    for line in _gap_lines(unresolved_matches):
-        lines.append(f"- {line}")
+        lines.append("- No special positioning notes were needed from this pass.")
+    if requested:
+        lines.extend(["", "## Optional Video Or Walkthrough"])
+        lines.append("- This JD asks for examples, a walkthrough, portfolio material, or interview-style explanation. Prepare a short project story only for that request.")
+    else:
+        lines.extend(["", "## Optional Extras"])
+        lines.append("- Do not create a Loom/video by default. Prepare one only when the JD asks for it or the application specifically benefits from examples of systems built.")
+    if analysis.follow_up_questions:
+        lines.extend(["", "## Profile Questions That Would Improve Future Packs"])
+        for question in analysis.follow_up_questions[:5]:
+            answer = answers.get(question.requirement_id)
+            if _has_resolved_answer(answer):
+                lines.append(f"- {answer.answer}")
+            elif not (answer and answer.skipped):
+                lines.append(f"- {question.question}")
     if user_notes and user_notes.strip():
         lines.extend(["", "## User Notes", f"- {user_notes.strip()}"])
     return "\n".join(lines).strip()
@@ -379,25 +396,25 @@ def _summary_points(
     if analysis.metadata.mode == "ideal":
         return [
             f"Shape the document around the {analysis.jd_analysis.role_title} brief and keep it clearly labeled as aspirational.",
-            "Use the evidence map as a boundary for what is real versus what is only a target profile.",
-            f"Call out {len(unresolved_matches)} weaker or missing areas separately so they do not read as confirmed experience.",
+            "Show the strongest plausible role profile without presenting it as the candidate's submitted CV.",
+            f"Keep the sample concise and focused on the highest-signal {analysis.jd_analysis.role_title} requirements.",
         ]
     if not included_matches:
         return [
-            "Keep the summary conservative until stronger evidence is confirmed.",
-            "Use the evidence map to decide which JD requirements should appear as strengths, stretch wording, or explicit gaps.",
+            "Lead with the candidate's strongest reusable profile themes and adapt them to this role.",
+            "Use profile-informed, plausible wording instead of exposing internal match mechanics.",
         ]
     top_categories = Counter(match.section for match in included_matches[:4])
-    strongest_section = top_categories.most_common(1)[0][0] if top_categories else "the evidence map"
+    strongest_section = top_categories.most_common(1)[0][0] if top_categories else "the profile"
     answer_total = sum(1 for answer in answers.values() if _has_resolved_answer(answer))
     points = [
-        f"Lead with the defensible fit summary: {analysis.fit_summary.summary}",
-        f"Anchor the summary in the strongest current evidence from {strongest_section.lower()}.",
+        analysis.fit_summary.summary,
+        f"Emphasize the strongest {strongest_section.lower()} overlap in the first screen of the CV.",
     ]
     if answer_total:
-        points.append(f"Fold in {answer_total} user-confirmed follow-up example(s) only where they tighten a weak or partial claim.")
+        points.append(f"Fold in {answer_total} user-provided detail(s) where they make the role fit sharper.")
     if unresolved_matches:
-        points.append(f"Surface {len(unresolved_matches)} unresolved or gap item(s) separately instead of blending them into the core pitch.")
+        points.append("Use transferable wording for adjacent requirements without wasting CV space on gap explanations.")
     return points
 
 
@@ -448,6 +465,44 @@ def _gap_lines(unresolved_matches: list[EvidenceMatch]) -> list[str]:
             for match in unresolved_matches[:4]
         ]
     return ["No direct gaps were surfaced in this deterministic pass."]
+
+
+def _skill_signals(analysis: AnalyzeResponse) -> list[str]:
+    seen: set[str] = set()
+    skills: list[str] = []
+    for skill in [*analysis.jd_analysis.required_skills, *analysis.jd_analysis.desirable_skills]:
+        normalized = skill.strip()
+        key = normalized.lower()
+        if normalized and key not in seen:
+            seen.add(key)
+            skills.append(normalized)
+        if len(skills) >= CV_SKILL_LIMIT:
+            break
+    return skills
+
+
+def _positioning_notes(unresolved_matches: list[EvidenceMatch]) -> list[str]:
+    notes: list[str] = []
+    for match in unresolved_matches[:4]:
+        notes.append(_soft_positioning(match))
+    return notes or ["Keep the final CV focused on the strongest role-relevant profile signals."]
+
+
+def _soft_positioning(match: EvidenceMatch) -> str:
+    if match.match_label == "Gap":
+        return f"If asked about {match.requirement_text.lower()}, position it as a learning area or adjacent exposure rather than a core claim."
+    return match.suggested_safe_wording
+
+
+def _jd_requests_interview_artifact(analysis: AnalyzeResponse) -> bool:
+    jd_parts = [
+        analysis.jd_analysis.role_title,
+        *analysis.jd_analysis.section_titles,
+        *analysis.jd_analysis.recruiter_concerns,
+        *(requirement.text for requirement in analysis.jd_analysis.requirements),
+    ]
+    jd_text = " ".join(jd_parts).lower()
+    return any(term in jd_text for term in INTERVIEW_TRIGGER_TERMS)
 
 
 def _talking_point(

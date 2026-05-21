@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 from app.models.analysis import AnalysisMetadata, AnalysisReport, AnalyzeResponse
+from app.services.surveys import build_survey_questions
 
 
 def generate_markdown_report(report: AnalysisReport, metadata: AnalysisMetadata | None = None) -> str:
@@ -35,12 +36,12 @@ def generate_markdown_report(report: AnalysisReport, metadata: AnalysisMetadata 
         f"- Recruiter Concerns: {', '.join(report.jd_analysis.recruiter_concerns) or 'None extracted'}"
     )
     lines.append("")
-    lines.append("# Candidate Evidence")
+    lines.append("# Candidate Signals")
     for item in report.candidate_evidence:
         lines.append(f"- [{item.source_section}] {item.evidence}")
     lines.append("")
-    lines.append("# Evidence Map")
-    lines.append("| Requirement | Match | Claim | Evidence |")
+    lines.append("# Internal Match Summary")
+    lines.append("| Requirement | Match | Claim | Signal |")
     lines.append("| --- | --- | --- | --- |")
     for match in report.evidence_map:
         evidence = "; ".join(match.supporting_evidence) or "No direct evidence found"
@@ -69,6 +70,7 @@ def response_from_report(report: AnalysisReport, metadata: AnalysisMetadata) -> 
         candidate_evidence=report.candidate_evidence,
         evidence_map=report.evidence_map,
         follow_up_questions=report.follow_up_questions,
+        survey_questions=build_survey_questions(report.evidence_map, report.follow_up_questions),
         warnings=report.warnings,
         markdown_report=generate_markdown_report(report, metadata=metadata),
     )

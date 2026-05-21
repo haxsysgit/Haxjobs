@@ -141,13 +141,17 @@ def test_safe_mode_excludes_unresolved_claims_from_tailored_cv() -> None:
     assert "Strong Python fundamentals" not in pack.tailored_cv_markdown
     assert "Built Python APIs in production" in pack.tailored_cv_markdown
     assert "Production Vue exposure" not in pack.tailored_cv_markdown
-    assert "Kubernetes ownership" in pack.tailored_cv_markdown
+    assert "kubernetes ownership" in pack.tailored_cv_markdown
+    assert "normally 2 pages and never more than 3 pages" in pack.tailored_cv_markdown
+    assert "evidence_map_json" not in pack.metadata.generated_documents
 
 
 def test_stretch_mode_allows_transferable_wording() -> None:
     pack = generate_application_pack(make_analysis_response("stretch"))
     assert "Shipped a small admin panel in Vue" in pack.tailored_cv_markdown
     assert "adjacent experience" in pack.cover_letter_markdown
+    assert "Evidence-Aligned Highlights" not in pack.tailored_cv_markdown
+    assert "Role-Fit Highlights" in pack.tailored_cv_markdown
 
 
 def test_interview_mode_uses_provided_follow_up_answers() -> None:
@@ -160,15 +164,16 @@ def test_interview_mode_uses_provided_follow_up_answers() -> None:
             )
         ],
     )
-    assert "User-confirmed follow-up" in pack.interview_notes_markdown
+    assert "Example to use" in pack.interview_notes_markdown
     assert "I built MCP-based internal workflow tooling" in pack.tailored_cv_markdown
     assert pack.metadata.unanswered_follow_up_count == 1
+    assert "Do not create a Loom/video by default" in pack.interview_notes_markdown
 
 
 def test_ideal_mode_is_clearly_labeled_as_aspirational() -> None:
     pack = generate_application_pack(make_analysis_response("ideal"))
     assert pack.metadata.aspirational is True
-    assert "Aspirational Tailored CV Sample" in pack.tailored_cv_markdown
+    assert "Aspirational Candidate Profile" in pack.tailored_cv_markdown
     assert "aspirational sample cover letter" in pack.cover_letter_markdown.lower()
 
 
@@ -183,5 +188,13 @@ def test_claim_confirmation_marks_requirement_as_resolved() -> None:
             )
         ],
     )
-    assert "Claim confirmation note for Agent workflow systems" in pack.tailored_cv_markdown
+    assert "Confirmed through a production internal MCP delivery." in pack.tailored_cv_markdown
     assert pack.application_pack_json["user_claim_confirmations"][0]["status"] == "confirmed"
+
+
+def test_interview_artifact_is_only_prompted_when_jd_requests_it() -> None:
+    analysis = make_analysis_response("stretch")
+    analysis.jd_analysis.requirements[0].text = "Send examples of systems you have built"
+    pack = generate_application_pack(analysis)
+    assert "Optional Video Or Walkthrough" in pack.interview_notes_markdown
+    assert "Do not create a Loom/video by default" not in pack.interview_notes_markdown

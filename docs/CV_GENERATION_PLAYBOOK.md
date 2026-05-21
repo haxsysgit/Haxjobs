@@ -17,14 +17,16 @@ Use a federal-resume variant for USAJOBS and related U.S. federal applications.
 These rules should apply to almost every non-academic resume:
 
 - Tailor to one job description at a time.
-- Keep the content evidence-first.
+- Keep the content profile-first and truthful; use evidence checks as internal guardrails.
 - Prefer a simple, single-column, ATS-friendly layout.
 - Use standard section names like `Summary`, `Experience`, `Education`, and `Skills`.
 - Do not place critical content in headers, footers, tables, text boxes, or decorative layouts.
 - Use strong action verbs and quantify outcomes where the candidate can defend them.
 - Pull keywords from the JD, but only when the CV or user answers support them.
 - Avoid generic AI-sounding summary text.
-- Default to one page for early-career candidates and allow two pages when the evidence justifies it.
+- Default to two pages for experienced private-sector candidates when the profile justifies it.
+- Use one page for very early-career or sparse profiles.
+- Never exceed three pages for standard private-sector roles; only academic, federal, or explicitly long-form applications should go longer.
 
 ## What Good Bullets Look Like
 
@@ -214,7 +216,7 @@ Medium-term improvements:
 
 - Score summary quality for specificity and keyword overlap
 - Flag generic AI phrases
-- Compare output bullets to source evidence before export
+- Compare output bullets to profile facts before export without exposing that review as the main user workflow
 - Add fixtures for software, PM, data, design, customer success, academic, and federal roles
 
 ## Source Notes
@@ -238,4 +240,4 @@ This playbook was informed by current guidance from:
 
 The best resume is not the prettiest one.
 
-It is the clearest, safest, most role-relevant version of the candidate that still holds up in interview.
+It is the clearest, most role-relevant version of the candidate that is easy to skim and still holds up in interview.

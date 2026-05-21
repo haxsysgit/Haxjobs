@@ -9,6 +9,8 @@ from app.services.documents import extract_text_from_path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CV_FIXTURE_DIR = PROJECT_ROOT / "tests" / "cv"
 JD_FIXTURE_DIR = PROJECT_ROOT / "tests" / "jd"
+LAB_CV_FIXTURE_DIR = PROJECT_ROOT / "lab" / "cv"
+LAB_JD_FIXTURE_DIR = PROJECT_ROOT / "lab" / "jd"
 
 
 @dataclass(frozen=True)
@@ -81,10 +83,19 @@ def load_demo_texts(
         raise InvalidDemoFixtureError(f"Unknown demo CV fixture: {cv_fixture_id}")
     if jd_fixture is None:
         raise InvalidDemoFixtureError(f"Unknown demo JD fixture: {jd_fixture_id}")
-    cv_text = extract_text_from_path(cv_fixture.path)
-    jd_text = jd_fixture.path.read_text(encoding="utf-8")
+    cv_text = extract_text_from_path(_existing_fixture_path(cv_fixture.path, LAB_CV_FIXTURE_DIR))
+    jd_text = _existing_fixture_path(jd_fixture.path, LAB_JD_FIXTURE_DIR).read_text(encoding="utf-8")
     return cv_text, jd_text, cv_fixture.label, jd_fixture.label
 
 
 def _to_option(fixture: DemoFixture) -> DemoFixtureOption:
     return DemoFixtureOption(id=fixture.id, label=fixture.label)
+
+
+def _existing_fixture_path(primary: Path, fallback_dir: Path) -> Path:
+    if primary.exists():
+        return primary
+    fallback = fallback_dir / primary.name
+    if fallback.exists():
+        return fallback
+    return primary

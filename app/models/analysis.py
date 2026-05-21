@@ -94,6 +94,23 @@ class FollowUpQuestion(BaseModel):
     priority: PriorityLabel
 
 
+class SurveyChoice(BaseModel):
+    id: str
+    label: str
+    description: str
+
+
+class SurveyQuestion(BaseModel):
+    question_id: str
+    requirement_id: str
+    requirement_text: str
+    prompt: str
+    helper_text: str
+    priority: PriorityLabel
+    choices: list[SurveyChoice] = Field(default_factory=list)
+    allow_notes: bool = True
+
+
 class RecruiterAssessment(BaseModel):
     shortlist_summary: str
     priority_requirements: list[str] = Field(default_factory=list)
@@ -152,6 +169,7 @@ class AnalyzeResponse(BaseModel):
     candidate_evidence: list[EvidenceItem]
     evidence_map: list[EvidenceMatch]
     follow_up_questions: list[FollowUpQuestion]
+    survey_questions: list[SurveyQuestion] = Field(default_factory=list)
     recruiter_assessment: RecruiterAssessment | None = None
     evaluator_assessment: EvaluatorAssessment | None = None
     verification_questions: list[VerificationQuestion] = Field(default_factory=list)
@@ -201,6 +219,12 @@ class GenerateApplicationPackResponse(BaseModel):
 class AnalyzeDemoRequest(BaseModel):
     cv_fixture: str
     jd_fixture: str
+    mode: AnalysisMode = DEFAULT_MODE
+
+
+class AnalyzeProfileCvRequest(BaseModel):
+    cv_document_id: str
+    jd_text: str
     mode: AnalysisMode = DEFAULT_MODE
 
 

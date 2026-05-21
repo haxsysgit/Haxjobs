@@ -1,21 +1,32 @@
 # HaxJobs
 
-HaxJobs is an evidence-first workflow for turning a base CV and job description into a safer, more defensible application package.
+HaxJobs turns a base CV or saved candidate profile plus a job description into a tailored application pack.
+
+The main user flow is simple:
+
+1. Add one or more CVs to build a local profile.
+2. Paste a job description.
+3. Generate a role-specific pack led by a concise tailored CV.
+
+Evidence matching and claim safety are internal guardrails. They should improve the output, not become the product the user has to manage.
 
 ## Current Scope
 
 `v0.1.0` is the first usable slice.
 
-Right now the product is a deterministic analysis preview:
+The product supports:
 
-- upload or parse a CV
-- paste a JD
-- extract requirements
-- map evidence
-- flag gaps and unsafe claims
-- return JSON and Markdown analysis outputs
+- CV/PDF text extraction
+- job description parsing
+- saved local profile memory
+- tailored CV generation
+- cover letter generation
+- application notes for interview or follow-up preparation
+- internal match and claim-safety metadata for debugging and future improvements
 
-The full tailored CV, cover letter, and interview-pack workflow is planned next.
+The standard CV target is two pages for most private-sector roles, with three pages as the hard maximum unless the role explicitly asks for an academic CV, federal resume, or long-form dossier.
+
+Video/Loom/project walkthrough material is not a default output. HaxJobs should prepare it only when the job description asks for a video, examples of systems built, a portfolio, or a walkthrough-style application artifact.
 
 ## Local Development
 
@@ -41,7 +52,7 @@ npm run dev -- --host 127.0.0.1 --port 5173
 
 ## CLI
 
-Run an analysis from local fixtures or your own files:
+Generate an application pack from local files:
 
 ```bash
 uv run haxjobs analyze --cv tests/cv/Arinze_Agent_engineer_cv.pdf --jd-text "$(cat tests/jd/60x.txt)"
@@ -49,6 +60,10 @@ uv run haxjobs analyze --cv tests/cv/Arinze_Agent_engineer_cv.pdf --jd-text "$(c
 
 Outputs currently land in:
 
+- `outputs/tailored_cv.md`
+- `outputs/cover_letter.md`
+- `outputs/application_notes.md`
+- `outputs/application_pack.json`
 - `outputs/analysis.json`
 - `outputs/analysis.md`
 

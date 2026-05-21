@@ -2,77 +2,88 @@
 
 This roadmap is intentionally small.
 
-The goal is not to invent many versions.
+The goal is to make the default path feel immediate: paste a JD, use the saved profile, and get a tailored application pack.
 
-The goal is to get to a strong, usable product quickly.
+## Product Spine
+
+HaxJobs should optimize for:
+
+1. A reusable candidate profile that improves over time.
+2. Fast JD intake.
+3. A concise CV-led application pack.
+4. Optional sharpening questions only when they improve the draft.
+5. Internal claim-safety checks that stay out of the user's way unless a claim is clearly risky.
+
+Evidence maps and fit diagnostics are implementation tools, not the primary user-facing product.
 
 ## v0.1
 
-Ship the first usable slice.
+Ship the first usable application-pack slice.
 
-- Deterministic JD parsing
-- CV evidence extraction
-- Evidence map with safe wording and warnings
+- CV/PDF parsing
+- JD parsing
+- local profile memory
+- tailored CV generation
+- cover letter generation
+- application notes
+- internal match/safety metadata for debugging
 - FastAPI + web UI
-- Demo flow and local dev runner
-- JSON and Markdown exports
 
 Definition of done:
 
-- A user can run one command, test with fixtures, upload a CV, paste a JD, and get a defensible fit map.
+- A user can upload or select a CV, paste a JD, and generate a useful tailored pack without needing to understand evidence maps.
 
 ## v0.2
 
-Turn analysis into the first routed application workspace.
+Make the routed workspace feel application-first.
 
-- First tailored outputs: `tailored_cv.md`, `cover_letter.md`, `interview_notes.md`, `evidence_map.json`, and `application_pack.json`
-- Deterministic output generation that depends on the completed evidence map instead of bypassing it
-- Routed web workflow with `vue-router` and a simple three-step Workspace, Review, and Drafts flow
-- Card-based analysis and output UX that is readable, interactive, and export-friendly instead of one long text-heavy page
-- Copy, download, and regenerate actions inside the outputs workspace
-- Demo flow and backend health checks kept inside the routed input experience
+- Keep the main route sequence: Workspace -> Fit Check -> Pack.
+- Make the workspace default to saved profile + pasted JD.
+- Keep review questions compact and optional unless they materially improve the application.
+- Make the Pack screen prioritize the tailored CV, then cover letter, then application notes.
+- Keep raw match data as internal/debug metadata rather than a default exported document.
 
 Definition of done:
 
-- Final writing traces back to the evidence map, the routed web app is usable without dense scrolling, and output export is part of the core release rather than optional polish.
+- The web app reads like a practical application assistant, not a fit-analysis dashboard.
 
 ## v0.3
 
-Shift to an AI-first, staged workflow while preserving evidence-first safety.
+Improve profile-first morphing.
 
-- Keep the same `Workspace -> Review -> Drafts` product flow and API routes
-- Add AI stage roles: `recruiter_agent`, `applicant_agent`, `evaluator_agent`, `verification_agent`
-- Use tiered models (smaller models for extraction/evaluation, stronger model for final aspirational synthesis)
-- Add additive AI fields on `/api/analyze`: `analysis_engine`, `recruiter_assessment`, `evaluator_assessment`, `verification_questions`, `aspirational_pack`
-- Add `user_claim_confirmations[]` support on `/api/generate-application-pack`
-- Generate an aspirational sample track in parallel, clearly labeled non-submittable until confirmed
+- Build generation from the full saved profile, not only one selected CV.
+- Let users add broad profile notes in plain language.
+- Reuse prior answers across future applications.
+- Add role-family behavior for software, AI, data, product, operations, academic, and federal variants.
+- Add CV length budgeting: usually two pages, three pages maximum for standard roles.
 
 Definition of done:
 
-- The app produces recruiter/evaluator/verification outputs with explicit claim confirmation paths and a clearly separated aspirational track, without breaking existing deterministic contracts.
+- Repeated applications become sharper because the profile grows, while each output still feels job-specific.
 
 ## v0.4
 
 Add controlled AI assistance.
 
-- LLM-assisted rewriting behind evidence checks
-- JD-to-keyword extraction improvements
-- Bullet rewriting with stronger action-impact structure
-- Claim-safety review before final export
+- LLM-assisted rewriting for stronger role fit.
+- JD-to-keyword extraction improvements.
+- Bullet rewriting with stronger action-impact structure.
+- Internal claim-safety review before export.
+- Conditional extras such as project walkthrough notes only when the JD asks for examples, portfolio material, video, or similar artifacts.
 
 Definition of done:
 
-- AI improves clarity and relevance without becoming the source of truth.
+- AI improves clarity, relevance, and recruiter appeal without becoming a source of fabricated facts.
 
 ## v0.5.x
 
 Harden and scale the workflow.
 
-- Multi-application reuse from one base CV
-- Saved target-role profiles
-- Better scoring and evals
-- More fixture coverage
-- Polished CLI and web UX
+- Multi-application reuse from one base profile.
+- Saved target-role profiles.
+- Better scoring and evals.
+- More fixture coverage.
+- Polished CLI and web UX.
 
 Definition of done:
 
@@ -80,14 +91,16 @@ Definition of done:
 
 ## What Not To Do Yet
 
-- No browser auto-apply
-- No large agent swarm
-- No database-first redesign
-- No complex workflow engine before core writing quality is good
+- No browser auto-apply.
+- No login automation.
+- No job scraping in core.
+- No database-first redesign before the local profile workflow is strong.
+- No default Loom/video output.
 
 ## Short Playbook
 
-1. Make the current evidence map and writing outputs solid.
-2. Add role-specific resume behavior before adding more automation.
-3. Add LLM help only where deterministic output is clearly weak.
-4. Evaluate with real CV/JD fixtures every step of the way.
+1. Make the tailored pack useful first.
+2. Keep the CV concise and skimmable.
+3. Treat profile memory as the main product asset.
+4. Keep evidence and safety checks internal unless the user needs to act.
+5. Evaluate with real CV/JD fixtures every step of the way.

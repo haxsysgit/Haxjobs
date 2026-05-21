@@ -6,8 +6,15 @@ from app.services.reporting import generate_markdown_report
 from app.services.workflow import analyze
 
 
+def fixture_path(path: str) -> Path:
+    primary = Path(path)
+    if primary.exists():
+        return primary
+    return Path("lab") / primary.relative_to("tests")
+
+
 def test_jd_parser_extracts_requirement_bullets_from_fixture() -> None:
-    jd_text = Path("tests/jd/60x.txt").read_text(encoding="utf-8")
+    jd_text = fixture_path("tests/jd/60x.txt").read_text(encoding="utf-8")
     jd_analysis = parse_jd(jd_text)
     assert jd_analysis.role_title
     assert jd_analysis.requirements
@@ -16,7 +23,7 @@ def test_jd_parser_extracts_requirement_bullets_from_fixture() -> None:
 
 def test_analyze_returns_expected_sections_for_real_fixtures() -> None:
     cv_text = extract_text_from_path("tests/cv/Arinze_Agent_engineer_cv.pdf")
-    jd_text = Path("tests/jd/60x.txt").read_text(encoding="utf-8")
+    jd_text = fixture_path("tests/jd/60x.txt").read_text(encoding="utf-8")
     report = analyze(cv_text=cv_text, jd_text=jd_text)
     assert report.jd_analysis.requirements
     assert report.candidate_evidence
@@ -27,16 +34,15 @@ def test_analyze_returns_expected_sections_for_real_fixtures() -> None:
 
 def test_markdown_report_contains_required_sections() -> None:
     cv_text = extract_text_from_path("tests/cv/Arinze_Agent_engineer_cv.pdf")
-    jd_text = Path("tests/jd/60x.txt").read_text(encoding="utf-8")
+    jd_text = fixture_path("tests/jd/60x.txt").read_text(encoding="utf-8")
     report = analyze(cv_text=cv_text, jd_text=jd_text)
     markdown = generate_markdown_report(report)
     for section in (
         "# Fit Summary",
         "# JD Analysis",
-        "# Candidate Evidence",
-        "# Evidence Map",
+        "# Candidate Signals",
+        "# Internal Match Summary",
         "# Gaps and Warnings",
         "# Follow-up Questions",
     ):
         assert section in markdown
-

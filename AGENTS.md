@@ -2,7 +2,7 @@
 
 # HaxJobs
 
-HaxJobs is an installable agent workflow for turning a base CV and job description into a stronger, defensible application pack.
+HaxJobs is an installable agent workflow for turning a base CV or saved candidate profile plus a job description into a stronger, tailored application pack.
 
 It should feel like a recruiter, CV editor, career coach, and interview-prep assistant working together.
 
@@ -10,7 +10,11 @@ It should not feel like a generic CV generator.
 
 Core principle:
 
-> Evidence before polish. Safety before hype.
+> Best truthful impression first. Safety before hype.
+
+Product interpretation:
+
+> Evidence and safety checks are internal guardrails, not the main user-facing product.
 
 ---
 
@@ -18,12 +22,12 @@ Core principle:
 
 HaxJobs helps users:
 
-1. Understand what a job description is really asking for
-2. Extract real evidence from their base CV
-3. Map job requirements to confirmed, partial, transferable, weak, or missing evidence
-4. Ask useful follow-up questions where evidence is unclear
-5. Produce a tailored CV, cover letter, evidence map, and interview notes
-6. Warn about claims that may be unsupported, exaggerated, or unsafe
+1. Paste a job description and reuse a saved candidate profile
+2. Understand what the role is really asking for
+3. Morph the candidate profile toward the role without inventing core facts
+4. Ask useful follow-up questions only when they improve the application
+5. Produce a concise tailored CV, cover letter, and application notes
+6. Keep claim safety and evidence checks behind the scenes unless the user needs to act
 
 The goal is not to invent a better candidate.
 
@@ -52,11 +56,10 @@ Expected outputs:
 
 1. `outputs/tailored_cv.md`
 2. `outputs/cover_letter.md`
-3. `outputs/evidence_map.json`
-4. `outputs/interview_notes.md`
-5. Optional `outputs/application_pack.json`
+3. `outputs/application_notes.md`
+4. `outputs/application_pack.json`
 
-The evidence map must be created before final writing.
+Internal match data may be created before final writing, but it should not be treated as a primary user-facing artifact.
 
 ---
 
@@ -64,7 +67,7 @@ The evidence map must be created before final writing.
 
 ### `safe`
 
-Use only clearly confirmed evidence from the CV or user answers.
+Use only clearly confirmed evidence from the CV, saved profile, or user answers.
 
 Best for conservative applications.
 
@@ -72,7 +75,7 @@ Best for conservative applications.
 
 Default mode.
 
-Use confirmed evidence, transferable experience, adjacent skills, projects, and user-confirmed answers to create the strongest defensible version.
+Use confirmed evidence, transferable experience, adjacent skills, projects, plausible inference, and user-confirmed answers to create the strongest defensible version.
 
 ### `interview`
 
@@ -100,11 +103,11 @@ When evidence is missing, use:
 
 1. Follow-up questions
 2. Stretch wording
-3. Gap notes
-4. Risk warnings
+3. Transferable positioning
+4. Internal risk warnings
 5. Clearly labeled aspirational examples
 
-Useful gaps are better than fake matches.
+Useful profile shaping is better than fake matches, and internal gaps should not clutter the user's CV unless they matter.
 
 ---
 
@@ -114,14 +117,13 @@ Follow this order:
 
 1. Read the job description
 2. Extract employer requirements
-3. Read the CV
-4. Extract confirmed evidence
-5. Build the evidence map
-6. Ask targeted questions if useful
-7. Generate the tailored CV and cover letter
-8. Review claims for safety
-9. Generate interview notes
-10. Export the application pack
+3. Read the saved profile and selected CV
+4. Infer the strongest truthful positioning for the role
+5. Ask targeted questions only if useful
+6. Generate the tailored CV and cover letter
+7. Review claims internally for safety
+8. Generate application notes or interview prep only where useful
+9. Export the application pack
 
 The orchestrator manages the flow.
 
@@ -149,11 +151,11 @@ It should route work, collect outputs, enforce order, and stop unsafe claims.
 
 ---
 
-## Evidence Map
+## Internal Match Layer
 
-The evidence map is the source of truth.
+The match layer is internal scaffolding for safer generation.
 
-Each job requirement should include:
+When generated, each job requirement may include:
 
 1. Requirement text
 2. Importance
@@ -181,7 +183,7 @@ Match labels:
 5. `Gap`
 6. `Unsupported Claim`
 
-Final outputs should trace back to the evidence map.
+Final outputs should benefit from this layer, but users should not need to inspect it to get value.
 
 ---
 
@@ -206,6 +208,10 @@ Avoid:
 
 Prefer clear, evidence-based language.
 
+For standard private-sector CVs, target two pages and never exceed three pages unless the role explicitly asks for an academic CV, federal resume, or long-form dossier.
+
+Do not generate Loom/video/project-walkthrough material by default. Prepare it only when the JD asks for video, examples of systems built, portfolio material, or a walkthrough-style artifact.
+
 ---
 
 ## Build Direction
@@ -223,7 +229,7 @@ Start with:
 
 1. CLI workflow
 2. Structured schemas
-3. Evidence map
+3. Profile-first application pack generation
 4. Markdown and JSON outputs
 5. Tests using local CV and JD fixtures
 
@@ -250,3 +256,18 @@ Lifecycle:
 
 ```text
 about -> guidance -> prebuild -> context_pack -> build -> verify -> record -> expect_sync
+
+<!-- HAXAML:MANAGED START {"generator":"haxaml-setup","kind":"pointer","recipe_hash":"770bda2c454fa4fc6dfe801863a0652c115f732f420299acb100aec6c783e6d1","scope":"project","target":"codex","version":"0.7.5"} -->
+## Haxaml Managed Workflow
+
+This repository uses Haxaml as the workflow governor. Keep your existing native instructions, but follow the managed adapter file at `.haxaml/setup/targets/codex.md` and the governed skill at `.agents/skills/haxaml/SKILL.md`.
+
+Lifecycle: about -> guidance -> prebuild -> context_pack -> build -> verify -> record -> expect_sync
+
+Fallback when tooling is unavailable:
+- Read the local instructions and the relevant source files before editing.
+- Classify the task, note risks, and state assumptions publicly.
+- Make the smallest safe change that satisfies the request.
+- Verify with commands, tests, or direct inspection and report evidence.
+- Record what changed and any remaining risks before claiming completion.
+<!-- HAXAML:MANAGED END -->

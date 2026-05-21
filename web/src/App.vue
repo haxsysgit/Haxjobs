@@ -1,7 +1,15 @@
-<script setup lang="ts">
-import { RouterView } from "vue-router";
+<script setup>
+import { onMounted } from 'vue'
+import { RouterView } from 'vue-router'
 
-import WorkflowShell from "./components/layout/WorkflowShell.vue";
+import WorkflowShell from './layouts/WorkflowShell.vue'
+import { useWorkspaceStore } from './stores/workspace'
+
+const workspace = useWorkspaceStore()
+
+onMounted(() => {
+  workspace.bootstrap()
+})
 </script>
 
 <template>

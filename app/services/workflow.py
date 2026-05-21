@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from app.models.analysis import (
+    AnalyzeProfileCvRequest,
     AnalysisMetadata,
     AnalysisMode,
     AnalysisReport,
@@ -14,6 +17,13 @@ from app.services.analysis import analyze_texts
 from app.services.ai_orchestrator import AIPipeline
 from app.services.demo_fixtures import load_demo_texts
 from app.services.generation import generate_application_pack
+from app.services.profile_store import (
+    get_cv_text,
+    import_cv_documents,
+    load_or_create_profile,
+    record_analysis,
+    save_profile,
+)
 from app.services.reporting import response_from_report
 
 
@@ -34,7 +44,14 @@ def analyze_upload(cv_text: str, jd_text: str, mode: AnalysisMode, cv_label: str
             jd_label="Pasted Job Description",
         ),
     )
-    return enrich_with_ai_pipeline(response)
+    enriched = enrich_with_ai_pipeline(response)
+    settings = get_settings()
+    profile_path = Path(settings.profile_store_path)
+    profile = load_or_create_profile(profile_path)
+    profile = import_cv_documents(profile, [(cv_label, cv_text)])
+    profile = record_analysis(profile, enriched)
+    save_profile(profile_path, profile)
+    return enriched
 
 
 def analyze_demo(cv_fixture_id: str, jd_fixture_id: str, mode: AnalysisMode):
@@ -50,6 +67,49 @@ def analyze_demo(cv_fixture_id: str, jd_fixture_id: str, mode: AnalysisMode):
         ),
     )
     return enrich_with_ai_pipeline(response)
+
+
+def analyze_saved_cv(payload: AnalyzeProfileCvRequest) -> AnalyzeResponse:
+    settings = get_settings()
+    profile_path = Path(settings.profile_store_path)
+    profile = load_or_create_profile(profile_path)
+    cv_text = get_cv_text(profile, payload.cv_document_id)
+    profile_text = _compose_profile_first_cv_text(profile, cv_text)
+    report = analyze(cv_text=profile_text, jd_text=payload.jd_text.strip(), mode=payload.mode)
+    selected_label = next(
+        item.label for item in profile.cv_documents if item.id == payload.cv_document_id
+    )
+    response = response_from_report(
+        report,
+        metadata=AnalysisMetadata(
+            mode=payload.mode,
+            source="upload",
+            cv_label=selected_label,
+            jd_label="Pasted Job Description",
+        ),
+    )
+    enriched = enrich_with_ai_pipeline(response)
+    profile = record_analysis(profile, enriched)
+    save_profile(profile_path, profile)
+    return enriched
+
+
+def _compose_profile_first_cv_text(profile, selected_cv_text: str) -> str:
+    """Give analysis the selected CV plus reusable profile memory.
+
+    The public UX is profile-first. This keeps the backend aligned without changing
+    the deterministic analyzer contract yet.
+    """
+    facts = [fact.text for fact in profile.evidence_library[:80] if fact.text.strip()]
+    skills = ", ".join(profile.top_skills)
+    sections = [selected_cv_text.strip()]
+    if profile.summary.strip():
+        sections.append(f"Reusable profile summary:\n{profile.summary.strip()}")
+    if skills:
+        sections.append(f"Reusable profile skills:\n{skills}")
+    if facts:
+        sections.append("Reusable profile facts:\n" + "\n".join(f"- {fact}" for fact in facts))
+    return "\n\n".join(section for section in sections if section.strip())
 
 
 def generate_pack_from_analysis(

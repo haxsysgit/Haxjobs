@@ -8,13 +8,14 @@ from pydantic import BaseModel, Field
 
 class Settings(BaseModel):
     project_name: str = "HaxJobs API"
-    project_version: str = "0.1.0"
+    project_version: str = "0.3.0"
     api_host: str = "127.0.0.1"
     api_port: int = 8000
     allowed_origins: tuple[str, ...] = (
         "http://127.0.0.1:5173",
         "http://localhost:5173",
     )
+    profile_store_path: str = "outputs/profile/profile.json"
     openai_api_key: str | None = Field(default=None, repr=False)
     ai_model_recruiter: str = "gpt-5.4-mini"
     ai_model_evaluator: str = "gpt-5.4-mini"
@@ -29,6 +30,7 @@ class Settings(BaseModel):
     @classmethod
     def from_env(cls) -> "Settings":
         return cls(
+            profile_store_path=os.getenv("HAXJOBS_PROFILE_STORE_PATH", "outputs/profile/profile.json"),
             openai_api_key=os.getenv("OPENAI_API_KEY"),
             ai_model_recruiter=os.getenv("HAXJOBS_MODEL_RECRUITER", "gpt-5.4-mini"),
             ai_model_evaluator=os.getenv("HAXJOBS_MODEL_EVALUATOR", "gpt-5.4-mini"),

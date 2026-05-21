@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "haxjobs"
-version = "0.1.0"
+version = "0.3.0"
 description = "Workflow-first evidence analysis for HaxJobs"
 requires-python = ">=3.12"
 dependencies = [

@@ -40,8 +40,7 @@ def test_cli_writes_expected_output_files(tmp_path, monkeypatch) -> None:
         "outputs/analysis.md",
         "outputs/tailored_cv.md",
         "outputs/cover_letter.md",
-        "outputs/evidence_map.json",
-        "outputs/interview_notes.md",
+        "outputs/application_notes.md",
         "outputs/application_pack.json",
     ):
         assert Path(path).exists(), f"expected {path} to be written"

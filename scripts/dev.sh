@@ -57,6 +57,20 @@ service_status() {
     "$name" "${pid:-missing}" "$port" "$state" "$log_file"
 }
 
+print_links() {
+  cat <<EOF
+
+Open:
+  web: http://$WEB_HOST:$WEB_PORT/
+  api: http://$API_HOST:$API_PORT/docs
+  health: http://$API_HOST:$API_PORT/api/health
+
+Logs:
+  ./scripts/dev.sh logs web
+  ./scripts/dev.sh logs api
+EOF
+}
+
 start_api() {
   local pid
   local existing_pid
@@ -174,6 +188,7 @@ case "$command" in
     sleep 2
     service_status "api" "$API_PID_FILE" "$API_PORT" "$API_LOG_FILE"
     service_status "web" "$WEB_PID_FILE" "$WEB_PORT" "$WEB_LOG_FILE"
+    print_links
     ;;
   stop)
     stop_service "web" "$WEB_PID_FILE" "$WEB_PORT"
@@ -186,6 +201,7 @@ case "$command" in
   status)
     service_status "api" "$API_PID_FILE" "$API_PORT" "$API_LOG_FILE"
     service_status "web" "$WEB_PID_FILE" "$WEB_PORT" "$WEB_LOG_FILE"
+    print_links
     ;;
   ps)
     show_ps "$API_PID_FILE"

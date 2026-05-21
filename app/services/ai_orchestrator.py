@@ -157,7 +157,7 @@ class AIPipeline:
         fallback = EvaluatorAssessment(
             fit_score=analysis.fit_summary.score,
             summary=(
-                "Evaluator pass completed with deterministic evidence-map checks. "
+                "Evaluator pass completed with deterministic internal match checks. "
                 "Weak or uncertain claims were flagged for confirmation."
             ),
             weak_claims=fallback_flags,

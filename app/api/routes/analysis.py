@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from app.models.analysis import (
+    AnalyzeProfileCvRequest,
     AnalyzeResponse,
     DEFAULT_MODE,
     MODE_OPTIONS,
@@ -10,7 +11,7 @@ from app.models.analysis import (
     GenerateApplicationPackResponse,
 )
 from app.services.documents import UnsupportedDocumentError, extract_text_from_upload
-from app.services.workflow import analyze_upload, generate_pack_from_analysis
+from app.services.workflow import analyze_saved_cv, analyze_upload, generate_pack_from_analysis
 
 router = APIRouter(tags=["analysis"])
 
@@ -45,3 +46,13 @@ def generate_application_pack_endpoint(
         user_claim_confirmations=payload.user_claim_confirmations,
         user_notes=payload.user_notes,
     )
+
+
+@router.post("/api/analyze-saved-cv", response_model=AnalyzeResponse)
+def analyze_saved_cv_endpoint(payload: AnalyzeProfileCvRequest) -> AnalyzeResponse:
+    if not payload.jd_text.strip():
+        raise HTTPException(status_code=400, detail="Job description text is required.")
+    try:
+        return analyze_saved_cv(payload)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Saved CV was not found in the local profile.") from exc
