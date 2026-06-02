@@ -1,0 +1,27 @@
+# python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# node
+node_modules/
+dist/
+coverage/
+
+# local data
+/data/*
+!/data/.gitkeep
+!/data/documents/.gitkeep
+*.db
+*.sqlite
+*.sqlite3
+
+# env
+.env
+.env.*
+!.env.example
+
+# editor/os
+.DS_Store
+.vscode/
