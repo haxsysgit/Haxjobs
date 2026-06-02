@@ -53,6 +53,13 @@ Implemented so far:
   - recent saved jobs panel
   - Hermes handoff explainer inside the UI
 
+- `0.1.6` manual job save UI and profile workspace basics
+  - Jobs page with manual save form
+  - saved-jobs inbox in the UI
+  - Profiles page backed by the API
+  - private profile import path explained in-app
+  - top navigation for dashboard, jobs, and profiles
+
 Next planned slices live in `docs/ROADMAP.md` and `docs/roadmaps/`.
 
 ## Repository layout
@@ -169,9 +176,10 @@ The private fixture file stays ignored under `data/private/`.
 Default local URLs:
 
 ```text
-Backend:  http://localhost:8000
-Health:   http://localhost:8000/health
-Frontend: http://localhost:5173
+Backend:  http://127.0.0.1:8000
+Health:   http://127.0.0.1:8000/health
+Frontend: http://127.0.0.1:5173
+Also accepted: http://localhost:8000 and http://localhost:5173
 ```
 
 The frontend defaults to this API URL:

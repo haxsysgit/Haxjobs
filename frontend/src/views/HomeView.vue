@@ -57,7 +57,7 @@ onMounted(async () => {
 <template>
   <main class="home-view">
     <section class="hero-card">
-      <p class="eyebrow">HaxJobs 0.1.5</p>
+      <p class="eyebrow">HaxJobs 0.1.6</p>
       <h1>Hermes-powered job search starts here.</h1>
       <p class="summary">
         HaxJobs is the UI and workflow layer for the Hermes job application pipeline. This slice makes the starter dashboard read real backend data instead of only checking health.

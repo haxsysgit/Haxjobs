@@ -33,6 +33,30 @@ def test_root_endpoint_describes_the_api_surface(tmp_path):
     }
 
 
+def test_health_endpoint_allows_localhost_and_loopback_frontend_origins(tmp_path):
+    client = make_client(tmp_path)
+
+    localhost_response = client.options(
+        "/health",
+        headers={
+            "Origin": "http://localhost:5173",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+    loopback_response = client.options(
+        "/health",
+        headers={
+            "Origin": "http://127.0.0.1:5173",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+
+    assert localhost_response.status_code == 200
+    assert localhost_response.headers["access-control-allow-origin"] == "http://localhost:5173"
+    assert loopback_response.status_code == 200
+    assert loopback_response.headers["access-control-allow-origin"] == "http://127.0.0.1:5173"
+
+
 def test_dashboard_bootstrap_endpoints_return_jobs_profiles_and_tasks(tmp_path):
     client = make_client(tmp_path)
 

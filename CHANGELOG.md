@@ -11,6 +11,26 @@ Release policy:
 - Major line milestones like `0.1.0`, `0.2.0`, and `0.3.0` get GitHub releases.
 - Major release notes should explain the product meaning, not just list changed files.
 
+## 0.1.6 — Manual job save UI and profile workspace basics
+
+This version finishes the 0.1 line by making the frontend capable of basic day-to-day input and inspection.
+
+Landed:
+
+- `Jobs` route with a manual job save form in the UI.
+- Saved-jobs inbox panel in the UI.
+- `Profiles` route showing stored profiles from the backend.
+- In-app callout for the private local profile fixture path.
+- Frontend API helper for `POST /api/jobs/manual`.
+- Top navigation for dashboard, jobs, and profiles.
+- Loopback (`127.0.0.1`) frontend origin allowed alongside `localhost` so the local UI can talk to the backend reliably.
+
+Product meaning:
+
+- You can finally use HaxJobs through the web UI for core 0.1 workflows instead of dropping into raw API calls.
+- The product now feels like an actual early app, not only a backend with a shell around it.
+- This is a much better launch point for 0.2.x, where Hermes task execution and writeback become the main story.
+
 ## 0.1.5 — Connected starter dashboard
 
 This version fixes the “frontend shell only” gap and turns the landing page into a real connected dashboard.
