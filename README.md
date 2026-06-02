@@ -28,6 +28,11 @@ Implemented so far:
   - Alembic migration pipeline
   - initial baseline migration
   - local data/document placeholders
+- `0.1.2` core data model
+  - feature-based backend modules
+  - SQLAlchemy 2.0 typed ORM models
+  - Pydantic schemas beside feature models
+  - Alembic migration for core HaxJobs tables
 
 Next planned slices live in `docs/ROADMAP.md` and `docs/roadmaps/`.
 

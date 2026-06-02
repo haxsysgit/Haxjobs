@@ -11,6 +11,25 @@ Release policy:
 - Major line milestones like `0.1.0`, `0.2.0`, and `0.3.0` get GitHub releases.
 - Major release notes should explain the product meaning, not just list changed files.
 
+## 0.1.2 — Core data models
+
+This version adds the first complete HaxJobs data shape using SQLAlchemy 2.0 models and Pydantic schemas.
+
+It matters because the product is now backed by the entities Hermes will actually need: user profile facts, saved application answers, jobs, snapshots, applications, packs, documents, contacts, outreach messages, Hermes tasks, approval checkpoints, and status events.
+
+Architecture direction:
+
+- Feature-based backend modules under `backend/haxjobs_api/features/`.
+- SQLAlchemy 2.0 typed ORM models.
+- Pydantic schemas beside feature models.
+- Alembic migration for the core table set.
+
+Product meaning:
+
+- HaxJobs can now persist the core objects needed for the job-search workflow.
+- Hermes has a real target shape for future task queue inputs and structured writebacks.
+- Sensitive user answers can be modeled with review/approval sensitivity instead of being treated as plain text.
+
 ## 0.1.1 — Database foundation and local persistence baseline
 
 This version adds the first real persistence layer for HaxJobs.
