@@ -46,6 +46,13 @@ Implemented so far:
   - private profile JSON import service/script
   - profile/account setup docs without storing passwords
 
+- `0.1.5` connected starter dashboard
+  - backend root endpoint with friendly API message
+  - Hermes task list endpoint for the UI
+  - dashboard counts from live jobs/profiles/tasks
+  - recent saved jobs panel
+  - Hermes handoff explainer inside the UI
+
 Next planned slices live in `docs/ROADMAP.md` and `docs/roadmaps/`.
 
 ## Repository layout

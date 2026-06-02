@@ -1,3 +1,4 @@
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from haxjobs_api.features.tasks.models import HermesTask, TaskStatus
@@ -10,3 +11,8 @@ def create_hermes_task(session: Session, payload: HermesTaskCreate) -> HermesTas
     session.commit()
     session.refresh(task)
     return task
+
+
+def list_hermes_tasks(session: Session) -> list[HermesTask]:
+    statement = select(HermesTask).order_by(HermesTask.created_at.desc())
+    return list(session.scalars(statement))

@@ -174,6 +174,36 @@ Done when:
 - generated files can be registered as Document records
 - app can show paths/metadata without needing cloud storage
 
+## 0.1.5 — Connected starter dashboard
+
+Build:
+
+- dashboard reads real jobs/profiles/Hermes-task data
+- backend root endpoint gives a friendly API message instead of raw 404
+- home page explains the HaxJobs ↔ Hermes split inside the UI
+- recent saved jobs panel
+
+Done when:
+
+- opening the UI shows real backend-backed counts
+- visiting `http://localhost:8000/` is human-friendly during dev
+- user can tell whether real job-search state exists without touching the API
+
+## 0.1.6 — Manual job save UI and profile workspace basics
+
+Build:
+
+- manual job save form in the UI
+- saved jobs list/inbox view in the UI
+- basic profile list/view in the UI
+- obvious callouts for private local profile import data
+
+Done when:
+
+- user can save a job from the browser UI, not just the API
+- saved job appears immediately in the dashboard/inbox
+- user can view the stored profile records from the frontend
+
 ---
 
 # 0.2.x — Hermes task queue and job-platform foundation

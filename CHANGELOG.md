@@ -11,6 +11,25 @@ Release policy:
 - Major line milestones like `0.1.0`, `0.2.0`, and `0.3.0` get GitHub releases.
 - Major release notes should explain the product meaning, not just list changed files.
 
+## 0.1.5 — Connected starter dashboard
+
+This version fixes the “frontend shell only” gap and turns the landing page into a real connected dashboard.
+
+Landed:
+
+- `GET /` root endpoint so the backend no longer returns a confusing `404 Not Found` at the base URL.
+- `GET /api/hermes-tasks` so the UI can read queued Hermes work.
+- Frontend API helpers for jobs, profiles, and Hermes tasks.
+- Dashboard cards showing saved jobs, profiles, and Hermes tasks from live backend data.
+- Recent saved jobs list on the home page.
+- Short in-product explanation of the Hermes ↔ HaxJobs handoff.
+
+Product meaning:
+
+- The UI now feels like the beginning of the actual product, not just a health-check stub.
+- You can open HaxJobs and immediately see whether real state exists in the database.
+- The backend root URL is now human-friendly when you visit it directly during development.
+
 ## 0.1.4 — Local document storage and profile fixture import
 
 This version adds the first local artifact path for generated application-pack files and a safe bridge from private JSON profile data into the development database.

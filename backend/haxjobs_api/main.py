@@ -22,6 +22,16 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    @app.get("/")
+    def read_root():
+        return {
+            "service": settings.app_name,
+            "status": "ok",
+            "ui_hint": f"Use the HaxJobs frontend on {settings.frontend_origin} for the main workflow.",
+            "docs_path": "/docs",
+            "health_path": "/health",
+        }
+
     app.include_router(health_router)
     app.include_router(jobs_router)
     app.include_router(packs_router)
