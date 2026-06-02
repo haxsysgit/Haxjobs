@@ -31,3 +31,8 @@ def get_db_session() -> Generator[Session, None, None]:
 
     with SessionLocal() as session:
         yield session
+
+
+# Register feature models on Base.metadata for tests/tools that call create_all directly.
+# Alembic also imports haxjobs_api.models explicitly in env.py.
+import haxjobs_api.models  # noqa: E402,F401

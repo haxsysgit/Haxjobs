@@ -3,6 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from haxjobs_api.api.health import router as health_router
 from haxjobs_api.config import get_settings
+from haxjobs_api.features.jobs.router import router as jobs_router
+from haxjobs_api.features.profiles.router import router as profiles_router
+from haxjobs_api.features.tasks.router import router as tasks_router
 
 
 def create_app() -> FastAPI:
@@ -18,6 +21,9 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(health_router)
+    app.include_router(jobs_router)
+    app.include_router(profiles_router)
+    app.include_router(tasks_router)
     return app
 
 

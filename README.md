@@ -34,6 +34,12 @@ Implemented so far:
   - Pydantic schemas beside feature models
   - Alembic migration for core HaxJobs tables
 
+- `0.1.3` core CRUD APIs
+  - manual job save endpoint
+  - profile/fact/saved-answer endpoints
+  - Hermes task creation endpoint
+  - status event creation during manual job save
+
 Next planned slices live in `docs/ROADMAP.md` and `docs/roadmaps/`.
 
 ## Repository layout

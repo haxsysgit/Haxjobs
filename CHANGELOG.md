@@ -11,6 +11,28 @@ Release policy:
 - Major line milestones like `0.1.0`, `0.2.0`, and `0.3.0` get GitHub releases.
 - Major release notes should explain the product meaning, not just list changed files.
 
+## 0.1.3 — Core CRUD APIs and manual job save
+
+This version makes the model layer usable through the API.
+
+It adds the first feature-based routers/repositories for saving jobs, creating profile records, storing reusable answers, and creating Hermes task requests.
+
+Landed:
+
+- `POST /api/jobs/manual` for manually saving a job before browser extensions exist.
+- `GET /api/jobs` and `GET /api/jobs/{job_id}`.
+- `POST /api/profiles` and `GET /api/profiles`.
+- `POST /api/profiles/{profile_id}/facts`.
+- `POST /api/profiles/{profile_id}/answers`.
+- `POST /api/hermes-tasks`.
+- Manual job save now creates a Job, optional Application, source Snapshot, and StatusEvent together.
+
+Product meaning:
+
+- HaxJobs can now accept real job-search state through HTTP instead of only models/tests.
+- Hermes has the first API surface for queueable work.
+- The manual-save workflow lets development continue before the browser extension lands.
+
 ## 0.1.2 — Core data models
 
 This version adds the first complete HaxJobs data shape using SQLAlchemy 2.0 models and Pydantic schemas.
