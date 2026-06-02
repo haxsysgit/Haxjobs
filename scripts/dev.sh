@@ -73,6 +73,25 @@ start_frontend() {
   echo "started frontend (pid $(cat "$WEB_PID_FILE"), log $WEB_LOG)"
 }
 
+wait_for_http() {
+  local name="$1"
+  local url="$2"
+  local log_file="$3"
+
+  for _ in {1..60}; do
+    if curl -fsS "$url" >/dev/null 2>&1; then
+      echo "$name ready at $url"
+      return 0
+    fi
+    sleep 0.25
+  done
+
+  echo "$name did not become ready at $url"
+  echo "last $name log lines:"
+  tail -n 40 "$log_file" || true
+  return 1
+}
+
 stop_one() {
   local name="$1"
   local pid_file="$2"
@@ -172,6 +191,8 @@ case "$command" in
   start)
     start_backend
     start_frontend
+    wait_for_http "backend" "http://127.0.0.1:8000/health" "$API_LOG"
+    wait_for_http "frontend" "http://127.0.0.1:5173" "$WEB_LOG"
     status_all
     ;;
   stop)
@@ -181,6 +202,8 @@ case "$command" in
     stop_all
     start_backend
     start_frontend
+    wait_for_http "backend" "http://127.0.0.1:8000/health" "$API_LOG"
+    wait_for_http "frontend" "http://127.0.0.1:5173" "$WEB_LOG"
     status_all
     ;;
   status)

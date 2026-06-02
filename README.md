@@ -40,6 +40,12 @@ Implemented so far:
   - Hermes task creation endpoint
   - status event creation during manual job save
 
+- `0.1.4` local document/profile fixture support
+  - safe local document storage under `data/documents`
+  - application-pack and document registration endpoints
+  - private profile JSON import service/script
+  - profile/account setup docs without storing passwords
+
 Next planned slices live in `docs/ROADMAP.md` and `docs/roadmaps/`.
 
 ## Repository layout
@@ -132,6 +138,26 @@ Manual frontend:
 cd frontend
 npm run dev
 ```
+
+Local document storage defaults to:
+
+```text
+data/documents
+```
+
+You can override it with:
+
+```bash
+HAXJOBS_DOCUMENT_STORAGE_DIR=data/documents
+```
+
+Import ignored local profile fixture data into the development database:
+
+```bash
+uv run python scripts/import-profile.py data/private/arinze_profile.local.json
+```
+
+The private fixture file stays ignored under `data/private/`.
 
 Default local URLs:
 

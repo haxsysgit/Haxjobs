@@ -11,6 +11,27 @@ Release policy:
 - Major line milestones like `0.1.0`, `0.2.0`, and `0.3.0` get GitHub releases.
 - Major release notes should explain the product meaning, not just list changed files.
 
+## 0.1.4 — Local document storage and profile fixture import
+
+This version adds the first local artifact path for generated application-pack files and a safe bridge from private JSON profile data into the development database.
+
+Landed:
+
+- Safe `DocumentStorage` service rooted at `data/documents` by default.
+- Path traversal protection so document writes cannot escape the storage directory.
+- `POST /api/application-packs` for creating application pack records.
+- `POST /api/documents/register` for registering existing local document paths.
+- `POST /api/documents/register-text` for writing text artifacts and recording them as `Document` rows.
+- Local profile import service for ignored JSON fixtures.
+- `scripts/import-profile.py` for importing `data/private/arinze_profile.local.json` into the dev database.
+- Profile/account data setup docs explaining what can be stored and what must stay out of the repo.
+
+Product meaning:
+
+- Generated CVs, cover letters, notes, and future PDFs now have a safe local storage convention.
+- HaxJobs can use Arinze's real profile fixture while we build, without committing private data.
+- The future profile/survey UI has a concrete data shape to grow into.
+
 ## 0.1.3 — Core CRUD APIs and manual job save
 
 This version makes the model layer usable through the API.

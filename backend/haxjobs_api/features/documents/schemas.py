@@ -10,6 +10,16 @@ class DocumentCreate(BaseModel):
     is_submitted_version: bool = False
 
 
+class DocumentTextRegister(BaseModel):
+    application_pack_id: str
+    document_type: str
+    format: str
+    filename: str
+    content: str
+    version: str = "1"
+    is_submitted_version: bool = False
+
+
 class DocumentRead(DocumentCreate):
     model_config = ConfigDict(from_attributes=True)
 
