@@ -11,6 +11,25 @@ Release policy:
 - Major line milestones like `0.1.0`, `0.2.0`, and `0.3.0` get GitHub releases.
 - Major release notes should explain the product meaning, not just list changed files.
 
+## 0.1.7 — HaxJobs cockpit UI identity pass
+
+This version replaces the generic starter UI with a more distinct HaxJobs product surface.
+
+Landed:
+
+- Branded cockpit shell with glass panels, ambient motion, command dock, and future Hermes action affordances.
+- Dark/light cockpit theme toggle with local persistence.
+- Dashboard redesign with orbit visual, readiness meter, pipeline map, animated cards, and clearer Hermes handoff language.
+- Jobs page redesign with capture templates, stronger manual-save form, capture meter, and styled job inbox.
+- Profiles page redesign with truth-layer cards, profile readiness meter, and cleaner private-fixture callout.
+- Shared design tokens for colors, surfaces, animation, depth, and theme variables.
+
+Product meaning:
+
+- HaxJobs now feels like its own product, not a default Vue/FastAPI demo.
+- The UI begins previewing later workflow surfaces like analysis, pack generation, outreach, and apply assistance without pretending those automations are live yet.
+- The design now matches the product idea: HaxJobs as a Hermes-powered job-search cockpit.
+
 ## 0.1.6 — Manual job save UI and profile workspace basics
 
 This version finishes the 0.1 line by making the frontend capable of basic day-to-day input and inspection.

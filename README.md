@@ -60,6 +60,13 @@ Implemented so far:
   - private profile import path explained in-app
   - top navigation for dashboard, jobs, and profiles
 
+- `0.1.7` cockpit UI identity pass
+  - branded shell with ambient motion and command dock
+  - persisted dark/light theme toggle
+  - redesigned dashboard with workflow orbit, readiness meter, and pipeline map
+  - redesigned Jobs page with capture templates and stronger inbox
+  - redesigned Profiles page with truth-layer cards and profile readiness meter
+
 Next planned slices live in `docs/ROADMAP.md` and `docs/roadmaps/`.
 
 ## Repository layout
