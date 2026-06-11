@@ -19,6 +19,12 @@ if __name__ == "__main__":
         n = seed_from_intake()
         print(f"Seeded {n} jobs from intake/")
 
+    elif action == "classify-roles":
+        from db.role_classification import classify_existing_jobs
+        limit = int(sys.argv[2]) if len(sys.argv) > 2 else None
+        summary = classify_existing_jobs(limit=limit)
+        print(f"Role classification: {summary['classified']} classified, {summary['unknown']} unknown, {summary['scanned']} scanned")
+
     elif action == "status":
         from db.stats import get_stats
         s = get_stats()
@@ -55,4 +61,4 @@ if __name__ == "__main__":
 
     else:
         print(f"Unknown action: {action}")
-        print("Usage: pipeline_db.py [seed|status|activity|pending|favorites|reset]")
+        print("Usage: pipeline_db.py [seed|classify-roles|status|activity|pending|favorites|reset]")

@@ -46,6 +46,12 @@ function JobCard({ job, onToggleFav, onToggleAuto }: { job: Job; onToggleFav: (j
       )}
       <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         <span className="badge badge-neutral" style={{ fontSize: 10 }}>{job.source}</span>
+        {job.recommendedCvVariant && job.recommendedCvVariant !== 'unknown' && (
+          <span className="badge badge-good" style={{ fontSize: 10 }}>CV: {job.recommendedCvVariant.replaceAll('_', ' ')}</span>
+        )}
+        {job.sourceQuality && job.sourceQuality !== 'unknown' && (
+          <span className="badge badge-neutral" style={{ fontSize: 10 }}>{job.sourceQuality}</span>
+        )}
         <span className="badge badge-neutral" style={{ fontSize: 10 }}>{job.status}</span>
         {job.isSaved && <span className="badge badge-good" style={{ fontSize: 10 }}>Saved</span>}
         {job.isApproved && <span className="badge badge-strong" style={{ fontSize: 10 }}>Approved</span>}

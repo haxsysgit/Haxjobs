@@ -65,5 +65,6 @@ print(db.get_stats()['pending'])
     log "--all mode: complete."
 fi
 
+python3 pipeline_db.py classify-roles 2>&1 | tee -a "$LOG_FILE"
 python3 /home/hermes/haxjobs/cron/sync_db_to_intake.py
 log "Pipeline done."

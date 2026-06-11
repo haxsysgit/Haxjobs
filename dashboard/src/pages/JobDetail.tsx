@@ -137,6 +137,21 @@ export function JobDetailPage({ job, onBack }: { job: Job; onBack: () => void })
             </div>
           )}
 
+          {job.recommendedCvVariant && job.recommendedCvVariant !== 'unknown' && (
+            <div className="sidebar-card">
+              <h4>Recommended CV</h4>
+              <span className="badge badge-good">
+                {job.recommendedCvVariant.replaceAll('_', ' ')}
+              </span>
+              {job.roleFamily && (
+                <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>
+                  Role family: {job.roleFamily.replaceAll('_', ' ')}
+                  {job.roleFamilyConfidence ? ` (${Math.round(job.roleFamilyConfidence * 100)}%)` : ''}
+                </p>
+              )}
+            </div>
+          )}
+
           {job.sponsorshipRisk && (
             <div className="sidebar-card">
               <h4>Sponsorship Risk</h4>

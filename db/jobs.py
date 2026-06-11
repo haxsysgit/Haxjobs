@@ -3,6 +3,7 @@ import json
 import sqlite3
 from .schema import get_db
 from .activity import _log
+from .role_classification import classify_job_payload
 
 
 def insert_job(title, company, location="", jd_text="", source_url="", source="unknown",
@@ -13,10 +14,22 @@ def insert_job(title, company, location="", jd_text="", source_url="", source="u
         if existing:
             conn.close()
             return None
+    classification = classify_job_payload(title=title, jd_text=jd_text, source=source)
     cur = conn.execute("""
-        INSERT INTO jobs (external_id, title, company, location, jd_text, source_url, source)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (external_id, title, company, location, jd_text, source_url, source))
+        INSERT INTO jobs (
+            external_id, title, company, location, jd_text, source_url, source,
+            source_quality, role_family, role_family_confidence,
+            recommended_cv_variant, role_family_terms
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        external_id, title, company, location, jd_text, source_url, source,
+        classification["source_quality"],
+        classification["role_family"],
+        classification["role_family_confidence"],
+        classification["recommended_cv_variant"],
+        classification["role_family_terms"],
+    ))
     conn.commit()
     job_id = cur.lastrowid
     conn.close()

@@ -10,6 +10,12 @@ export interface Job {
   title: string
   location: string
   source: string
+  sourceQuality?: string
+  roleFamily?: string
+  roleFamilyConfidence?: number
+  recommendedCvVariant?: string
+  packStatus?: string
+  outreachStatus?: string
   fitScore: number
   level: number
   levelName: string
@@ -29,7 +35,6 @@ export interface Job {
   isUnskipped?: boolean
   // Extended fields
   jdText?: string
-  outreachStatus?: string
 }
 
 export interface Pack {

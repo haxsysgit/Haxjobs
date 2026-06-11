@@ -27,7 +27,15 @@ def init():
             jd_text TEXT DEFAULT '',
             source_url TEXT DEFAULT '',
             source TEXT DEFAULT 'unknown',
+            source_quality TEXT DEFAULT 'unknown',
             status TEXT DEFAULT 'pending',
+            role_family TEXT DEFAULT 'unknown',
+            role_family_confidence REAL DEFAULT 0,
+            recommended_cv_variant TEXT DEFAULT 'unknown',
+            role_family_terms TEXT DEFAULT '[]',
+            pack_status TEXT DEFAULT 'none',
+            outreach_status TEXT DEFAULT 'none',
+            classified_at TEXT,
             discovered_at TEXT NOT NULL DEFAULT (datetime('now')),
             updated_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
@@ -128,5 +136,39 @@ def init():
         );
         CREATE INDEX IF NOT EXISTS idx_eval_history_job ON evaluation_history(job_id);
     """)
+    _ensure_jobs_columns(conn)
+    _ensure_jobs_indexes(conn)
     conn.commit()
     conn.close()
+
+
+def _ensure_jobs_columns(conn):
+    """Add reset-era job columns to older Archilles databases.
+
+    SQLite cannot add multiple columns in one statement, so this keeps startup
+    migrations tiny and safe. Each column is additive and has a default.
+    """
+    existing = {row[1] for row in conn.execute("PRAGMA table_info(jobs)")}
+    required = {
+        "source_quality": "TEXT DEFAULT 'unknown'",
+        "role_family": "TEXT DEFAULT 'unknown'",
+        "role_family_confidence": "REAL DEFAULT 0",
+        "recommended_cv_variant": "TEXT DEFAULT 'unknown'",
+        "role_family_terms": "TEXT DEFAULT '[]'",
+        "pack_status": "TEXT DEFAULT 'none'",
+        "outreach_status": "TEXT DEFAULT 'none'",
+        "classified_at": "TEXT",
+    }
+    for column, definition in required.items():
+        if column not in existing:
+            conn.execute(f"ALTER TABLE jobs ADD COLUMN {column} {definition}")
+
+
+def _ensure_jobs_indexes(conn):
+    """Create indexes that depend on reset-era job columns after migration."""
+    conn.executescript("""
+        CREATE INDEX IF NOT EXISTS idx_jobs_role_family ON jobs(role_family);
+        CREATE INDEX IF NOT EXISTS idx_jobs_cv_variant ON jobs(recommended_cv_variant);
+        CREATE INDEX IF NOT EXISTS idx_jobs_pack_status ON jobs(pack_status);
+        CREATE INDEX IF NOT EXISTS idx_jobs_outreach_status ON jobs(outreach_status);
+    """)

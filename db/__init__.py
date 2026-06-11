@@ -21,3 +21,7 @@ from .whitelist import (
     get_whitelist_for_eval, suggest_whitelist,
 )
 from .seed import seed_from_intake
+from .role_classification import (
+    classify_job_payload, classify_existing_jobs, update_job_role_classification,
+    infer_source_quality,
+)
