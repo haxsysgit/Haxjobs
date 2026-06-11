@@ -1,0 +1,89 @@
+import json
+from pathlib import Path
+
+import pytest
+
+from cv_variants.registry import load_cv_variant_registry, resolve_cv_variant, build_pack_cv_metadata
+
+
+ROOT = Path(__file__).resolve().parents[1]
+REGISTRY_PATH = ROOT / "cv_variants" / "registry.json"
+TAXONOMY_PATH = ROOT / "profile" / "role_taxonomy.json"
+
+
+def test_registry_covers_all_taxonomy_cv_variants():
+    registry = load_cv_variant_registry(REGISTRY_PATH)
+    taxonomy = json.loads(TAXONOMY_PATH.read_text())
+
+    expected_variants = {family["cv_variant"] for family in taxonomy.values()}
+    assert expected_variants == set(registry["variants"])
+
+
+def test_variant_filenames_are_stable_and_not_per_job_tailored():
+    registry = load_cv_variant_registry(REGISTRY_PATH)
+
+    for variant_id, variant in registry["variants"].items():
+        assert "Tailored" not in variant["pdf"]
+        assert "Tailored" not in variant["html"]
+        assert variant["pdf"].startswith("Arinze_Elenasulu_")
+        assert variant["pdf"].endswith("_CV.pdf")
+        assert variant["html"].endswith("_CV.html")
+        assert variant["role_family"] == variant_id
+
+
+def test_resolve_cv_variant_returns_copy_free_reference():
+    registry = load_cv_variant_registry(REGISTRY_PATH)
+
+    resolved = resolve_cv_variant("backend_python", registry)
+
+    assert resolved["variant_id"] == "backend_python"
+    assert resolved["role_family"] == "backend_python"
+    assert resolved["pdf"].endswith("Arinze_Elenasulu_Backend_Python_CV.pdf")
+    assert resolved["relative_dir"] == "cv_variants/backend_python"
+
+
+def test_resolve_unknown_variant_falls_back_to_backend_python():
+    registry = load_cv_variant_registry(REGISTRY_PATH)
+
+    resolved = resolve_cv_variant("unknown", registry)
+
+    assert resolved["variant_id"] == registry["default_variant"]
+    assert resolved["role_family"] == "backend_python"
+
+
+def test_pack_cv_metadata_references_reusable_variant_without_owning_cv():
+    registry = load_cv_variant_registry(REGISTRY_PATH)
+
+    metadata = build_pack_cv_metadata(
+        recommended_cv_variant="ai_engineer_llm",
+        registry=registry,
+    )
+
+    assert metadata == {
+        "recommended_cv_variant": "ai_engineer_llm",
+        "role_family": "ai_engineer_llm",
+        "cv_variant_dir": "cv_variants/ai_engineer_llm",
+        "cv_pdf": "cv_variants/ai_engineer_llm/Arinze_Elenasulu_AI_LLM_Engineer_CV.pdf",
+        "cv_html": "cv_variants/ai_engineer_llm/Arinze_Elenasulu_AI_LLM_Engineer_CV.html",
+        "pack_owns_cv": False,
+    }
+
+
+def test_pull_script_exists_for_archilles_cv_variants():
+    script = ROOT / "scripts" / "pull-cv-variants"
+    assert script.exists()
+    text = script.read_text()
+    assert "rsync" in text
+    assert "archilles:/home/hermes/haxjobs/cv_variants/" in text
+
+
+def test_seed_script_promotes_existing_pack_cvs_without_tailored_names():
+    script = ROOT / "scripts" / "seed-cv-variants-from-packs"
+    assert script.exists()
+    text = script.read_text()
+    assert "Tailored_CV" not in text
+    assert "Python_Developer" in text
+    assert "Palantir_Forward_Deployed_AI_Engineer" in text
+    assert "PROMOTIONS" in text
+    assert '"backend_python"' in text
+    assert '"target_pdf"' in text

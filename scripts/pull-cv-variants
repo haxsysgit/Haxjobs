@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+LOCAL_ROOT="${1:-/home/hax/haxjobs/cv_variants}"
+REMOTE_ROOT="archilles:/home/hermes/haxjobs/cv_variants/"
+
+mkdir -p "$LOCAL_ROOT"
+
+echo "Pulling reusable CV variants from Archilles..."
+echo "Remote: $REMOTE_ROOT"
+echo "Local:  $LOCAL_ROOT/"
+
+rsync -avz --progress \
+  --exclude 'registry.py' \
+  --exclude '__pycache__/' \
+  "$REMOTE_ROOT" "$LOCAL_ROOT/"
+
+echo "Done. Local CV variant files:"
+find "$LOCAL_ROOT" -maxdepth 2 -type f \
+  \( -iname '*.pdf' -o -iname '*.html' -o -iname 'registry.json' \) \
+  -printf '%p\n' | sort

@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "default_variant": "backend_python",
+  "storage_root": "cv_variants",
+  "notes": [
+    "These are reusable CV variants, not per-job tailored CVs.",
+    "Per-job packs reference one variant through metadata instead of generating a new CV.",
+    "Final PDF/HTML files may live on Archilles and can be pulled to Jade with scripts/pull-cv-variants."
+  ],
+  "variants": {
+    "backend_python": {
+      "label": "Python Backend Engineer CV",
+      "role_family": "backend_python",
+      "relative_dir": "cv_variants/backend_python",
+      "pdf": "Arinze_Elenasulu_Backend_Python_CV.pdf",
+      "html": "Arinze_Elenasulu_Backend_Python_CV.html",
+      "source_status": "needs_final_generation",
+      "focus": [
+        "Python",
+        "FastAPI",
+        "PostgreSQL",
+        "SQLAlchemy",
+        "pytest",
+        "backend APIs"
+      ]
+    },
+    "fullstack_python_react": {
+      "label": "Full Stack Python React CV",
+      "role_family": "fullstack_python_react",
+      "relative_dir": "cv_variants/fullstack_python_react",
+      "pdf": "Arinze_Elenasulu_Full_Stack_Python_React_CV.pdf",
+      "html": "Arinze_Elenasulu_Full_Stack_Python_React_CV.html",
+      "source_status": "needs_final_generation",
+      "focus": [
+        "FastAPI",
+        "React",
+        "TypeScript",
+        "Vite",
+        "PostgreSQL",
+        "end-to-end delivery"
+      ]
+    },
+    "ai_engineer_llm": {
+      "label": "AI and LLM Engineer CV",
+      "role_family": "ai_engineer_llm",
+      "relative_dir": "cv_variants/ai_engineer_llm",
+      "pdf": "Arinze_Elenasulu_AI_LLM_Engineer_CV.pdf",
+      "html": "Arinze_Elenasulu_AI_LLM_Engineer_CV.html",
+      "source_status": "needs_final_generation",
+      "focus": [
+        "LLM systems",
+        "RAG",
+        "evaluation",
+        "pytest",
+        "automation",
+        "AI product workflows"
+      ]
+    },
+    "ai_automation_agents": {
+      "label": "AI Automation and Agent Tooling CV",
+      "role_family": "ai_automation_agents",
+      "relative_dir": "cv_variants/ai_automation_agents",
+      "pdf": "Arinze_Elenasulu_AI_Automation_Agents_CV.pdf",
+      "html": "Arinze_Elenasulu_AI_Automation_Agents_CV.html",
+      "source_status": "needs_final_generation",
+      "focus": [
+        "agent workflows",
+        "browser automation",
+        "HaxJobs",
+        "FRAME",
+        "tool orchestration",
+        "production scripts"
+      ]
+    },
+    "junior_software": {
+      "label": "Junior and Graduate Software Engineer CV",
+      "role_family": "junior_software",
+      "relative_dir": "cv_variants/junior_software",
+      "pdf": "Arinze_Elenasulu_Junior_Software_Engineer_CV.pdf",
+      "html": "Arinze_Elenasulu_Junior_Software_Engineer_CV.html",
+      "source_status": "needs_final_generation",
+      "focus": [
+        "software fundamentals",
+        "Python",
+        "Java",
+        "C++",
+        "Flutter",
+        "projects",
+        "learning speed"
+      ]
+    },
+    "data_python": {
+      "label": "Python Data and Analytics CV",
+      "role_family": "data_python",
+      "relative_dir": "cv_variants/data_python",
+      "pdf": "Arinze_Elenasulu_Python_Data_Analytics_CV.pdf",
+      "html": "Arinze_Elenasulu_Python_Data_Analytics_CV.html",
+      "source_status": "needs_final_generation",
+      "focus": [
+        "Python",
+        "SQL",
+        "data workflows",
+        "Tableau adjacency",
+        "RAGAS evaluation",
+        "reporting"
+      ]
+    },
+    "platform_backend": {
+      "label": "Platform and Backend Infrastructure CV",
+      "role_family": "platform_backend",
+      "relative_dir": "cv_variants/platform_backend",
+      "pdf": "Arinze_Elenasulu_Platform_Backend_CV.pdf",
+      "html": "Arinze_Elenasulu_Platform_Backend_CV.html",
+      "source_status": "needs_final_generation",
+      "focus": [
+        "Docker",
+        "CI/CD",
+        "Linux",
+        "observability",
+        "backend services",
+        "cloud-ready systems"
+      ]
+    }
+  }
+}

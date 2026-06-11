@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+"""Seed reusable CV variants from existing pack CVs.
+
+This is a bridge script for the HaxJobs reset. Old packs already contain some
+usable CV drafts. This script promotes selected PDFs/HTML files into stable
+`cv_variants/<variant>/` slots without using per-job Tailored naming.
+"""
+from __future__ import annotations
+
+import shutil
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+PACKS = ROOT / "packs"
+VARIANTS = ROOT / "cv_variants"
+
+PROMOTIONS = {
+    "backend_python": {
+        "source_dir": "Python_Developer",
+        "pdf": "Arinze_Elenasulu_Python_Developer_CV.pdf",
+        "html": "Arinze_Elenasulu_Python_Developer_CV.html",
+        "target_pdf": "Arinze_Elenasulu_Backend_Python_CV.pdf",
+        "target_html": "Arinze_Elenasulu_Backend_Python_CV.html",
+    },
+    "fullstack_python_react": {
+        "source_dir": "Junior_Full_Stack_Python_Developer",
+        "pdf": "Arinze_Elenasulu_Junior_Full_Stack_Python_Developer_CV.pdf",
+        "html": "Arinze_Elenasulu_Junior_Full_Stack_Python_Developer_CV.html",
+        "target_pdf": "Arinze_Elenasulu_Full_Stack_Python_React_CV.pdf",
+        "target_html": "Arinze_Elenasulu_Full_Stack_Python_React_CV.html",
+    },
+    "ai_engineer_llm": {
+        "source_dir": "MongooseGray_Junior_AI_Engineer",
+        "pdf": "Arinze_Elenasulu_MongooseGray_JuniorAI_CV.pdf",
+        "html": "Arinze_Elenasulu_MongooseGray_CV.html",
+        "target_pdf": "Arinze_Elenasulu_AI_LLM_Engineer_CV.pdf",
+        "target_html": "Arinze_Elenasulu_AI_LLM_Engineer_CV.html",
+    },
+    "ai_automation_agents": {
+        "source_dir": "Palantir_Forward_Deployed_AI_Engineer",
+        "pdf": "Arinze_Elenasulu_Palantir_CV.pdf",
+        "html": "Arinze_Elenasulu_Palantir_CV.html",
+        "target_pdf": "Arinze_Elenasulu_AI_Automation_Agents_CV.pdf",
+        "target_html": "Arinze_Elenasulu_AI_Automation_Agents_CV.html",
+    },
+    "junior_software": {
+        "source_dir": "Plaid_Software_Engineer",
+        "pdf": "Arinze_Elenasulu_Plaid_CV.pdf",
+        "html": "Arinze_Elenasulu_Plaid_CV.html",
+        "target_pdf": "Arinze_Elenasulu_Junior_Software_Engineer_CV.pdf",
+        "target_html": "Arinze_Elenasulu_Junior_Software_Engineer_CV.html",
+    },
+    "data_python": {
+        "source_dir": "Python_Developer",
+        "pdf": "Arinze_Elenasulu_Python_Developer_CV.pdf",
+        "html": "Arinze_Elenasulu_Python_Developer_CV.html",
+        "target_pdf": "Arinze_Elenasulu_Python_Data_Analytics_CV.pdf",
+        "target_html": "Arinze_Elenasulu_Python_Data_Analytics_CV.html",
+    },
+    "platform_backend": {
+        "source_dir": "mongoose_gray_backend_engineer",
+        "pdf": "Arinze_Elenasulu_Mongoose_Gray_CV.pdf",
+        "html": "Arinze_Elenasulu_Mongoose_Gray_CV.html",
+        "target_pdf": "Arinze_Elenasulu_Platform_Backend_CV.pdf",
+        "target_html": "Arinze_Elenasulu_Platform_Backend_CV.html",
+    },
+}
+
+
+def promote_one(variant_id: str, spec: dict[str, str]) -> bool:
+    """Copy one selected old pack CV into the stable variant folder."""
+    source_dir = PACKS / spec["source_dir"]
+    target_dir = VARIANTS / variant_id
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    copied = False
+    for source_name, target_name in ((spec["pdf"], spec["target_pdf"]), (spec["html"], spec["target_html"])):
+        source = source_dir / source_name
+        target = target_dir / target_name
+        if not source.exists():
+            print(f"missing: {source}")
+            continue
+        shutil.copy2(source, target)
+        print(f"copied: {source} -> {target}")
+        copied = True
+
+    return copied
+
+
+def main() -> int:
+    promoted = 0
+    for variant_id, spec in PROMOTIONS.items():
+        if promote_one(variant_id, spec):
+            promoted += 1
+    print(f"promoted {promoted} CV variant draft directories")
+    return 0 if promoted else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

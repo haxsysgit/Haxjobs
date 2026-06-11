@@ -128,9 +128,9 @@ def build_prompt(title, company, location, jd_text, source_url):
 - Description:
 {jd_text[:4000]}
 
-## Scoring Rules (LENIENT MODE — v3.0.0)
-- 75+: Strong fit. Arinze hits most requirements. Generate full pack.
-- 50-74: Good fit. Some gaps but worth applying. Generate quick pack.
+## Scoring Rules (LENIENT MODE, v3.0.0)
+- 75+: Strong fit. Arinze hits most requirements. Recommend full per-job prep pack using the reusable CV variant chosen by role_family.
+- 50-74: Good fit. Some gaps but worth applying. Recommend quick per-job prep pack using the reusable CV variant.
 - 30-49: Weak fit. Significant gaps. Report only, no pack.
 - <30: Skip. Wrong role, wrong level, or hard blocker.
 
@@ -146,10 +146,10 @@ def build_prompt(title, company, location, jd_text, source_url):
 - Skill adjacencies count: Python → AI/ML, backend → full-stack, FastAPI → Django.
 
 ## Level Assignment
-- Level 1 (Standard): 75%+ — full CV + cover letter + form answers
-- Level 2 (Quick Apply): 50-74% — CV + cover letter
-- Level 3 (Lite): 30-49% — fit report only
-- Level 4 (Skip): <30% — skip reason only
+- Level 1 (Standard): 75%+. Use the reusable CV variant, plus cover letter + form answers + interview prep.
+- Level 2 (Quick Apply): 50-74%. Use the reusable CV variant, plus cover letter + field answers.
+- Level 3 (Lite): 30-49%. Fit report only.
+- Level 4 (Skip): <30%. Skip reason only.
 
 ## Output Format (EXACT — no extra text, no markdown fences)
 {{
