@@ -84,7 +84,8 @@ restart_services() {
 
   if [[ -d "$APP_DIR/dashboard" ]]; then
     log "Starting Vite dev server on 5173"
-    (cd "$APP_DIR/dashboard" && nohup npx vite --port 5173 --host 127.0.0.1 > /tmp/haxjobs-vite.log 2>&1 &)
+    nohup bash -lc "cd '$APP_DIR/dashboard' && exec npx vite --port 5173 --host 127.0.0.1" \
+      > /tmp/haxjobs-vite.log 2>&1 < /dev/null &
   fi
 }
 
