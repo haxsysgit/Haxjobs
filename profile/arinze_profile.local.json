@@ -1,0 +1,254 @@
+{
+  "schema_version": "0.1.0-local-profile-draft",
+  "updated_at": "2026-06-08T04:20:40.144942+00:00",
+  "privacy_note": "Local development fixture. Do not commit. Do not store raw passwords here.",
+  "user_profile": {
+    "name": "Arinze Elenasulu",
+    "preferred_headline": "Python Backend Engineer | AI & Automation",
+    "email": "elenasuluarinze@gmail.com",
+    "phone": "",
+    "location": "London, UK",
+    "linkedin_url": "https://www.linkedin.com/in/arinze-elenasulu/",
+    "github_url": "https://github.com/haxsysgit",
+    "portfolio_url": null,
+    "work_authorization_summary": "Currently in the UK on a student visa; graduating on June 25 and planning to apply for the Graduate visa.",
+    "requires_sponsorship": "May require sponsorship in the future, but not immediately necessary depending on role/timing.",
+    "availability": "Available to start immediately.",
+    "salary_preference": "Depends on role scope; targeting \u00a335,000-\u00a360,000 for junior/mid-level roles, flexible for the right opportunity.",
+    "experience_levels": [
+      "intern",
+      "graduate",
+      "entry-level",
+      "junior",
+      "mid-level"
+    ],
+    "excluded_levels": [
+      "senior",
+      "lead",
+      "principal",
+      "staff",
+      "head of",
+      "director",
+      "vp",
+      "manager"
+    ],
+    "preferred_roles": [
+      "AI Engineer",
+      "Backend Engineer",
+      "Python Backend Engineer",
+      "Software Engineer",
+      "Full Stack Engineer",
+      "Automation Engineer",
+      "Agentic AI Engineer",
+      "AI/ML Engineer (entry/mid)",
+      "Software Developer",
+      "Graduate Software Engineer",
+      "Junior Backend Developer"
+    ],
+    "preferred_locations": [
+      "London",
+      "Manchester",
+      "Leeds",
+      "Remote UK",
+      "Hybrid UK"
+    ],
+    "preferred_work_modes": [
+      "remote",
+      "hybrid",
+      "full-time",
+      "onsite_if_good_fit"
+    ],
+    "university": "Middlesex University",
+    "university_location": "London, UK",
+    "skills": [
+      "Python",
+      "FastAPI",
+      "SQLAlchemy",
+      "PostgreSQL",
+      "pytest",
+      "HuggingFace",
+      "PyTorch",
+      "RAGAS",
+      "AI Agent Infrastructure (Hermes)",
+      "Java (Spring, EJB)",
+      "REST API Design",
+      "Git/GitHub",
+      "Docker",
+      "Linux"
+    ]
+  },
+  "confirmed_profile_facts": [
+    {
+      "category": "experience",
+      "claim": "Python since 2020 \u2014 6 years of continuous study and building.",
+      "safe_wording": "Python since 2020, strongest and primary language.",
+      "avoid_wording": "Do not imply Python is secondary to Java or any other language.",
+      "confidence": "confirmed",
+      "evidence_source": "user correction 2026-06-07"
+    },
+    {
+      "category": "experience",
+      "claim": "Vigilis Software Engineer from August 2024 to February 2026.",
+      "safe_wording": "Software Engineer at Vigilis, building backend workflows for pharmacy operations: inventory, sales, payments, invoicing, reporting, and reliability.",
+      "avoid_wording": "Do not use older wording like Software and Data Engineer / IT Manager or June 2023 to February 2026.",
+      "confidence": "confirmed",
+      "evidence_source": "user correction"
+    },
+    {
+      "category": "experience",
+      "claim": "Aptech ADSE Java (Advanced Diploma in Software Engineering) from September 2022 to August 2024. Four-semester programme covering: Linux, Python, C++, C, Java, Spring Framework, Enterprise Java Beans (EJB), Flutter/Dart, MERN stack, MEAN stack.",
+      "safe_wording": "Software Engineer Intern at Aptech Computer Education, Lagos. Completed ADSE Java track \u2014 structured two-year programme across four semesters. Covered Linux, Python, C++, C, Java, Spring Framework, EJB, Flutter/Dart, MERN and MEAN stacks. Python became primary language during this period.",
+      "avoid_wording": "Do not describe Aptech as just 'built internal tooling' \u2014 mention the actual curriculum and technologies studied. Do not treat Aptech as only education; it was an internship with project work.",
+      "confidence": "confirmed",
+      "evidence_source": "user correction 2026-06-07"
+    },
+    {
+      "category": "experience",
+      "claim": "Bucca Hut contract (AI and Backend Engineer) from February 2025 to May 2025.",
+      "safe_wording": "AI and Backend Engineer (contract, part-time). Built AI-powered data analysis tool for a food business.",
+      "confidence": "confirmed",
+      "evidence_source": "user profile"
+    },
+    {
+      "category": "project",
+      "claim": "Pharmax is a proprietary AI-integrated SaaS product built for Nigerian pharmacies. Only the backend skeleton (Pharmax-backend) is public on GitHub. The full SaaS code is proprietary.",
+      "safe_wording": "Built Pharmax, an AI-integrated SaaS for Nigerian pharmacies supporting operational workflows like inventory, sales, invoicing, reporting, and AI-assisted features. Public backend at github.com/haxsysgit/Pharmax-backend.",
+      "avoid_wording": "Do not imply the full Pharmax SaaS is open source or publicly available. The GitHub repo is the backend skeleton only.",
+      "confidence": "confirmed",
+      "evidence_source": "user correction 2026-06-07"
+    },
+    {
+      "category": "tooling",
+      "claim": "Uses Archilles (Hermes Agent fork) as daily AI agent infrastructure \u2014 NOT Claude Code, Cursor, or Copilot.",
+      "safe_wording": "Daily AI agent usage via Archilles, a Hermes Agent fork running on cloud infrastructure 24/7.",
+      "avoid_wording": "Never write 'Claude Code' in CV, cover letters, or profile. The tool is Archilles.",
+      "confidence": "confirmed",
+      "evidence_source": "user correction 2026-06-07"
+    },
+    {
+      "category": "project",
+      "claim": "FRAME is a portable architecture standard for representing AI-assisted project reality. Active development, not in reset mode externally.",
+      "safe_wording": "Designed FRAME, a portable architecture for representing project reality in AI-assisted workflows.",
+      "avoid_wording": "Never describe FRAME as 'in reset mode' in external-facing materials.",
+      "confidence": "confirmed",
+      "evidence_source": "user correction 2026-06-07"
+    },
+    {
+      "category": "skill",
+      "claim": "Model training and fine-tuning experience with HuggingFace and PyTorch for domain-specific tasks.",
+      "safe_wording": "Trained and fine-tuned transformer models for domain-specific tasks using HuggingFace and PyTorch. Focused on practical outcomes over research-scale training.",
+      "avoid_wording": "Do not overstate into large-scale distributed training. Position as practical fine-tuning for specific domains.",
+      "confidence": "confirmed",
+      "evidence_source": "user correction 2026-06-07"
+    },
+    {
+      "category": "project",
+      "claim": "Haxaml is published on PyPI as a project memory and governance tool for AI coding agents. Uses the FRAME model.",
+      "safe_wording": "Built and published Haxaml (github.com/haxsysgit/haxaml, pypi.org/project/haxaml), a project memory and workflow governance tool for AI coding agents. Based on the FRAME memory model.",
+      "avoid_wording": "Do not describe Haxaml as experimental or unfinished. It is published and functional.",
+      "confidence": "confirmed",
+      "evidence_source": "user correction 2026-06-07"
+    },
+    {
+      "category": "project",
+      "claim": "CaseFRAME applies the FRAME model to financial-crime investigation continuity.",
+      "safe_wording": "Built CaseFRAME (github.com/haxsysgit/CaseFRAME), applying the FRAME memory model to financial-crime investigation continuity.",
+      "confidence": "confirmed",
+      "evidence_source": "GitHub"
+    },
+    {
+      "category": "skill",
+      "claim": "Advanced pytest knowledge confirmed. Structured test design for backend and AI workflows.",
+      "safe_wording": "Advanced pytest/testing practice, including structured test design for backend and AI workflows.",
+      "avoid_wording": "Do not imply unsupported vendor certifications.",
+      "confidence": "confirmed",
+      "evidence_source": "user correction"
+    },
+    {
+      "category": "skill",
+      "claim": "RAGAS experience confirmed, used while building Pharmax.",
+      "safe_wording": "Used RAGAS for LLM/AI evaluation workflows while building Pharmax.",
+      "avoid_wording": "Do not overstate into deep production ownership unless more details are added.",
+      "confidence": "confirmed",
+      "evidence_source": "user correction"
+    },
+    {
+      "category": "education",
+      "claim": "Middlesex University (London) is Arinze's university. Aptech is a separate diploma programme, not a university.",
+      "safe_wording": "Middlesex University, London.",
+      "avoid_wording": "Never list Aptech as a university. They are separate: Middlesex = university, Aptech = ADSE diploma.",
+      "confidence": "confirmed",
+      "evidence_source": "user correction 2026-06-07"
+    }
+  ],
+  "platform_accounts": [
+    {
+      "platform": "linkedin",
+      "account_status": "active",
+      "login_identifier": "pentacker@gmail.com",
+      "profile_url": "https://www.linkedin.com/in/arinze-elenasulu-b011a1249",
+      "manual_login_required": true,
+      "job_search_enabled": true,
+      "save_jobs_enabled": true,
+      "assisted_apply_enabled": false,
+      "outreach_drafting_enabled": true,
+      "auto_send_messages": false,
+      "notes": "Use logged-in browser session only when explicitly approved. Prefer extracting job/company info and routing to company career sites. Do not send connection requests or messages without review.",
+      "bot_risk": "high",
+      "recommended_automation_mode": "browser-assisted/manual-session, low-frequency, no mass actions"
+    }
+  ],
+  "evaluation_context": {
+    "description": "Injected into every Hermes evaluation prompt. Company-specific notes, behavioral guardrails, and whitelist context the LLM should consider before scoring.",
+    "behavioral_guardrails": [
+      "DO NOT skip a job solely because the JD is humorous, quirky, or uses non-literal language. Some companies (especially recruitment agencies and startups) write creative, funny JDs. Evaluate the ROLE, not the writing style.",
+      "If a job title contains 'Junior', 'Graduate', 'Entry-Level', or 'Associate', and the JD mentions engineering or AI work (even indirectly), it is NOT a senior role regardless of flowery JD language. Score it against junior/mid criteria.",
+      "When a company is known to write quirky JDs (see company_notes), treat the JD text as marketing copy, not a literal checklist. Extract the actual role requirements from context clues.",
+      "Python-backend roles that also mention Java: Arinze has Java from his Aptech diploma (Spring, EJB). This is a secondary skill, not a gap. Only treat Java as a gap if it is the PRIMARY language with zero Python overlap.",
+      "Arinze's professional experience is ~1.5-2 years, not zero. Vigilis (Aug 2024 - Feb 2026) is real professional experience. Do not score him as if he has no experience.",
+      "If a role asks for AI/ML/agent experience, Arinze is a strong candidate: he built Pharmax (AI-integrated SaaS), trained models with HuggingFace/PyTorch, uses Archilles (Hermes Agent fork) daily, and built Haxaml (AI agent governance tool). This is not theoretical \u2014 it is hands-on.",
+      "Do not inflate scores above 80 unless Arinze genuinely hits most requirements. Being truthful is more important than being optimistic.",
+      "Salary: Arinze targets \u00a335,000-\u00a360,000 for junior/mid roles but is flexible for the right opportunity. A role advertising above this range is not a gap unless it requires senior-level experience.",
+      "Work authorization: Arinze is on a UK student visa graduating June 25, planning to apply for a Graduate visa (2-year work right). This means he CAN work in the UK without immediate sponsorship. Only treat sponsorship as a hard blocker if the job explicitly says 'no visa holders' or 'must have permanent right to work.'"
+    ],
+    "scoring_guidance": {
+      "ai_engineer_roles": "Score generously (70+) for AI Engineer, Applied AI, Agentic AI, and ML Engineer roles at junior/mid level. Arinze's FRAME, Haxaml, Pharmax, Archilles, and model training experience directly apply.",
+      "backend_roles": "Score based on Python/FastAPI/PostgreSQL alignment. If Java is secondary, do not penalize heavily. If role is pure Java with no Python, score accordingly lower.",
+      "fullstack_roles": "Arinze is backend-strong. Score 5-10 points lower than pure backend if heavy frontend weighting (React, TypeScript, CSS-in-JS).",
+      "graduate_roles": "Score generously (80+) if the company is a known tech employer and the role is engineering. Arinze's project portfolio (FRAME, Haxaml, Pharmax, CaseFRAME) is strong for a graduate.",
+      "security_clearance": "Automatic skip if SC/DV clearance required. Arinze is not eligible. This is a hard blocker."
+    }
+  },
+  "company_notes": {
+    "mongoose_gray": {
+      "pattern": "mongoose gray",
+      "match_type": "company_name_contains",
+      "note": "Mongoose Gray is a recruitment agency known for humorous, quirky, and creative job descriptions. The JD text is intentionally playful and should NOT be taken literally. Extracts role requirements from context clues rather than surface-level JD wording. Jobs with titles like 'Junior AI Engineer' or 'Graduate AI Engineer' from Mongoose Gray are REAL engineering roles despite the JD talking about gemstones, cats, ballet, or other whimsical analogies. Evaluate the title and key requirements, not the creative writing.",
+      "created_at": "2026-06-07",
+      "source": "user correction \u2014 false positive skip of Junior AI Engineer role"
+    },
+    "experis": {
+      "pattern": "experis",
+      "match_type": "company_name_contains",
+      "note": "Experis is a large IT recruitment/staffing agency. Many postings are contract roles (IR35) for enterprise clients. SC clearance is common in Experis postings \u2014 check carefully. Do not skip Experis jobs automatically \u2014 they post legitimate junior/mid roles alongside senior contracts. Filter based on the actual role requirements, not the agency name.",
+      "created_at": "2026-06-07"
+    }
+  },
+  "saved_answers": [
+    {
+      "question_key": "requires_sponsorship",
+      "answer": "I may require sponsorship in the future, but not immediately. I am currently on a student visa, graduating June 25, and plan to apply for a Graduate visa.",
+      "sensitivity": "legal_sensitive"
+    },
+    {
+      "question_key": "salary_expectation",
+      "answer": "Flexible depending on the role and responsibilities, but generally targeting fair compensation above \u00a335,000 annually.",
+      "sensitivity": "review_before_use"
+    },
+    {
+      "question_key": "travel_comfort",
+      "answer": "Yes, I am comfortable with reasonable travel where it makes sense for the role.",
+      "sensitivity": "normal"
+    }
+  ]
+}

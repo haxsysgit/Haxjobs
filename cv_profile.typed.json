@@ -1,0 +1,301 @@
+{
+  "$schema": "cv-profile-v1",
+  "description": "Single source of truth for CV generation. Immutable fields are NEVER generated — only interpolated. This file is hand-maintained by Arinze. The LLM never edits it.",
+  "updated_at": "2026-06-08",
+  "application_defaults": {
+    "visa_status": "UK student visa (graduating 25 June 2026). Will immediately apply for Graduate visa route (2 years unrestricted work rights). No sponsorship required now or in foreseeable future.",
+    "preferred_screening_time": "1pm to 6pm UK time, weekdays",
+    "available_for_relocation_uk": true,
+    "salary_range_gbp": "35000-45000",
+    "notice_period": "Immediate (available from 16 June 2026)"
+  },
+  "locked_constants": {
+    "headline": {
+      "value": "Python Backend Engineer | AI & Automation",
+      "type": "literal",
+      "validation": "optional",
+      "note": "Base headline. Can be overridden per role for job-specific tailoring."
+    },
+    "email": {
+      "value": "elenasuluarinze@gmail.com",
+      "type": "literal",
+      "validation": "exact_match_only"
+    },
+    "phone": {
+      "value": "",
+      "type": "literal",
+      "validation": "optional",
+      "note": "Removed — phone not needed on UK tech CVs. Email + LinkedIn is standard."
+    },
+    "location": {
+      "value": "London, UK",
+      "type": "literal",
+      "validation": "exact_match_only"
+    },
+    "linkedin_handle": {
+      "value": "linkedin.com/in/arinze-elenasulu",
+      "type": "literal",
+      "validation": "exact_match_only"
+    },
+    "linkedin_url": {
+      "value": "https://www.linkedin.com/in/arinze-elenasulu/",
+      "type": "literal",
+      "validation": "exact_match_only"
+    },
+    "github_handle": {
+      "value": "github.com/haxsysgit",
+      "type": "literal",
+      "validation": "exact_match_only"
+    },
+    "github_url": {
+      "value": "https://github.com/haxsysgit",
+      "type": "literal",
+      "validation": "exact_match_only"
+    },
+    "university": {
+      "value": "Middlesex University London",
+      "type": "literal",
+      "validation": "exact_match_only"
+    },
+    "university_degree": {
+      "value": "BSc Information Technology",
+      "type": "literal",
+      "validation": "exact_match_only"
+    },
+    "university_graduation": {
+      "value": "Expected June 2026",
+      "type": "literal",
+      "validation": "exact_match_only"
+    },
+    "aptech_institution": {
+      "value": "Aptech Computer Education, Lagos",
+      "type": "literal",
+      "validation": "exact_match_only"
+    },
+    "aptech_diploma": {
+      "value": "Advanced Diploma in Software Engineering (ADSE Java)",
+      "type": "literal",
+      "validation": "exact_match_only"
+    },
+    "aptech_dates": {
+      "value": "September 2022 – August 2024",
+      "type": "literal",
+      "validation": "exact_match_only"
+    },
+    "vigilis_title": {
+      "value": "Software Engineer",
+      "type": "literal",
+      "validation": "exact_match_only"
+    },
+    "vigilis_company": {
+      "value": "Vigilis",
+      "type": "literal",
+      "validation": "exact_match_only"
+    },
+    "vigilis_dates": {
+      "value": "August 2024 – February 2026",
+      "type": "literal",
+      "validation": "exact_match_only"
+    },
+    "vigilis_location": {
+      "value": "Lagos, Nigeria",
+      "type": "literal",
+      "validation": "exact_match_only"
+    },
+    "bucca_hut_title": {
+      "value": "AI and Backend Engineer (Contract, part-time)",
+      "type": "literal",
+      "validation": "exact_match_only"
+    },
+    "bucca_hut_company": {
+      "value": "Bucca Hut",
+      "type": "literal",
+      "validation": "exact_match_only"
+    },
+    "bucca_hut_dates": {
+      "value": "February 2025 – May 2025",
+      "type": "literal",
+      "validation": "exact_match_only"
+    }
+  },
+
+  "cv_project_selection": {
+    "description": "Which 4 projects appear on CVs. Default set applies to all roles. CaseFRAME replaces HaxJobs for finance-adjacent roles only (fintech, banking, insurance, compliance, fraud, AML, KYC).",
+    "rule": "FRAME, Haxaml, Pharmax, HaxJobs — always. Swap HaxJobs out for CaseFRAME only when the role is finance-adjacent.",
+    "default_order": ["frame", "haxaml", "pharmax", "haxjobs"],
+    "finance_swap": {
+      "swap_out": "haxjobs",
+      "swap_in": "caseframe",
+      "triggers": ["fintech", "finance", "banking", "insurance", "compliance", "fraud", "aml", "kyc", "payments", "trading", "investment", "capital", "wealth", "risk", "regulatory", "sanctions"]
+    }
+  },
+
+  "project_registry": {
+    "frame": {
+      "display_name": "FRAME",
+      "subtitle": "Typed Project Memory Format for AI Agents",
+      "repo_url": "https://github.com/haxsysgit/FRAME",
+      "repo_visibility": "public",
+      "include_url_in_cv": true,
+      "pypi_url": null,
+      "tech_stack": ["Python", "Markdown/YAML", "Multi-Agent"],
+      "public_evidence": [
+        "Five-part memory model (Facts, Rules, Acts, Map, Expect) for AI coding agent context",
+        "Reduces repeated prompting, context rot, and full-repo rescans across agent sessions",
+        "Designed as a portable standard: any AI agent reads the same project representation",
+        "Published docs, learn materials, and frame-python implementation track on GitHub",
+        "Separation of concerns: FRAME = the contract, implementations earn alignment with it"
+      ],
+      "forbidden_claims": []
+    },
+    "haxaml": {
+      "display_name": "Haxaml",
+      "subtitle": "AI Agent Governance & Project Memory",
+      "repo_url": "https://github.com/haxsysgit/haxaml",
+      "repo_visibility": "public",
+      "include_url_in_cv": true,
+      "pypi_url": "https://pypi.org/project/haxaml",
+      "tech_stack": ["Python", "MCP", "FRAME"],
+      "public_evidence": [
+        "Governance runtime enforcing FRAME correctness contract — blocks AI-generated code until mechanical checks pass",
+        "Five-stage pipeline: Admission → Scoped Context → Agent Work → Verification → Recording",
+        "MCP server so AI coding tools can read/write project memory during sessions",
+        "Local dashboard for inspecting agent session history and project state",
+        "Published on PyPI with documentation, setup flow, and adoption guides"
+      ],
+      "forbidden_claims": []
+    },
+    "pharmax": {
+      "display_name": "Pharmax",
+      "subtitle": "Pharmacy Management Platform",
+      "repo_url": "https://github.com/haxsysgit/Pharmax-backend",
+      "repo_visibility": "private",
+      "include_url_in_cv": false,
+      "pypi_url": null,
+      "tech_stack": ["Python", "FastAPI", "PostgreSQL", "SQLAlchemy", "Alembic"],
+      "public_evidence": [
+        "Products CRUD with multi-unit pricing (tablets, packs, strips)",
+        "Full invoice lifecycle: draft to finalise (auto stock deduction) to cancel (stock reversal)",
+        "Stock adjustments with audit trail",
+        "Reorder-level tracking",
+        "Role-based access with JWT authentication",
+        "Comprehensive pytest suite covering endpoints, business logic, and edge cases",
+        "Sat with pharmacy staff to understand manual processes and turned them into software"
+      ],
+      "proprietary_context": "The full SaaS includes AI features but these are NOT in the public repo. CV claims must stick to public_evidence only.",
+      "forbidden_claims": [
+        "AI-powered",
+        "AI-assisted",
+        "intelligent queries",
+        "inventory insights",
+        "machine learning",
+        "LLM-powered",
+        "AI features"
+      ]
+    },
+    "haxaml": {
+      "display_name": "Haxaml",
+      "subtitle": "AI Agent Governance & Project Memory",
+      "repo_url": "https://github.com/haxsysgit/haxaml",
+      "repo_visibility": "public",
+      "include_url_in_cv": true,
+      "pypi_url": "https://pypi.org/project/haxaml",
+      "tech_stack": ["Python", "MCP", "FRAME"],
+      "public_evidence": [
+        "Five-part FRAME memory model (Facts, Rules, Acts, Map, Expect) for AI agent context",
+        "MCP server so AI coding tools can read/write project memory during sessions",
+        "Local dashboard for inspecting agent session history and project state",
+        "Published on PyPI with documentation, setup flow, and adoption guides",
+        "CLI tooling for managing project memory files"
+      ],
+      "forbidden_claims": []
+    },
+    "caseframe": {
+      "display_name": "CaseFRAME",
+      "subtitle": "AI Continuity for Financial Crime Investigations",
+      "repo_url": "https://github.com/haxsysgit/CaseFRAME",
+      "repo_visibility": "public",
+      "include_url_in_cv": true,
+      "pypi_url": null,
+      "tech_stack": ["Python", "FRAME", "YAML"],
+      "public_evidence": [
+        "Python loader and validator for structured case packs from YAML",
+        "Concrete example: reopened sanctions review with unresolved counterparty links",
+        "State-resumption model — investigation reopens from real case state, not from zero"
+      ],
+      "forbidden_claims": []
+    },
+    "haxjobs": {
+      "display_name": "HaxJobs",
+      "subtitle": "Automated Job Search & Application Platform",
+      "repo_url": "https://github.com/haxsysgit/haxjobs",
+      "repo_visibility": "public",
+      "include_url_in_cv": true,
+      "pypi_url": null,
+      "tech_stack": ["Python", "Playwright", "React", "TypeScript", "Hermes Agent"],
+      "public_evidence": [
+        "Multi-platform job discovery across 95+ companies (Lever, Ashby, Greenhouse APIs)",
+        "Hermes-powered job evaluation pipeline scoring fit to user profile",
+        "5-level automated application pack generation with CV, cover letter, Q&A",
+        "Web dashboard for pipeline monitoring with real-time job status views",
+        "Zero-token discovery via system-level cron scheduling, independent of LLM"
+      ],
+      "forbidden_claims": []
+    },
+    "archilles": {
+      "display_name": "Archilles",
+      "subtitle": "Production AI Agent Infrastructure",
+      "repo_url": null,
+      "repo_visibility": "private",
+      "include_url_in_cv": false,
+      "pypi_url": null,
+      "tech_stack": ["Python", "Hermes Agent", "Multi-Agent Orchestration"],
+      "public_evidence": [
+        "24/7 cloud-based AI agent running on Hermes Agent framework (fork)",
+        "Multi-agent coordination across messaging, automation, and document generation",
+        "Cron-scheduled job discovery and application pack pipelines",
+        "Cross-platform messaging gateway (Telegram, Discord, WhatsApp)"
+      ],
+      "forbidden_claims": [
+        "Claude Code"
+      ]
+    }
+  },
+
+  "generatable_sections": {
+    "professional_summary": {
+      "max_length": "4 sentences",
+      "must_include": ["Python since 2020", "backend engineering"],
+      "must_not_include": ["Claude Code", "senior-level framing"]
+    },
+    "core_skills": {
+      "min_groups": 4,
+      "required_groups": ["Backend", "AI", "Testing", "Infrastructure"],
+      "must_not_be_empty": true
+    },
+    "experience_bullets": {
+      "vigilis_max_bullets": 5,
+      "aptech_max_bullets": 4,
+      "bucca_hut_max_bullets": 2,
+      "must_not_include": ["Claude Code"]
+    },
+    "project_bullets": {
+      "max_per_project": 5,
+      "must_be_subset_of": "project_registry.<project>.public_evidence"
+    }
+  },
+
+  "language_rules": {
+    "blocked_verbs": [
+      "Spearheaded", "Leveraged", "Orchestrated", "Drove", "Championed",
+      "Utilized", "Harnessed", "Synergized", "Optimized"
+    ],
+    "blocked_phrases": [
+      "Claude Code", "cutting-edge", "production-grade", "robust enterprise"
+    ],
+    "blocked_chars": ["\u2014"],
+    "preferred_date_format": "Month Year \u2013 Month Year",
+    "required_voice": "first-person",
+    "bullet_rhythm_rule": "mix short (5-8 words) and long (12-18 words) bullets"
+  }
+}

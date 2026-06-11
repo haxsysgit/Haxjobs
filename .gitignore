@@ -1,30 +1,43 @@
-# python
+# Python
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .venv/
 
-# node
+# Node / Vite
 node_modules/
 dist/
+dashboard/dist/
+dashboard/node_modules/
 coverage/
 
-# local data
+# Runtime state, generated outputs, and private local data
 /data/*
 !/data/.gitkeep
-!/data/documents/.gitkeep
+/intake/
+/packs/
+/state/
+/reports/
+/outreach/
 *.db
 *.sqlite
 *.sqlite3
+*.log
 
-# env
+# Secrets and local env
 .env
 .env.*
 !.env.example
+*.cookies.json
+*linkedin*cookies*
+.linkedin-profile/
 
-# local dev process/log state
-.haxjobs/
+# Generated PDF/image noise that is not source truth
+# Keep base CV PDFs and research report PDFs intentionally tracked if added.
 
-# editor/os
+# Editor/os
 .DS_Store
 .vscode/
+
+# Vite generated bundle
+dashboard/assets/

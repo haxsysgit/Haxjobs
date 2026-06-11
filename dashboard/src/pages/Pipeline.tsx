@@ -1,0 +1,210 @@
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Star } from '../components/Icons'
+import { api, type Job } from '../data/api'
+
+interface Props {
+  jobs: Job[]
+  onUnskip: (j: Job) => void
+  onApprove: (j: Job) => void
+  connected: boolean
+}
+
+function JobCard({ job, onToggleFav, onToggleAuto }: { job: Job; onToggleFav: (j: Job) => void; onToggleAuto?: (j: Job) => void }) {
+  const navigate = useNavigate()
+  return (
+    <div className="card job-card" onClick={() => navigate(`/jobs/${job.id}`)} style={{ position: 'relative' }}>
+      <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 4 }}>
+        {onToggleAuto && (
+          <button className={`btn-bookmark${(job as any).isAutoApply ? ' bookmarked' : ''}`}
+            style={{ fontSize: 10, padding: '2px 6px' }}
+            onClick={e => { e.stopPropagation(); onToggleAuto(job) }}
+            title="Toggle auto-apply">
+            Auto
+          </button>
+        )}
+        <button className={`btn-bookmark${job.isFavorite ? ' bookmarked' : ''}`}
+          onClick={e => { e.stopPropagation(); onToggleFav(job) }}>
+          <Star size={14} fill={job.isFavorite ? 'currentColor' : 'none'} />
+        </button>
+      </div>
+      <div className="job-card-header">
+        <div>
+          <h3>{job.title}</h3>
+          <p className="job-card-meta">{job.company} · {job.location || 'Location TBD'}</p>
+        </div>
+        {job.fitScore > 0 && (
+          <span className={`badge ${job.fitScore >= 80 ? 'badge-strong' : job.fitScore >= 60 ? 'badge-good' : 'badge-weak'}`}>
+            {job.fitScore}%
+          </span>
+        )}
+      </div>
+      {job.strongestMatches && job.strongestMatches.length > 0 && (
+        <div style={{ marginTop: 8, fontSize: 12, color: 'var(--muted)' }}>
+          {job.strongestMatches.slice(0, 2).join(' · ')}
+        </div>
+      )}
+      <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <span className="badge badge-neutral" style={{ fontSize: 10 }}>{job.source}</span>
+        <span className="badge badge-neutral" style={{ fontSize: 10 }}>{job.status}</span>
+        {job.isSaved && <span className="badge badge-good" style={{ fontSize: 10 }}>Saved</span>}
+        {job.isApproved && <span className="badge badge-strong" style={{ fontSize: 10 }}>Approved</span>}
+      </div>
+    </div>
+  )
+}
+
+export function Evaluated({ jobs, onToggleFav, onToggleAuto }: { jobs: Job[]; onToggleFav: (j: Job) => void; onToggleAuto: (j: Job) => void }) {
+  return (
+    <div className="pipeline-grid">
+      {jobs.map(j => <JobCard key={j.id} job={j} onToggleFav={onToggleFav} onToggleAuto={onToggleAuto} />)}
+      {jobs.length === 0 && <div className="empty" style={{ gridColumn: '1 / -1' }}><h3>No evaluated jobs</h3><p>Jobs with fit scores appear here after Hermes evaluates them.</p></div>}
+    </div>
+  )
+}
+
+export function PendingList({ jobs }: { jobs: Job[] }) {
+  const navigate = useNavigate()
+  return (
+    <div className="pipeline-grid">
+      {jobs.map(j => (
+        <div key={j.id} className="card job-card" onClick={() => navigate(`/jobs/${j.id}`)} style={{ opacity: 0.7 }}>
+          <h3 style={{ fontSize: 13 }}>{j.title}</h3>
+          <p style={{ fontSize: 12, color: 'var(--muted)' }}>{j.company}</p>
+          <span className="badge badge-neutral" style={{ fontSize: 10, marginTop: 6 }}>{j.source}</span>
+        </div>
+      ))}
+      {jobs.length === 0 && <div className="empty" style={{ gridColumn: '1 / -1' }}><h3>No pending jobs</h3><p>Newly discovered jobs wait here for evaluation.</p></div>}
+    </div>
+  )
+}
+
+export function FilteredList({ jobs, onUnskip, onApprove, onToggleFav }: {
+  jobs: Job[]
+  onUnskip: (j: Job) => void
+  onApprove: (j: Job) => void
+  onToggleFav: (j: Job) => void
+}) {
+  const navigate = useNavigate()
+  return (
+    <div className="pipeline-grid">
+      {jobs.map(j => {
+        const reason = (j as any).skipReason || j.status
+        return (
+          <div key={j.id} className="card" style={{ opacity: 0.55, cursor: 'pointer', position: 'relative' }}
+            onClick={() => navigate(`/jobs/${j.id}`)}>
+            <button className={`btn-bookmark${j.isFavorite ? ' bookmarked' : ''}`}
+              style={{ position: 'absolute', top: 8, right: 8 }}
+              onClick={e => { e.stopPropagation(); onToggleFav(j) }}>
+              <Star size={14} fill={j.isFavorite ? 'currentColor' : 'none'} />
+            </button>
+            <h3 style={{ fontSize: 12 }}>{j.title}</h3>
+            <p style={{ fontSize: 11, color: 'var(--muted)', margin: '2px 0' }}>{j.company}</p>
+            <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+              <span className="badge badge-skip" style={{ fontSize: 10 }}>{reason}</span>
+              <span className="badge badge-neutral" style={{ fontSize: 10 }}>{j.source}</span>
+            </div>
+            <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+              <button className="btn btn-sm" style={{ flex: 1 }}
+                onClick={e => { e.stopPropagation(); onUnskip(j) }}>
+                Unskip
+              </button>
+              <button className="btn btn-sm btn-primary" style={{ flex: 1 }}
+                onClick={e => { e.stopPropagation(); onApprove(j) }}>
+                Approve
+              </button>
+            </div>
+          </div>
+        )
+      })}
+      {jobs.length === 0 && <div className="empty" style={{ gridColumn: '1 / -1' }}><h3>No filtered jobs</h3><p>Jobs that don't require attention are listed here.</p></div>}
+    </div>
+  )
+}
+
+export function Pipeline({ jobs, onUnskip, onApprove, connected }: Props) {
+  const [subView, setSubView] = useState<'evaluated' | 'pending' | 'favorites' | 'filtered'>('evaluated')
+  const [favJobs, setFavJobs] = useState<Job[]>([])
+  const [search, setSearch] = useState('')
+
+  useEffect(() => {
+    if (!connected) return
+    api.getFavorites()
+      .then(favs => setFavJobs(favs))
+      .catch(() => {})
+  }, [connected, jobs])
+
+  const searchLower = search.toLowerCase()
+  const filterSearch = (j: Job) =>
+    !search || j.title.toLowerCase().includes(searchLower) || j.company.toLowerCase().includes(searchLower)
+
+  const evaluated = jobs.filter(j => (j.status === 'evaluated' || j.status === 'completed') && j.fitScore > 0 && filterSearch(j))
+  const pending = jobs.filter(j => j.status === 'pending' && filterSearch(j))
+  const filtered = jobs.filter(j => j.status === 'skipped' && filterSearch(j))
+
+  const tabs = [
+    { key: 'evaluated' as const, label: 'Evaluated', count: jobs.filter(j => (j.status === 'evaluated' || j.status === 'completed') && j.fitScore > 0).length },
+    { key: 'pending' as const, label: 'Pending', count: jobs.filter(j => j.status === 'pending').length },
+    { key: 'favorites' as const, label: 'Favorites', count: favJobs.length },
+    { key: 'filtered' as const, label: 'Filtered', count: jobs.filter(j => j.status === 'skipped').length },
+  ]
+
+  const handleToggleFav = async (job: Job) => {
+    try {
+      if (job.isFavorite) {
+        await api.removeFavorite(job.id)
+      } else {
+        await api.addFavorite(job.id)
+      }
+      const favs = await api.getFavorites()
+      setFavJobs(favs)
+    } catch (err) {
+      console.error('Failed to toggle favorite:', err)
+    }
+  }
+
+  const handleToggleAuto = async (job: Job) => {
+    try {
+      const result = await api.toggleAutoApply(job.id)
+      // Update local state to reflect the new auto-apply status
+      setFavJobs(prev => prev.map(j => j.id === job.id ? { ...j, isAutoApply: result.auto_apply } as any : j))
+    } catch (err) {
+      console.error('Failed to toggle auto-apply:', err)
+    }
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 14, alignItems: 'center' }}>
+        <div className="sub-nav" style={{ marginBottom: 0, flex: 1 }}>
+          {tabs.map(t => (
+            <a key={t.key} href="#" className={subView === t.key ? 'active' : ''}
+              onClick={e => { e.preventDefault(); setSubView(t.key); setSearch('') }}>
+              {t.label} <span className="sub-nav-badge">{t.count}</span>
+            </a>
+          ))}
+        </div>
+        <input
+          type="text"
+          placeholder="Search company or title..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{
+            padding: '6px 12px',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-sm)',
+            fontSize: 13,
+            fontFamily: 'var(--font)',
+            background: 'white',
+            width: 220,
+          }}
+        />
+      </div>
+
+      {subView === 'evaluated' && <Evaluated jobs={evaluated} onToggleFav={handleToggleFav} onToggleAuto={handleToggleAuto} />}
+      {subView === 'pending' && <PendingList jobs={pending} />}
+      {subView === 'favorites' && <Evaluated jobs={favJobs} onToggleFav={handleToggleFav} onToggleAuto={handleToggleAuto} />}
+      {subView === 'filtered' && <FilteredList jobs={filtered} onUnskip={onUnskip} onApprove={onApprove} onToggleFav={handleToggleFav} />}
+    </div>
+  )
+}

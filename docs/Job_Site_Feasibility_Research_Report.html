@@ -1,0 +1,194 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Job Site Feasibility Research Report</title><style>
+@page { size: A4; margin: 16mm 18mm 18mm 18mm; }
+* { box-sizing: border-box; }
+body { font-family: "Inter", "Segoe UI", Arial, sans-serif; color: #162033; line-height: 1.5; font-size: 9.8pt; margin: 0; background: white; }
+.doc { max-width: 900px; margin: 0 auto; }
+.hero { background: linear-gradient(135deg, #12284c 0%, #0b5cab 58%, #00a1e0 100%); color: white; padding: 24px 28px; border-radius: 14px; margin-bottom: 22px; }
+.hero h1 { font-size: 20pt; margin: 0 0 4px; }
+.hero .sub { font-size: 10pt; opacity: .9; }
+h2 { color: #0b5cab; font-size: 13pt; margin: 20px 0 8px; padding-bottom: 4px; border-bottom: 1.2px solid #d8e9fb; }
+h3 { color: #14345c; font-size: 10.5pt; margin: 14px 0 4px; }
+p { margin: 0 0 8px; }
+table { width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 9.2pt; }
+th { background: #0b5cab; color: white; padding: 8px 10px; text-align: left; font-weight: 650; }
+td { padding: 7px 10px; border-bottom: 1px solid #e5e7eb; }
+tr:nth-child(even) td { background: #f8fafd; }
+.whitelist { background: #d4edda; color: #155724; padding: 2px 8px; border-radius: 4px; font-weight: 650; font-size: 8.5pt; }
+.graylist { background: #fff3cd; color: #856404; padding: 2px 8px; border-radius: 4px; font-weight: 650; font-size: 8.5pt; }
+.blacklist { background: #f8d7da; color: #721c24; padding: 2px 8px; border-radius: 4px; font-weight: 650; font-size: 8.5pt; }
+.strategy-box { background: #e8f4fd; border-left: 4px solid #0b5cab; padding: 14px 18px; margin: 14px 0; border-radius: 0 8px 8px 0; }
+.strategy-box h3 { margin-top: 0; color: #0b5cab; }
+.metric { display: inline-block; background: #eef2ff; padding: 4px 10px; border-radius: 6px; margin: 2px 4px 2px 0; font-size: 8.8pt; font-weight: 650; color: #3730a3; }
+.note { background: #fefce8; border: 1px solid #fde68a; padding: 10px 14px; border-radius: 8px; margin: 12px 0; font-size: 9pt; }
+@media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+</style></head><body><div class="doc">
+
+<div class="hero">
+<h1>Job Site Feasibility Research</h1>
+<p class="sub">Archilles Job Pipeline — June 2026 | Prepared by Jade (Hermes CLI Agent)</p>
+</div>
+
+<h2>1. Executive Summary</h2>
+<p>We evaluated 11 job sites for automated discovery by Archilles, a Hermes agent running on a Hetzner VPS. Each site was tested for login requirements, anti-bot defenses, API availability, and headless browser viability. The goal: identify which sites Archilles can reliably scrape without legal risk or technical headaches.</p>
+
+<div class="strategy-box">
+<h3>Core Strategy</h3>
+<p>Many UK tech companies use Lever, Ashby, or Greenhouse as their Applicant Tracking System (ATS). These ATS platforms expose clean, unauthenticated APIs. Instead of fighting LinkedIn or Indeed's bot defenses, Archilles will: (1) discover companies via open sources (Hacker News, reed.co.uk), then (2) go directly to their ATS APIs for structured job data. Skip the middlemen entirely.</p>
+</div>
+
+<h2>2. Full Site Evaluation Table</h2>
+
+<table>
+<tr><th>Site</th><th>Verdict</th><th>Login Required</th><th>Anti-Bot</th><th>API Available</th><th>Method</th></tr>
+<tr>
+  <td><strong>Lever</strong> (jobs.lever.co)</td>
+  <td><span class="whitelist">WHITELIST</span></td>
+  <td>No</td><td>None</td><td>Yes — REST JSON</td>
+  <td><code>api.lever.co/v0/postings/{company}?mode=json</code></td>
+</tr>
+<tr>
+  <td><strong>Ashby</strong> (jobs.ashbyhq.com)</td>
+  <td><span class="whitelist">WHITELIST</span></td>
+  <td>No</td><td>None</td><td>Yes — REST JSON</td>
+  <td><code>api.ashbyhq.com/posting-api/job-board/{company}</code></td>
+</tr>
+<tr>
+  <td><strong>Greenhouse</strong> (boards.greenhouse.io)</td>
+  <td><span class="whitelist">WHITELIST</span></td>
+  <td>No</td><td>None</td><td>Clean HTML</td>
+  <td>HTML parse — no API key needed</td>
+</tr>
+<tr>
+  <td><strong>HN "Who Is Hiring"</strong></td>
+  <td><span class="whitelist">WHITELIST</span></td>
+  <td>No</td><td>Minimal (1 req/s)</td><td>Firebase + Algolia</td>
+  <td>Monthly thread, 400+ comments, keyword-filterable</td>
+</tr>
+<tr>
+  <td><strong>reed.co.uk</strong></td>
+  <td><span class="graylist">GRAYLIST</span></td>
+  <td>No</td><td>None observed</td><td>No</td>
+  <td>Playwright scrape — clean HTML, 197 Python London jobs</td>
+</tr>
+<tr>
+  <td><strong>cwjobs.co.uk</strong></td>
+  <td><span class="graylist">GRAYLIST</span></td>
+  <td>No</td><td>None observed</td><td>No</td>
+  <td>Playwright — 103 Python backend jobs in 14 days</td>
+</tr>
+<tr>
+  <td><strong>cord.co</strong></td>
+  <td><span class="graylist">GRAYLIST</span></td>
+  <td>Partial</td><td>Minimal</td><td>No</td>
+  <td>UK tech focused, 13k+ positions, needs care</td>
+</tr>
+<tr>
+  <td><strong>Workday</strong> (myworkdayjobs.com)</td>
+  <td><span class="graylist">GRAYLIST</span></td>
+  <td>No*</td><td>Cookie wall</td><td>No</td>
+  <td>Heavy SPA, SSR content, Playwright with waits</td>
+</tr>
+<tr>
+  <td><strong>LinkedIn</strong> (linkedin.com/jobs)</td>
+  <td><span class="blacklist">BLACKLIST</span></td>
+  <td><strong>Yes</strong></td>
+  <td>Aggressive</td><td>No (marketing only)</td>
+  <td>Legal risk, fingerprinting, hiQ precedent</td>
+</tr>
+<tr>
+  <td><strong>Indeed</strong> (uk.indeed.com)</td>
+  <td><span class="blacklist">BLACKLIST</span></td>
+  <td>No*</td><td><strong>Cloudflare</strong></td><td>RSS blocked</td>
+  <td>VPS IP blocked on first request</td>
+</tr>
+<tr>
+  <td><strong>Glassdoor</strong></td>
+  <td><span class="blacklist">BLACKLIST</span></td>
+  <td>No*</td><td><strong>Cloudflare</strong></td><td>None</td>
+  <td>Instant "Humans only" challenge</td>
+</tr>
+<tr>
+  <td><strong>Otta / Welcome to the Jungle</strong></td>
+  <td><span class="blacklist">BLACKLIST</span></td>
+  <td><strong>Yes</strong></td><td>reCAPTCHA</td><td>None</td>
+  <td>Hard login wall before any jobs visible</td>
+</tr>
+</table>
+
+<h2>3. Tier Breakdown</h2>
+
+<h3>Tier 1 — Plug and Play (APIs, zero scraping)</h3>
+<p>These four sources require <strong>no scraping at all</strong>. They expose public APIs or clean HTML that Archilles can query with a single curl command. Zero anti-bot risk. Zero legal exposure.</p>
+
+<table>
+<tr><th>Source</th><th>API Pattern</th><th>Example</th></tr>
+<tr><td>Lever</td><td><code>GET /v0/postings/{company}?mode=json</code></td><td>Spotify: 166 jobs, many London-based</td></tr>
+<tr><td>Ashby</td><td><code>GET /posting-api/job-board/{company}</code></td><td>Returns <code>{"jobs": [...], "apiVersion": "1"}</code></td></tr>
+<tr><td>Greenhouse</td><td><code>GET /{company}</code> → HTML parse</td><td>GitLab: 157 jobs, cleanly rendered</td></tr>
+<tr><td>HN Who Is Hiring</td><td>Firebase <code>/v0/item/{id}.json</code></td><td>June 2026 thread: ID 48357725, 402 comments</td></tr>
+</table>
+
+<h3>Tier 2 — Scrape with Care</h3>
+<p>These UK-specific sources need Playwright-based scraping. They didn't block our test VPS, but they require rate limiting, user-agent rotation, and respectful delays. Used primarily for <strong>company discovery</strong> — find companies here, then switch to their Tier 1 ATS for clean job data.</p>
+
+<p><span class="metric">reed.co.uk</span> <span class="metric">cwjobs.co.uk</span> <span class="metric">cord.co</span> <span class="metric">Workday</span></p>
+
+<h3>Tier 3 — Not Worth It</h3>
+<p>LinkedIn (legal risk, login wall, aggressive anti-bot), Indeed (Cloudflare blocks VPS IPs outright), Glassdoor (Cloudflare challenge), and Otta (hard login wall with reCAPTCHA) are blacklisted. The cost of proxies, account management, and legal exposure outweighs any benefit — especially when Tier 1 already covers the same jobs via company ATS boards.</p>
+
+<h2>4. Why This Strategy Works</h2>
+
+<p>The key insight: <strong>LinkedIn and Indeed are middlemen, not sources.</strong> When a company posts a job, it ultimately lands on their ATS (Lever, Ashby, Greenhouse, or Workday). LinkedIn/Indeed just aggregate and wrap ads around it.</p>
+
+<p>By discovering companies through open channels (HN monthly thread, reed.co.uk company names) and then hitting their ATS APIs directly, Archilles gets:</p>
+
+<ul>
+<li><strong>Structured data</strong> — JSON with title, location, description, department, apply URL</li>
+<li><strong>No auth</strong> — these ATS APIs are public by design (companies embed them on their careers pages)</li>
+<li><strong>No legal risk</strong> — public APIs, no ToS circumvention, no scraping behind login</li>
+<li><strong>No proxy costs</strong> — works from a plain Hetzner VPS with zero blocks</li>
+</ul>
+
+<h2>5. Recommended Deployment Schedule</h2>
+
+<table>
+<tr><th>Phase</th><th>Sources</th><th>Frequency</th><th>Effort</th></tr>
+<tr><td><strong>Phase 1</strong> — Immediate</td><td>HN Who Is Hiring (Algolia API)</td><td>Monthly (1st of month)</td><td>1 cron job, ~20 lines of bash</td></tr>
+<tr><td><strong>Phase 2</strong> — Week 1</td><td>Lever, Ashby, Greenhouse APIs — curated company list</td><td>Daily</td><td>1 cron job per ATS, company list in a text file</td></tr>
+<tr><td><strong>Phase 3</strong> — Week 2</td><td>reed.co.uk, cwjobs.co.uk (company discovery → Tier 1)</td><td>Every 2 days</td><td>Playwright scripts, company name extraction</td></tr>
+<tr><td><strong>Phase 4</strong> — Later</td><td>cord.co, Workday, findwork.dev</td><td>Weekly</td><td>Per-site Playwright scripts</td></tr>
+</table>
+
+<h2>6. Company Discovery Pipeline</h2>
+
+<div class="strategy-box">
+<h3>How Archilles finds companies to query</h3>
+<p><strong>Step 1:</strong> Scrape HN "Who Is Hiring" monthly thread → extract company names from "London", "Remote UK", "UK" comments.<br>
+<strong>Step 2:</strong> Scrape reed.co.uk search results → extract company names from listing cards.<br>
+<strong>Step 3:</strong> For each company name, check: do they use Lever? Ashby? Greenhouse?<br>
+<strong>Step 4:</strong> If yes → query their ATS API. If no → skip or add to Workday queue.<br>
+<strong>Step 5:</strong> Deduplicate across sources by company+title fingerprint.</p>
+</div>
+
+<h2>7. Risk Mitigation</h2>
+
+<table>
+<tr><th>Risk</th><th>Mitigation</th></tr>
+<tr><td>Hetzner IP gets rate-limited on reed.co.uk</td><td>2-day interval between scrapes, random delays, rotate user agents</td></tr>
+<tr><td>Company stops using Lever/Ashby/Greenhouse</td><td>Graceful fallback — if API returns 404, mark company as "ATS changed"</td></tr>
+<tr><td>HN thread format changes</td><td>Manual review of first monthly scrape; alert if comment count drops &gt;50%</td></tr>
+<tr><td>Job duplication across sources</td><td>Fingerprint by (company, title, location) triplet; deduplicate before evaluation</td></tr>
+<tr><td>GDPR / legal exposure from scraping</td><td>Only scrape public, unauthenticated pages. No login circumvention. Respect robots.txt.</td></tr>
+</table>
+
+<div class="note">
+<strong>Note:</strong> LinkedIn and Indeed are blacklisted not because scraping is technically impossible, but because it's not worth it. The same jobs appear on company ATS boards (Tier 1) without any of the legal or technical overhead. For every hour we'd spend fighting Cloudflare and LinkedIn's legal team, we could have processed 200 jobs through clean APIs.
+</div>
+
+<h2>8. Verdict</h2>
+
+<p><strong>4 whitelist sources</strong> (Lever, Ashby, Greenhouse, HN) provide clean, structured, legally-safe job data with zero scraping complexity. Combined with <strong>4 graylist sources</strong> (reed, cwjobs, cord, Workday) for company discovery, Archilles can cover the UK Python/backend job market comprehensively without ever touching LinkedIn or Indeed.</p>
+
+<p>The total implementation for Phase 1+2 is approximately <strong>4 cron jobs and 150 lines of bash</strong> — no proxies, no captcha solvers, no account management. The smart play is spending engineering time on the evaluation pipeline and pack generation, not on fighting bot defenses.</p>
+
+</div></body></html>
