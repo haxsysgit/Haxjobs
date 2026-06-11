@@ -34,6 +34,7 @@ def test_taxonomy_contains_target_cv_families():
         ("Full Stack Developer AI, Automation & Tooling", "React TypeScript Python backend", "fullstack_python_react"),
         ("Web Engineer", "React TypeScript frontend with Python APIs", "fullstack_python_react"),
         ("Junior AI Engineer", "LLM RAG evaluation and applied AI products", "ai_engineer_llm"),
+        ("Junior AI Engineers and... err, Gemologists.", "Applied AI tooling with LLM products", "ai_engineer_llm"),
         ("Forward Deployed AI Engineer", "LLM workflows and applied AI with customers", "ai_engineer_llm"),
         ("Agentic Platform Engineer", "AI agents workflow orchestration internal tooling", "ai_automation_agents"),
         ("AI Automation Developer", "browser automation Playwright integrations", "ai_automation_agents"),
