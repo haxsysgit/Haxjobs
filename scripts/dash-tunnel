@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# HaxJobs dashboard SSH tunnel
+# Forwards Archilles API (8800) and Vite dev (5173) to localhost.
+# Usage: dash-tunnel
+set -euo pipefail
+
+LOCAL_API_PORT="${DASH_API_PORT:-8800}"
+LOCAL_VITE_PORT="${DASH_VITE_PORT:-5173}"
+REMOTE_USER="hermes"
+REMOTE_HOST="178.105.245.120"
+REMOTE_PORT="2222"
+KEY="$HOME/.ssh/hermes-agent"
+
+echo "Opening HaxJobs tunnel..."
+echo "  Dashboard : http://localhost:$LOCAL_VITE_PORT"
+echo "  API       : http://localhost:$LOCAL_API_PORT"
+echo "  (Ctrl+C to close)"
+
+exec ssh -i "$KEY" -p "$REMOTE_PORT" \
+  -L "${LOCAL_VITE_PORT}:127.0.0.1:5173" \
+  -L "${LOCAL_API_PORT}:127.0.0.1:8800" \
+  -N -o ServerAliveInterval=60 \
+  "${REMOTE_USER}@${REMOTE_HOST}"
