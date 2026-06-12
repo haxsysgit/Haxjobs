@@ -73,6 +73,14 @@ def update_job_status(job_id, status):
     conn.close()
 
 
+def update_job_pack_status(job_id, pack_status):
+    conn = get_db()
+    conn.execute("UPDATE jobs SET pack_status=?, updated_at=datetime('now') WHERE id=?",
+                 (pack_status, job_id))
+    conn.commit()
+    conn.close()
+
+
 def job_count_by_status():
     conn = get_db()
     rows = conn.execute("SELECT status, COUNT(*) as cnt FROM jobs GROUP BY status").fetchall()

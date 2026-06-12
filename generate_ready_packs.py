@@ -1,0 +1,120 @@
+"""Generate per-job markdown packs for evaluated jobs that are ready.
+
+This script is intentionally separate from the evaluator. Evaluation scores jobs;
+this module turns already-scored jobs into prep packs when the score is high
+enough and the job has a reusable CV variant.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+from typing import Any
+
+from cv_variants.registry import build_pack_cv_metadata, load_cv_variant_registry
+from db.evaluations import get_jobs_with_evaluations
+from db.jobs import update_job_pack_status
+from db.schema import init as init_db
+from packs_builder.job_pack import build_job_pack
+
+ROOT = Path(__file__).resolve().parent
+DEFAULT_REGISTRY_PATH = ROOT / "cv_variants" / "registry.json"
+DEFAULT_PROFILE_PATH = ROOT / "profile" / "arinze_profile.local.json"
+DEFAULT_OUTPUT_ROOT = ROOT / "packs"
+DEFAULT_THRESHOLD = 50
+
+
+def generate_ready_packs(
+    output_root: str | Path = DEFAULT_OUTPUT_ROOT,
+    registry_path: str | Path = DEFAULT_REGISTRY_PATH,
+    profile_path: str | Path = DEFAULT_PROFILE_PATH,
+    threshold: int = DEFAULT_THRESHOLD,
+    limit: int | None = None,
+) -> dict[str, Any]:
+    """Build packs for evaluated jobs that do not already have a pack."""
+    init_db()
+    registry = load_cv_variant_registry(registry_path)
+    profile = _load_profile(profile_path)
+
+    generated: list[dict[str, Any]] = []
+    skipped: list[dict[str, Any]] = []
+
+    for job in get_jobs_with_evaluations():
+        decision = _should_generate(job, threshold)
+        if decision:
+            skipped.append({"job_id": job.get("id"), "reason": decision})
+            continue
+
+        cv_metadata = build_pack_cv_metadata(job.get("recommended_cv_variant"), registry)
+        result = build_job_pack(
+            job=job,
+            evaluation=job,
+            profile=profile,
+            cv_variant=cv_metadata,
+            output_root=output_root,
+        )
+        update_job_pack_status(job["id"], "generated")
+        generated.append(result)
+
+        if limit is not None and len(generated) >= limit:
+            break
+
+    return {
+        "generated_count": len(generated),
+        "skipped_count": len(skipped),
+        "generated": generated,
+        "skipped": skipped,
+    }
+
+
+def _should_generate(job: dict[str, Any], threshold: int) -> str | None:
+    if job.get("pack_status") not in (None, "", "none"):
+        return "pack already exists or is in progress"
+
+    fit_score = job.get("fit_score")
+    if fit_score is None:
+        return "job has no evaluation score"
+    if int(fit_score) < threshold:
+        return f"fit score below {threshold}"
+
+    variant = job.get("recommended_cv_variant")
+    if not variant or variant == "unknown":
+        return "missing recommended CV variant"
+
+    return None
+
+
+def _load_profile(profile_path: str | Path) -> dict[str, Any]:
+    path = Path(profile_path)
+    raw = json.loads(path.read_text())
+    user_profile = raw.get("user_profile", raw)
+    return {
+        "name": user_profile.get("name", "Arinze Elenasulu"),
+        "email": user_profile.get("email", "elenasuluarinze@gmail.com"),
+        "linkedin": user_profile.get("linkedin_url") or user_profile.get("linkedin", ""),
+        "headline": user_profile.get("preferred_headline") or user_profile.get("headline", ""),
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Generate ready HaxJobs markdown packs")
+    parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
+    parser.add_argument("--registry", default=str(DEFAULT_REGISTRY_PATH))
+    parser.add_argument("--profile", default=str(DEFAULT_PROFILE_PATH))
+    parser.add_argument("--threshold", type=int, default=DEFAULT_THRESHOLD)
+    parser.add_argument("--limit", type=int, default=None)
+    args = parser.parse_args()
+
+    result = generate_ready_packs(
+        output_root=args.output_root,
+        registry_path=args.registry,
+        profile_path=args.profile,
+        threshold=args.threshold,
+        limit=args.limit,
+    )
+    print(json.dumps(result, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
