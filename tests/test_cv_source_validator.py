@@ -57,13 +57,14 @@ def _forbidden_patterns() -> list[tuple[str, str]]:
     ]
 
 
-def _required_sections() -> list[str]:
-    """Sections every CV source must contain (as markdown headings)."""
+def _required_sections() -> list[tuple[str, str]]:
+    """Sections every CV source must contain. (regex_pattern, human_name)"""
     return [
-        "Experience",
-        "Education",
-        "Skills",
-        "Projects",
+        (r"Experience", "Experience"),
+        (r"Education", "Education"),
+        (r"(?:Core )?Skills", "Skills or Core Skills"),
+        (r"(?:Selected )?Projects", "Projects or Selected Projects"),
+        (r"Professional Summary", "Professional Summary"),
     ]
 
 
@@ -139,12 +140,12 @@ class TestHasRequiredSections:
     def source(self):
         return _load_source("backend_python")
 
-    @pytest.mark.parametrize("section", _required_sections())
-    def test_section_present(self, source, section):
+    @pytest.mark.parametrize("pattern, human_name", _required_sections())
+    def test_section_present(self, source, pattern, human_name):
         # Match markdown headings: ## Section or # Section
-        pattern = rf"^#{{1,3}}\s+{re.escape(section)}"
-        assert re.search(pattern, source, re.MULTILINE), (
-            f"Required section '{section}' not found as markdown heading"
+        full_pattern = rf"^#{{1,3}}\s+{pattern}"
+        assert re.search(full_pattern, source, re.MULTILINE), (
+            f"Required section '{human_name}' not found as markdown heading"
         )
 
 
@@ -164,7 +165,7 @@ class TestVoiceAndStyle:
         # Find the Skills section and check it doesn't contain a run of
         # more than 12 comma-separated keywords in a single line.
         skills_section = re.search(
-            r"^#+\s+Skills\s*$(.*?)(?=^#+\s|\Z)",
+            r"^#+\s+(?:Core )?Skills\s*$(.*?)(?=^#+\s|\Z)",
             source,
             re.MULTILINE | re.DOTALL,
         )
