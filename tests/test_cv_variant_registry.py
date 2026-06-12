@@ -77,6 +77,21 @@ def test_pull_script_exists_for_archilles_cv_variants():
     assert "archilles:/home/hermes/haxjobs/cv_variants/" in text
 
 
+def test_backend_python_source_is_ready():
+    """The first CV variant (backend_python) must have its source ready."""
+    registry = load_cv_variant_registry(REGISTRY_PATH)
+
+    variant = registry["variants"]["backend_python"]
+    assert variant["source_status"] == "source_ready", (
+        f"Expected source_ready, got {variant['source_status']}"
+    )
+    assert "source_md" in variant, "source_md field missing from registry"
+    assert variant["source_md"] == "cv_variants/backend_python/cv_source.md"
+
+    source_path = ROOT / variant["source_md"]
+    assert source_path.exists(), f"CV source file not found: {source_path}"
+
+
 def test_seed_script_promotes_existing_pack_cvs_without_tailored_names():
     script = ROOT / "scripts" / "seed-cv-variants-from-packs"
     assert script.exists()
