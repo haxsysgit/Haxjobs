@@ -13,31 +13,31 @@ interface Props {
 function JobCard({ job, onToggleFav, onToggleAuto }: { job: Job; onToggleFav: (j: Job) => void; onToggleAuto?: (j: Job) => void }) {
   const navigate = useNavigate()
   return (
-    <div className="card job-card" onClick={() => navigate(`/jobs/${job.id}`)} style={{ position: 'relative' }}>
-      <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 4 }}>
-        {onToggleAuto && (
-          <button className={`btn-bookmark${(job as any).isAutoApply ? ' bookmarked' : ''}`}
-            style={{ fontSize: 10, padding: '2px 6px' }}
-            onClick={e => { e.stopPropagation(); onToggleAuto(job) }}
-            title="Toggle auto-apply">
-            Auto
-          </button>
-        )}
-        <button className={`btn-bookmark${job.isFavorite ? ' bookmarked' : ''}`}
-          onClick={e => { e.stopPropagation(); onToggleFav(job) }}>
-          <Star size={14} fill={job.isFavorite ? 'currentColor' : 'none'} />
-        </button>
-      </div>
-      <div className="job-card-header">
-        <div>
+    <div className="card job-card" onClick={() => navigate(`/jobs/${job.id}`)}>
+      <div className="job-card-topline">
+        <div className="job-card-title-block">
           <h3>{job.title}</h3>
           <p className="job-card-meta">{job.company} · {job.location || 'Location TBD'}</p>
         </div>
-        {job.fitScore > 0 && (
-          <span className={`badge ${job.fitScore >= 80 ? 'badge-strong' : job.fitScore >= 60 ? 'badge-good' : 'badge-weak'}`}>
-            {job.fitScore}%
-          </span>
-        )}
+        <div className="job-card-actions">
+          {job.fitScore > 0 && (
+            <span className={`badge job-score-badge ${job.fitScore >= 80 ? 'badge-strong' : job.fitScore >= 60 ? 'badge-good' : 'badge-weak'}`}>
+              {job.fitScore}%
+            </span>
+          )}
+          {onToggleAuto && (
+            <button className={`btn-bookmark btn-auto${job.isAutoApply ? ' bookmarked' : ''}`}
+              onClick={e => { e.stopPropagation(); onToggleAuto(job) }}
+              title="Toggle assisted apply intent">
+              Auto
+            </button>
+          )}
+          <button className={`btn-bookmark${job.isFavorite ? ' bookmarked' : ''}`}
+            onClick={e => { e.stopPropagation(); onToggleFav(job) }}
+            title="Toggle favorite">
+            <Star size={14} fill={job.isFavorite ? 'currentColor' : 'none'} />
+          </button>
+        </div>
       </div>
       {job.strongestMatches && job.strongestMatches.length > 0 && (
         <div style={{ marginTop: 8, fontSize: 12, color: 'var(--muted)' }}>
@@ -132,6 +132,17 @@ export function Pipeline({ jobs, onUnskip, onApprove, connected }: Props) {
   const [subView, setSubView] = useState<'evaluated' | 'pending' | 'favorites' | 'filtered'>('evaluated')
   const [favJobs, setFavJobs] = useState<Job[]>([])
   const [search, setSearch] = useState('')
+  const [autoApplyById, setAutoApplyById] = useState<Record<string, boolean>>({})
+
+  useEffect(() => {
+    setAutoApplyById(prev => {
+      const next = { ...prev }
+      jobs.forEach(job => {
+        if (job.isAutoApply !== undefined) next[job.id] = job.isAutoApply
+      })
+      return next
+    })
+  }, [jobs])
 
   useEffect(() => {
     if (!connected) return
@@ -141,12 +152,15 @@ export function Pipeline({ jobs, onUnskip, onApprove, connected }: Props) {
   }, [connected, jobs])
 
   const searchLower = search.toLowerCase()
+  const hydrateJob = (j: Job): Job => ({ ...j, isAutoApply: autoApplyById[j.id] ?? j.isAutoApply ?? false })
+  const visibleJobs = jobs.map(hydrateJob)
+  const visibleFavJobs = favJobs.map(hydrateJob)
   const filterSearch = (j: Job) =>
     !search || j.title.toLowerCase().includes(searchLower) || j.company.toLowerCase().includes(searchLower)
 
-  const evaluated = jobs.filter(j => (j.status === 'evaluated' || j.status === 'completed') && j.fitScore > 0 && filterSearch(j))
-  const pending = jobs.filter(j => j.status === 'pending' && filterSearch(j))
-  const filtered = jobs.filter(j => j.status === 'skipped' && filterSearch(j))
+  const evaluated = visibleJobs.filter(j => (j.status === 'evaluated' || j.status === 'completed') && j.fitScore > 0 && filterSearch(j))
+  const pending = visibleJobs.filter(j => j.status === 'pending' && filterSearch(j))
+  const filtered = visibleJobs.filter(j => j.status === 'skipped' && filterSearch(j))
 
   const tabs = [
     { key: 'evaluated' as const, label: 'Evaluated', count: jobs.filter(j => (j.status === 'evaluated' || j.status === 'completed') && j.fitScore > 0).length },
@@ -172,8 +186,8 @@ export function Pipeline({ jobs, onUnskip, onApprove, connected }: Props) {
   const handleToggleAuto = async (job: Job) => {
     try {
       const result = await api.toggleAutoApply(job.id)
-      // Update local state to reflect the new auto-apply status
-      setFavJobs(prev => prev.map(j => j.id === job.id ? { ...j, isAutoApply: result.auto_apply } as any : j))
+      setAutoApplyById(prev => ({ ...prev, [job.id]: Boolean(result.auto_apply) }))
+      setFavJobs(prev => prev.map(j => j.id === job.id ? { ...j, isAutoApply: Boolean(result.auto_apply) } : j))
     } catch (err) {
       console.error('Failed to toggle auto-apply:', err)
     }
@@ -209,7 +223,7 @@ export function Pipeline({ jobs, onUnskip, onApprove, connected }: Props) {
 
       {subView === 'evaluated' && <Evaluated jobs={evaluated} onToggleFav={handleToggleFav} onToggleAuto={handleToggleAuto} />}
       {subView === 'pending' && <PendingList jobs={pending} />}
-      {subView === 'favorites' && <Evaluated jobs={favJobs} onToggleFav={handleToggleFav} onToggleAuto={handleToggleAuto} />}
+      {subView === 'favorites' && <Evaluated jobs={visibleFavJobs} onToggleFav={handleToggleFav} onToggleAuto={handleToggleAuto} />}
       {subView === 'filtered' && <FilteredList jobs={filtered} onUnskip={onUnskip} onApprove={onApprove} onToggleFav={handleToggleFav} />}
     </div>
   )

@@ -33,6 +33,7 @@ export interface Job {
   isSaved: boolean
   isApproved?: boolean
   isUnskipped?: boolean
+  isAutoApply?: boolean
   // Extended fields
   jdText?: string
 }

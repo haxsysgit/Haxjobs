@@ -2,6 +2,7 @@ import json
 
 from db import schema
 from db.jobs import get_job, insert_job
+from db.decisions import record_decision
 from server.routes.jobs import list_jobs
 
 
@@ -64,3 +65,23 @@ def test_list_jobs_exposes_role_family_and_cv_variant(monkeypatch, tmp_path):
     assert row["roleFamilyConfidence"] > 0
     assert row["packStatus"] == "none"
     assert row["outreachStatus"] == "none"
+    assert row["isAutoApply"] is False
+
+
+def test_list_jobs_exposes_current_auto_apply_toggle_state(monkeypatch, tmp_path):
+    use_temp_db(monkeypatch, tmp_path)
+    schema.init()
+    job_id = insert_job(
+        title="Python Backend Engineer",
+        company="ExampleCo",
+        jd_text="Python FastAPI services.",
+        source="manual",
+    )
+
+    record_decision(job_id, "auto_apply", "test enable")
+    enabled = next(job for job in list_jobs() if int(job["id"]) == job_id)
+    assert enabled["isAutoApply"] is True
+
+    record_decision(job_id, "auto_apply_remove", "test disable")
+    disabled = next(job for job in list_jobs() if int(job["id"]) == job_id)
+    assert disabled["isAutoApply"] is False

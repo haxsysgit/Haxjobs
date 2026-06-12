@@ -15,7 +15,7 @@ def record_decision(job_id, decision, reason=""):
 def get_decisions(job_id):
     conn = get_db()
     rows = conn.execute(
-        "SELECT * FROM decisions WHERE job_id=? ORDER BY decided_at DESC",
+        "SELECT * FROM decisions WHERE job_id=? ORDER BY id DESC",
         (job_id,)).fetchall()
     conn.close()
     return [dict(r) for r in rows]

@@ -36,11 +36,26 @@ def list_jobs():
             "processedAt": r.get("evaluated_at", ""),
             "isFavorite": db_favs.is_favorite(r["id"]),
             "isSaved": False,
+            "isAutoApply": _is_auto_apply_enabled(r["id"]),
         })
     saved_ids = {s["id"] for s in db_saved.get_saved_jobs()}
     for j in result:
         j["isSaved"] = int(j["id"]) in saved_ids
     return result
+
+
+def _is_auto_apply_enabled(job_id):
+    """Return the current dashboard auto-apply intent marker.
+
+    The dashboard stores auto-apply as decision events. The latest auto_apply or
+    auto_apply_remove event wins, so the UI can show a stable toggle state.
+    """
+    for decision in db_decs.get_decisions(int(job_id)):
+        if decision["decision"] == "auto_apply":
+            return True
+        if decision["decision"] == "auto_apply_remove":
+            return False
+    return False
 
 
 def unskip_job(body):

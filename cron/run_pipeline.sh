@@ -19,7 +19,12 @@ print(db.get_stats()['pending'])
 ")
 
 if [ "$PENDING" -eq 0 ]; then
-    log "No pending jobs. Done."
+    log "No pending jobs. Checking for evaluated jobs that need packs..."
+    log "Pack generation: creating ready packs for evaluated jobs..."
+    python3 generate_ready_packs.py --limit 10 2>&1 | tee -a "$LOG_FILE"
+    python3 pipeline_db.py classify-roles 2>&1 | tee -a "$LOG_FILE"
+    python3 /home/hermes/haxjobs/cron/sync_db_to_intake.py
+    log "Pipeline done."
     exit 0
 fi
 
@@ -64,6 +69,11 @@ print(db.get_stats()['pending'])
     done
     log "--all mode: complete."
 fi
+
+# Create packs for evaluated jobs that are ready. Keep this separate from
+# evaluation so Hermes scoring and markdown pack generation stay debuggable.
+log "Pack generation: creating ready packs for evaluated jobs..."
+python3 generate_ready_packs.py --limit 10 2>&1 | tee -a "$LOG_FILE"
 
 python3 pipeline_db.py classify-roles 2>&1 | tee -a "$LOG_FILE"
 python3 /home/hermes/haxjobs/cron/sync_db_to_intake.py
