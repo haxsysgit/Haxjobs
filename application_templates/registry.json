@@ -1,0 +1,75 @@
+{
+  "purpose": "Reusable application templates for HaxJobs. These are not per-job CV generators.",
+  "rules": [
+    "CV variants are stable and reusable.",
+    "Per-job packs reference a CV variant and fill dynamic cover-letter/pack slots.",
+    "Cover letters must carry Arinze voice throughout: confident, playful, specific, and truthful.",
+    "No auto-submit. Manual review is required before any application."
+  ],
+  "schema_version": 1,
+  "templates": {
+    "ai_automation_agents": {
+      "auto_submit": false,
+      "cover_letter_template": "cover_letters/ai_automation_agents.md",
+      "cv_brief": "cv_variant_briefs/ai_automation_agents.md",
+      "cv_variant": "ai_automation_agents",
+      "label": "AI Automation and Agent Tooling Developer",
+      "manual_review_required": true,
+      "pack_template": "pack_templates/ai_automation_agents.md"
+    },
+    "ai_engineer_llm": {
+      "auto_submit": false,
+      "cover_letter_template": "cover_letters/ai_engineer_llm.md",
+      "cv_brief": "cv_variant_briefs/ai_engineer_llm.md",
+      "cv_variant": "ai_engineer_llm",
+      "label": "AI Engineer and LLM Engineer",
+      "manual_review_required": true,
+      "pack_template": "pack_templates/ai_engineer_llm.md"
+    },
+    "backend_python": {
+      "auto_submit": false,
+      "cover_letter_template": "cover_letters/backend_python.md",
+      "cv_brief": "cv_variant_briefs/backend_python.md",
+      "cv_variant": "backend_python",
+      "label": "Python Backend Engineer",
+      "manual_review_required": true,
+      "pack_template": "pack_templates/backend_python.md"
+    },
+    "data_python": {
+      "auto_submit": false,
+      "cover_letter_template": "cover_letters/data_python.md",
+      "cv_brief": "cv_variant_briefs/data_python.md",
+      "cv_variant": "data_python",
+      "label": "Python Data and Analytics Developer",
+      "manual_review_required": true,
+      "pack_template": "pack_templates/data_python.md"
+    },
+    "fullstack_python_react": {
+      "auto_submit": false,
+      "cover_letter_template": "cover_letters/fullstack_python_react.md",
+      "cv_brief": "cv_variant_briefs/fullstack_python_react.md",
+      "cv_variant": "fullstack_python_react",
+      "label": "Full Stack Python and React Developer",
+      "manual_review_required": true,
+      "pack_template": "pack_templates/fullstack_python_react.md"
+    },
+    "junior_software": {
+      "auto_submit": false,
+      "cover_letter_template": "cover_letters/junior_software.md",
+      "cv_brief": "cv_variant_briefs/junior_software.md",
+      "cv_variant": "junior_software",
+      "label": "Junior or Graduate Software Engineer",
+      "manual_review_required": true,
+      "pack_template": "pack_templates/junior_software.md"
+    },
+    "platform_backend": {
+      "auto_submit": false,
+      "cover_letter_template": "cover_letters/platform_backend.md",
+      "cv_brief": "cv_variant_briefs/platform_backend.md",
+      "cv_variant": "platform_backend",
+      "label": "Platform and Cloud Backend Engineer",
+      "manual_review_required": true,
+      "pack_template": "pack_templates/platform_backend.md"
+    }
+  }
+}

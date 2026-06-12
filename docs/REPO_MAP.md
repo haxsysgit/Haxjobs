@@ -113,7 +113,8 @@ These files are in the current live path or directly support it.
 | `cv_validator.py` | active gate | Validates CV output. Keep and extend. |
 | `cv_profile_helper.py` | utility | Interactive profile maintenance helper. |
 | `pack_builder.sh` | utility/future | CV validator gate + PDF export for pack dirs. Current target says packs should not create per-job CVs by default. |
-| `base_cvs/` | active but should be renamed/reframed | Existing reusable CV variants. Should become `cv_variants/`. Contains current PDFs/HTML sources. |
+| `cv_variants/` | active CV variant registry | Stable reusable CV variant directories and registry. PDFs/HTML stay private and should be pulled from Archilles when needed. |
+| `application_templates/` | active template source | Reusable CV briefs, dynamic cover-letter templates, and pack templates for each role family. |
 
 ## 5. Future automation lane
 
@@ -121,8 +122,8 @@ These are useful long term, but should not be part of the core reset path until 
 
 | Path | Status | Notes |
 |---|---|---|
-| `discovery/auto_apply.py` | future automation lane | Browser form filler. Not called by current cron. Keep as future Level 2/3 automation after tests and approval rules. |
-| `discovery/site_knowledge.json` | future automation lane | Selectors/quirks for ATS auto-fill. Useful with `auto_apply.py`, but not current core. |
+| `legacy/discovery/auto_apply.py` | future automation lane, isolated | Browser form filler. Not called by current cron. Keep isolated until Level 2/3 automation is designed and tested. |
+| `legacy/discovery/site_knowledge.json` | future automation lane, isolated | Selectors/quirks for ATS auto-fill. Useful with `auto_apply.py`, but not current core. |
 | Dashboard auto-apply toggle | future automation lane | `server/routes/jobs.py` records an `auto_apply` decision marker. It does not submit applications. Keep as intent marker. |
 | `discovery/auto_trigger.sh` | future automation lane | Needs review before use. |
 
@@ -145,10 +146,10 @@ Do not delete these blindly. Move behind `legacy/` only after import checks and 
 
 | Path | Status | Reason |
 |---|---|---|
-| `process_pending_intakes.py` | legacy candidate | Large old all-in-one pipeline. `BUGLIST.md` already marks it dead code. It still contains stale per-job `Tailored_CV` behavior. |
+| `legacy/process_pending_intakes.py` | legacy isolated | Large old all-in-one pipeline. `BUGLIST.md` already marks it dead code. It still contains stale per-job `Tailored_CV` behavior. |
 | `post_process.py` | legacy or transition utility | Root-level status reconciler. Current active runner uses `cron/sync_db_to_intake.py`, not this root file. Confirm before moving. |
 | `cron/post_process.py` | transition utility | Similar purpose to root `post_process.py`. Needs consolidation with DB-first model. |
-| `infographic/` | non-runtime visual artifact | Useful as reference only. Not part of live system. |
+| `legacy/visuals/infographic/` | non-runtime visual artifact | Useful as reference only. Not part of live system. |
 | `check_dashboard.py` | dev utility | Keep only if actively used for dashboard smoke checks. |
 | `dev_reload.py` | dev utility | Local/dev convenience. Not product core. |
 | `dev-watch.sh` | dev utility | Local/dev convenience. |
@@ -253,9 +254,9 @@ Do not replace crontab until those scripts exist and pass manual tests.
 
 Legacy candidate usage check found:
 
-- `process_pending_intakes.py` is referenced by docs/BUGLIST/historical notes, not active runtime imports.
-- `auto_apply.py` is not called by cron, but the dashboard records `auto_apply` decisions. Treat browser auto-apply as a future lane, not dead forever.
-- `site_knowledge.json` is used by `auto_apply.py` only.
+- `legacy/process_pending_intakes.py` is referenced by docs/BUGLIST/historical notes, not active runtime imports.
+- `legacy/discovery/auto_apply.py` is not called by cron, but the dashboard records `auto_apply` decisions. Treat browser auto-apply as a future lane, not dead forever.
+- `legacy/discovery/site_knowledge.json` is used by `legacy/discovery/auto_apply.py` only.
 - `job_classifier.py` is actively called by `cron/run_pipeline.sh`.
 - `sync_db_to_intake.py` is actively called by `cron/run_pipeline.sh`.
 - `cron/send_email.py` exists but email should not be the primary notification route.
