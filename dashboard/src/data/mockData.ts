@@ -42,7 +42,7 @@ export const mockJobs: Job[] = [
     sponsorshipRisk: 'medium',
     summary: 'Strong backend match. Direct FastAPI and PostgreSQL experience aligns with Spotify stack. Main gaps are Kubernetes depth and cloud platform ownership.',
     applicationUrl: 'https://jobs.lever.co/spotify/830106b6-0055-4003-bcaa-370648915622/apply',
-    packDir: '/home/hermes/job-pipeline/packs/Spotify_Backend_Engineer_Release',
+    packDir: 'packs/Spotify_Backend_Engineer_Release',
     receivedAt: '2026-06-06T14:30:00Z',
     processedAt: '2026-06-06T15:45:00Z'
   },
@@ -61,7 +61,7 @@ export const mockJobs: Job[] = [
     sponsorshipRisk: 'high',
     summary: 'Good AI engineering fit. Haxaml and LLM work are directly relevant. Palantir may require security clearance.',
     applicationUrl: 'https://jobs.lever.co/palantir/abc123',
-    packDir: '/home/hermes/job-pipeline/packs/Palantir_Forward_Deployed_AI_Engineer',
+    packDir: 'packs/Palantir_Forward_Deployed_AI_Engineer',
     receivedAt: '2026-06-06T16:00:00Z',
     processedAt: '2026-06-06T17:20:00Z'
   },
@@ -80,7 +80,7 @@ export const mockJobs: Job[] = [
     sponsorshipRisk: 'low',
     summary: 'Excellent fit for Monzo backend role. Core stack is identical to experience. Fintech domain is learnable.',
     applicationUrl: 'https://jobs.lever.co/monzo/def456',
-    packDir: '/home/hermes/job-pipeline/packs/Monzo_Backend_Engineer_Core',
+    packDir: 'packs/Monzo_Backend_Engineer_Core',
     receivedAt: '2026-06-07T08:15:00Z',
     processedAt: '2026-06-07T09:30:00Z'
   },
@@ -99,7 +99,7 @@ export const mockJobs: Job[] = [
     sponsorshipRisk: 'low',
     summary: 'Very strong fit. Stack nearly identical to Vigilis/Pharmax experience. Python, SQLAlchemy, MySQL, Docker all match.',
     applicationUrl: 'https://apply.workable.com/skinandme/j/ACB925B91E',
-    packDir: '/home/hermes/job-pipeline/packs/Skin_Me_Backend_Engineer',
+    packDir: 'packs/Skin_Me_Backend_Engineer',
     receivedAt: '2026-06-07T07:00:00Z',
     processedAt: '2026-06-07T08:10:00Z'
   },
@@ -118,7 +118,7 @@ export const mockJobs: Job[] = [
     sponsorshipRisk: 'medium',
     summary: 'Strong backend match. FastAPI and PostgreSQL experience directly relevant. Gaps are cloud/K8s depth.',
     applicationUrl: '',
-    packDir: '/home/hermes/job-pipeline/packs/UK_Tech_Company_Python_Developer',
+    packDir: 'packs/UK_Tech_Company_Python_Developer',
     receivedAt: '2026-06-04T16:34:00Z',
     processedAt: '2026-06-04T16:42:00Z'
   },

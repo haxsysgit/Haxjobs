@@ -62,7 +62,7 @@ export function Settings() {
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--grid)' }}>
               <span>Pack storage</span>
-              <span style={{ color: 'var(--muted)' }}>~/job-pipeline/packs/</span>
+              <span style={{ color: 'var(--muted)' }}>~/haxjobs/packs/</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
               <span>API + Dashboard</span>
