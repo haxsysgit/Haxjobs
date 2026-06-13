@@ -29,7 +29,7 @@ I have been writing Python since 2020 and it is my strongest language. I build b
 
 ## Education
 
-**BSc Information Technology**, Middlesex University London (Expected June 2026)
+**BSc Information Technology**, Middlesex University London  (June 2026)
 
 **Advanced Diploma in Software Engineering (ADSE Java)**, Aptech Computer Education, Lagos (September 2022 to August 2024)
 A structured two-year programme combining classroom training with hands-on project work across four semesters. Covered Linux, Python, C++, C, Java, Spring Framework, EJB, Flutter/Dart, MERN and MEAN stacks. Python became my primary language during this period.
@@ -52,7 +52,7 @@ Built and maintained the backend for a pharmacy operations platform handling sal
 ### AI and Backend Engineer (Contract), Bucca Hut
 *February 2025 to May 2025*
 
-Built a data analysis and data mining tool for a food business, connecting LLM outputs and mined data insights to real operational decisions. Designed the backend API bridging AI processing with existing workflows. Worked part-time alongside Vigilis, delivering the tool from concept to working prototype.
+Built a data analysis and data mining tool for a food business, connecting LLM outputs and mined data insights to real operational decisions. Designed the backend API bridging AI processing with existing workflows. Worked as a contract(extra hands) alongside my position at vigilis Vigilis, delivering the tool from concept to working prototype.
 
 ### Software Engineer Intern, Aptech Computer Education
 *September 2022 to August 2024 · Lagos, Nigeria*
@@ -70,9 +70,8 @@ Completed the Advanced Diploma in Software Engineering (ADSE Java track), a stru
 
 ### Pharmax, Pharmacy Management Platform
 *Python, FastAPI, PostgreSQL, SQLAlchemy, Alembic*
-[github.com/haxsysgit/Pharmax-backend](https://github.com/haxsysgit/Pharmax-backend)
 
-Built the backend for an AI-integrated pharmacy operations platform handling product inventory, sales, invoicing, and reporting. The backend skeleton is public on GitHub; the full SaaS code is proprietary.
+Built a Saas for an AI-integrated pharmacy operations platform handling product inventory, sales, invoicing, and reporting. The backend skeleton is public on GitHub; the full SaaS code is proprietary.
 
 - Products CRUD with multi-unit pricing (tablets, packs, strips).
 - Full invoice lifecycle: draft to finalise (auto stock deduction) to cancel (stock reversal).
@@ -87,7 +86,7 @@ Built the backend for an AI-integrated pharmacy operations platform handling pro
 Designed a portable standard that gives AI coding agents structured project context across sessions. Five-part memory model (Facts, Rules, Acts, Map, Expect) capturing project truth, agent rules, session history, module relationships, and expected outcomes. Reduces repeated prompting, context rot, and full-repo rescans across agent sessions. FRAME is the contract; implementations earn alignment with it.
 
 ### Haxaml, AI Agent Governance and Project Memory
-*Python, MCP, FRAME*
+*Python, MCP, FRAME, System design*
 [github.com/haxsysgit/haxaml](https://github.com/haxsysgit/haxaml) · [pypi.org/project/haxaml](https://pypi.org/project/haxaml)
 
 Built and published a governance runtime that enforces project rules for AI coding agents. Five-stage pipeline from Admission to Verification to Recording. MCP server so AI coding tools can read and write FRAME files during a session. Published on PyPI with documentation and setup guides.

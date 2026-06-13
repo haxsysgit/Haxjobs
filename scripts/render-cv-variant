@@ -1,0 +1,36 @@
+#!/usr/bin/env python3
+"""Render a CV variant from source markdown to HTML and PDF.
+
+Usage:
+  python3 scripts/render-cv-variant [variant_id]
+
+Defaults to 'backend_python' if no variant given.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+from cv_variants.renderer import render_html, render_pdf  # noqa: E402
+
+VARIANT = sys.argv[1] if len(sys.argv) > 1 else "backend_python"
+SOURCE = ROOT / "cv_variants" / VARIANT / "cv_source.md"
+HTML_OUT = ROOT / "cv_variants" / VARIANT / f"Arinze_Elenasulu_{VARIANT.replace('_', ' ').title().replace(' ', '_')}_CV.html"
+PDF_OUT = ROOT / "cv_variants" / VARIANT / f"Arinze_Elenasulu_{VARIANT.replace('_', ' ').title().replace(' ', '_')}_CV.pdf"
+
+if not SOURCE.exists():
+    print(f"ERROR: CV source not found: {SOURCE}")
+    sys.exit(1)
+
+print(f"Rendering {VARIANT}...")
+html = render_html(SOURCE)
+HTML_OUT.write_text(html)
+print(f"  HTML: {HTML_OUT} ({len(html)} chars)")
+
+pdf = render_pdf(SOURCE, PDF_OUT)
+print(f"  PDF:  {pdf} ({pdf.stat().st_size / 1024:.0f} KB)")
+print("Done.")

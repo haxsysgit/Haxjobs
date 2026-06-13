@@ -82,8 +82,8 @@ def test_backend_python_source_is_ready():
     registry = load_cv_variant_registry(REGISTRY_PATH)
 
     variant = registry["variants"]["backend_python"]
-    assert variant["source_status"] == "source_ready", (
-        f"Expected source_ready, got {variant['source_status']}"
+    assert variant["source_status"] == "generated", (
+        f"Expected generated, got {variant['source_status']}"
     )
     assert "source_md" in variant, "source_md field missing from registry"
     assert variant["source_md"] == "cv_variants/backend_python/cv_source.md"
