@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Send, Mail, Clock, CheckCircle, XCircle, FileText, ExternalLink } from '../components/Icons'
+import { Send, Mail, Clock, CheckCircle, X, FileText, ExternalLink } from '../components/Icons'
 
 interface OutreachJob {
   id: number
@@ -136,7 +136,7 @@ export function Outreach() {
           <span className="stat-change">Ready to send</span>
         </div>
         <div className="stat-card">
-          <XCircle size={18} style={{ color: 'var(--muted)', marginBottom: 2 }} />
+          <X size={18} style={{ color: 'var(--muted)', marginBottom: 2 }} />
           <span className="stat-label">Rejected</span>
           <span className="stat-value">{rejectedCount}</span>
           <span className="stat-change">Skipped drafts</span>
@@ -286,7 +286,7 @@ export function Outreach() {
                     onClick={() => handleReject(draft.id)}
                     style={{ color: 'var(--danger)' }}
                   >
-                    <XCircle size={14} /> Reject
+                    <X size={14} /> Reject
                   </button>
                 </div>
               )}
