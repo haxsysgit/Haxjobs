@@ -15,6 +15,9 @@ export interface Job {
   roleFamilyConfidence?: number
   recommendedCvVariant?: string
   packStatus?: string
+  packReviewStatus?: string
+  packReviewNotes?: string
+  packReviewedAt?: string
   outreachStatus?: string
   fitScore: number
   level: number
@@ -43,6 +46,14 @@ export interface Pack {
   name: string
   files: string[]
   count: number
+}
+
+export interface PackDetail {
+  ok: boolean
+  packDir: string
+  metadata: Record<string, unknown>
+  files: Record<string, string>
+  error?: string
 }
 
 export interface DiscoveryStatus {
@@ -102,6 +113,11 @@ export const api = {
 
   // Packs
   getPacks: () => fetchAPI<Pack[]>('/api/packs'),
+  getPackDetail: (packDir: string) => fetchAPI<PackDetail>(`/api/pack-detail?dir=${encodeURIComponent(packDir)}`),
+  generatePack: (jobId: string) =>
+    fetchAPI<any>('/api/jobs/generate-pack', { method: 'POST', body: JSON.stringify({ job_id: jobId }) }),
+  reviewPack: (jobId: string, action: 'approve' | 'reject' | 'changes', notes?: string) =>
+    fetchAPI<any>('/api/jobs/review-pack', { method: 'POST', body: JSON.stringify({ job_id: jobId, action, notes }) }),
 
   // Stats
   getStats: () => fetchAPI<PipelineStats>('/api/stats'),

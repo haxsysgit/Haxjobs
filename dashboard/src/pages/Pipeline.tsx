@@ -10,7 +10,13 @@ interface Props {
   connected: boolean
 }
 
-function JobCard({ job, onToggleFav, onToggleAuto }: { job: Job; onToggleFav: (j: Job) => void; onToggleAuto?: (j: Job) => void }) {
+function JobCard({ job, onToggleFav, onToggleAuto, onGeneratePack, onReviewPack }: {
+  job: Job
+  onToggleFav: (j: Job) => void
+  onToggleAuto?: (j: Job) => void
+  onGeneratePack?: (j: Job) => void
+  onReviewPack?: (j: Job, action: 'approve' | 'reject' | 'changes') => void
+}) {
   const navigate = useNavigate()
   return (
     <div className="card job-card" onClick={() => navigate(`/jobs/${job.id}`)}>
@@ -55,15 +61,46 @@ function JobCard({ job, onToggleFav, onToggleAuto }: { job: Job; onToggleFav: (j
         <span className="badge badge-neutral" style={{ fontSize: 10 }}>{job.status}</span>
         {job.isSaved && <span className="badge badge-good" style={{ fontSize: 10 }}>Saved</span>}
         {job.isApproved && <span className="badge badge-strong" style={{ fontSize: 10 }}>Approved</span>}
+        {job.packStatus && job.packStatus !== 'none' && (
+          <span className="badge badge-good" style={{ fontSize: 10 }}>Pack: {job.packStatus.replaceAll('_', ' ')}</span>
+        )}
       </div>
+      {(onGeneratePack || onReviewPack) && (
+        <div className="job-pack-actions">
+          {onGeneratePack && (!job.packStatus || job.packStatus === 'none') && job.fitScore >= 50 && (
+            <button className="btn btn-sm" onClick={e => { e.stopPropagation(); onGeneratePack(job) }}>
+              Generate Pack
+            </button>
+          )}
+          {onReviewPack && job.packStatus === 'generated' && (
+            <>
+              <button className="btn btn-sm btn-primary" onClick={e => { e.stopPropagation(); onReviewPack(job, 'approve') }}>
+                Approve Pack
+              </button>
+              <button className="btn btn-sm" onClick={e => { e.stopPropagation(); onReviewPack(job, 'changes') }}>
+                Changes
+              </button>
+              <button className="btn btn-sm" onClick={e => { e.stopPropagation(); onReviewPack(job, 'reject') }}>
+                Reject
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }
 
-export function Evaluated({ jobs, onToggleFav, onToggleAuto }: { jobs: Job[]; onToggleFav: (j: Job) => void; onToggleAuto: (j: Job) => void }) {
+export function Evaluated({ jobs, onToggleFav, onToggleAuto, onGeneratePack, onReviewPack }: {
+  jobs: Job[]
+  onToggleFav: (j: Job) => void
+  onToggleAuto: (j: Job) => void
+  onGeneratePack: (j: Job) => void
+  onReviewPack: (j: Job, action: 'approve' | 'reject' | 'changes') => void
+}) {
   return (
     <div className="pipeline-grid">
-      {jobs.map(j => <JobCard key={j.id} job={j} onToggleFav={onToggleFav} onToggleAuto={onToggleAuto} />)}
+      {jobs.map(j => <JobCard key={j.id} job={j} onToggleFav={onToggleFav} onToggleAuto={onToggleAuto} onGeneratePack={onGeneratePack} onReviewPack={onReviewPack} />)}
       {jobs.length === 0 && <div className="empty" style={{ gridColumn: '1 / -1' }}><h3>No evaluated jobs</h3><p>Jobs with fit scores appear here after Hermes evaluates them.</p></div>}
     </div>
   )
@@ -133,6 +170,7 @@ export function Pipeline({ jobs, onUnskip, onApprove, connected }: Props) {
   const [favJobs, setFavJobs] = useState<Job[]>([])
   const [search, setSearch] = useState('')
   const [autoApplyById, setAutoApplyById] = useState<Record<string, boolean>>({})
+  const [packStatusById, setPackStatusById] = useState<Record<string, string>>({})
 
   useEffect(() => {
     setAutoApplyById(prev => {
@@ -152,7 +190,11 @@ export function Pipeline({ jobs, onUnskip, onApprove, connected }: Props) {
   }, [connected, jobs])
 
   const searchLower = search.toLowerCase()
-  const hydrateJob = (j: Job): Job => ({ ...j, isAutoApply: autoApplyById[j.id] ?? j.isAutoApply ?? false })
+  const hydrateJob = (j: Job): Job => ({
+    ...j,
+    isAutoApply: autoApplyById[j.id] ?? j.isAutoApply ?? false,
+    packStatus: packStatusById[j.id] ?? j.packStatus,
+  })
   const visibleJobs = jobs.map(hydrateJob)
   const visibleFavJobs = favJobs.map(hydrateJob)
   const filterSearch = (j: Job) =>
@@ -193,6 +235,29 @@ export function Pipeline({ jobs, onUnskip, onApprove, connected }: Props) {
     }
   }
 
+  const handleGeneratePack = async (job: Job) => {
+    try {
+      const result = await api.generatePack(job.id)
+      if (result.ok) {
+        setPackStatusById(prev => ({ ...prev, [job.id]: 'generated' }))
+      }
+    } catch (err) {
+      console.error('Failed to generate pack:', err)
+    }
+  }
+
+  const handleReviewPack = async (job: Job, action: 'approve' | 'reject' | 'changes') => {
+    try {
+      const notes = action === 'approve' ? 'Approved from dashboard' : `Marked ${action} from dashboard`
+      const result = await api.reviewPack(job.id, action, notes)
+      if (result.ok && result.pack_status) {
+        setPackStatusById(prev => ({ ...prev, [job.id]: result.pack_status }))
+      }
+    } catch (err) {
+      console.error('Failed to review pack:', err)
+    }
+  }
+
   return (
     <div>
       <div style={{ display: 'flex', gap: 10, marginBottom: 14, alignItems: 'center' }}>
@@ -221,9 +286,9 @@ export function Pipeline({ jobs, onUnskip, onApprove, connected }: Props) {
         />
       </div>
 
-      {subView === 'evaluated' && <Evaluated jobs={evaluated} onToggleFav={handleToggleFav} onToggleAuto={handleToggleAuto} />}
+      {subView === 'evaluated' && <Evaluated jobs={evaluated} onToggleFav={handleToggleFav} onToggleAuto={handleToggleAuto} onGeneratePack={handleGeneratePack} onReviewPack={handleReviewPack} />}
       {subView === 'pending' && <PendingList jobs={pending} />}
-      {subView === 'favorites' && <Evaluated jobs={visibleFavJobs} onToggleFav={handleToggleFav} onToggleAuto={handleToggleAuto} />}
+      {subView === 'favorites' && <Evaluated jobs={visibleFavJobs} onToggleFav={handleToggleFav} onToggleAuto={handleToggleAuto} onGeneratePack={handleGeneratePack} onReviewPack={handleReviewPack} />}
       {subView === 'filtered' && <FilteredList jobs={filtered} onUnskip={onUnskip} onApprove={onApprove} onToggleFav={handleToggleFav} />}
     </div>
   )

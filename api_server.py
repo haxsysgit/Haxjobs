@@ -26,6 +26,7 @@ from server.routes.jobs import (
     review_job_pack,
     generate_job_pack,
 )
+from server.routes.pack_resources import get_pack_detail
 from server.routes.resources import (
     list_packs, serve_pack_file,
     handle_whitelist_get, handle_whitelist_post, handle_whitelist_remove,
@@ -89,6 +90,14 @@ class APIHandler(BaseHTTPRequestHandler):
 
         elif path == "/api/packs":
             self._json(list_packs())
+
+        elif path == "/api/pack-detail":
+            pack_dir = qs.get("dir", [""])[0]
+            if not pack_dir:
+                self._json({"ok": False, "error": "dir required"}, 400)
+            else:
+                detail = get_pack_detail(pack_dir)
+                self._json(detail, 200 if detail.get("ok") else 404)
 
         elif path.startswith("/api/packs/"):
             # Serve pack files: /api/packs/{pack_dir}/{filename}
