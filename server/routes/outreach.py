@@ -36,7 +36,7 @@ def list_outreach_jobs() -> list[dict[str, Any]]:
 
     rows = conn.execute("""
         SELECT DISTINCT j.id, j.title, j.company, j.location, j.source_url,
-               j.outreach_status, j.pack_status, j.pack_dir,
+               j.outreach_status, j.pack_status,
                e.fit_score, e.fit_verdict, e.level_name, e.summary,
                j.role_family, j.recommended_cv_variant,
                (SELECT count(*) FROM outreach_drafts d WHERE d.job_id = j.id AND d.status = 'draft') as draft_count,
@@ -64,7 +64,6 @@ def list_outreach_jobs() -> list[dict[str, Any]]:
             "summary": r["summary"] or "",
             "outreachStatus": r["outreach_status"] or "none",
             "packStatus": r["pack_status"] or "none",
-            "packDir": r["pack_dir"] or "",
             "roleFamily": r["role_family"] or "",
             "recommendedCvVariant": r["recommended_cv_variant"] or "",
             "draftCount": r["draft_count"],
@@ -85,7 +84,7 @@ def list_outreach_drafts(job_id: int | None = None) -> list[dict[str, Any]]:
     if job_id:
         rows = conn.execute("""
             SELECT d.*, j.title as job_title, j.company as job_company,
-                   j.outreach_status, j.pack_dir, j.pack_status,
+                   j.outreach_status, j.pack_status,
                    e.fit_score, e.fit_verdict,
                    c.name as contact_name, c.title as contact_title
             FROM outreach_drafts d
@@ -98,7 +97,7 @@ def list_outreach_drafts(job_id: int | None = None) -> list[dict[str, Any]]:
     else:
         rows = conn.execute("""
             SELECT d.*, j.title as job_title, j.company as job_company,
-                   j.outreach_status, j.pack_dir, j.pack_status,
+                   j.outreach_status, j.pack_status,
                    e.fit_score, e.fit_verdict,
                    c.name as contact_name, c.title as contact_title
             FROM outreach_drafts d
@@ -123,7 +122,6 @@ def list_outreach_drafts(job_id: int | None = None) -> list[dict[str, Any]]:
             "jobTitle": r["job_title"],
             "jobCompany": r["job_company"],
             "outreachStatus": r["outreach_status"] or "",
-            "packDir": r["pack_dir"] or "",
             "packStatus": r["pack_status"] or "",
             "fitScore": r["fit_score"] or 0,
             "fitVerdict": r["fit_verdict"] or "",
