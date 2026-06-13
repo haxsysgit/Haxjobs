@@ -34,6 +34,10 @@ from server.routes.resources import (
     get_discovery, get_activity,
     trigger_pipeline,
 )
+from server.routes.outreach import (
+    list_outreach_jobs, list_outreach_drafts,
+    approve_draft, reject_draft,
+)
 
 MIME = {
     ".html": "text/html",
@@ -152,6 +156,13 @@ class APIHandler(BaseHTTPRequestHandler):
         elif path == "/api/activity":
             self._json(get_activity())
 
+        elif path == "/api/outreach/jobs":
+            self._json(list_outreach_jobs())
+
+        elif path == "/api/outreach/drafts":
+            job_id = qs.get("job_id", [None])[0]
+            self._json(list_outreach_drafts(int(job_id) if job_id else None))
+
         elif path == "/api/whitelist":
             self._json(handle_whitelist_get())
 
@@ -263,6 +274,22 @@ class APIHandler(BaseHTTPRequestHandler):
         elif path == "/api/profile/save":
             status, data = save_profile(body)
             self._json(data, status)
+
+        # Outreach
+        elif path == "/api/outreach/approve":
+            draft_id = body.get("draft_id")
+            if not draft_id:
+                self._json({"ok": False, "error": "draft_id required"}, 400)
+            else:
+                self._json(approve_draft(int(draft_id)))
+
+        elif path == "/api/outreach/reject":
+            draft_id = body.get("draft_id")
+            reason = body.get("reason", "")
+            if not draft_id:
+                self._json({"ok": False, "error": "draft_id required"}, 400)
+            else:
+                self._json(reject_draft(int(draft_id), reason))
 
         else:
             self._json({"error": "not found"}, 404)
