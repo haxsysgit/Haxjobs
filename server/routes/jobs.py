@@ -139,7 +139,8 @@ def toggle_auto_apply(body):
     if not job_id:
         return 400, {"error": "job_id required"}
     existing = db_decs.get_decisions(int(job_id))
-    has_auto = any(d["decision"] == "auto_apply" for d in existing)
+    latest = existing[0]["decision"] if existing else ""
+    has_auto = latest == "auto_apply"
     if has_auto:
         db_decs.record_decision(int(job_id), "auto_apply_remove", body.get("reason", ""))
         return 200, {"ok": True, "auto_apply": False}

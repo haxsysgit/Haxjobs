@@ -27,7 +27,7 @@ def make_pack(tmp_path: Path) -> Path:
 def test_get_pack_detail_returns_known_pack_files(tmp_path):
     pack_dir = make_pack(tmp_path)
 
-    detail = get_pack_detail(pack_dir)
+    detail = get_pack_detail(pack_dir, packs_root=tmp_path / "packs")
 
     assert detail["ok"] is True
     assert detail["packDir"] == str(pack_dir)
@@ -38,7 +38,7 @@ def test_get_pack_detail_returns_known_pack_files(tmp_path):
 
 
 def test_get_pack_detail_handles_missing_pack(tmp_path):
-    detail = get_pack_detail(tmp_path / "missing")
+    detail = get_pack_detail(tmp_path / "packs" / "missing", packs_root=tmp_path / "packs")
 
     assert detail["ok"] is False
     assert detail["error"] == "pack not found"
@@ -48,7 +48,7 @@ def test_get_pack_detail_does_not_read_unknown_files(tmp_path):
     pack_dir = make_pack(tmp_path)
     (pack_dir / "secret.env").write_text("TOKEN=nope")
 
-    detail = get_pack_detail(pack_dir)
+    detail = get_pack_detail(pack_dir, packs_root=tmp_path / "packs")
 
     assert "secret.env" not in detail["files"]
     assert "TOKEN" not in json.dumps(detail)

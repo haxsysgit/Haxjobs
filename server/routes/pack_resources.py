@@ -10,6 +10,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+DEFAULT_PACKS_ROOT = Path("packs")
+
 ALLOWED_PACK_TEXT_FILES = (
     "fit_report.md",
     "cover_letter.md",
@@ -19,9 +21,19 @@ ALLOWED_PACK_TEXT_FILES = (
 )
 
 
-def get_pack_detail(pack_dir: str | Path) -> dict[str, Any]:
+def get_pack_detail(
+    pack_dir: str | Path,
+    packs_root: str | Path = DEFAULT_PACKS_ROOT,
+) -> dict[str, Any]:
     """Return metadata plus allowed text files for one pack directory."""
-    root = Path(pack_dir)
+    root = Path(pack_dir).resolve()
+    allowed_root = Path(packs_root).resolve()
+
+    try:
+        root.relative_to(allowed_root)
+    except ValueError:
+        return {"ok": False, "error": "pack outside packs root"}
+
     if not root.exists() or not root.is_dir():
         return {"ok": False, "error": "pack not found"}
 
@@ -52,10 +64,10 @@ def read_pack_text_file(pack_dir: str | Path, filename: str) -> dict[str, Any]:
     if filename not in ALLOWED_PACK_TEXT_FILES:
         return {"ok": False, "error": "invalid filename"}
 
-    root = Path(pack_dir)
+    root = Path(pack_dir).resolve()
     path = (root / filename).resolve()
     try:
-        path.relative_to(root.resolve())
+        path.relative_to(root)
     except ValueError:
         return {"ok": False, "error": "invalid filename"}
 
