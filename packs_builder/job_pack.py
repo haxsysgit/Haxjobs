@@ -12,6 +12,10 @@ from pathlib import Path
 from typing import Any
 
 
+ROOT = Path(__file__).resolve().parents[1]
+APPLICATION_TEMPLATE_ROOT = ROOT / "application_templates"
+
+
 PACK_FILE_NAMES = (
     "fit_report.md",
     "cover_letter.md",
@@ -104,6 +108,8 @@ def _build_metadata(
     profile: dict[str, Any],
     cv_variant: dict[str, Any],
 ) -> dict[str, Any]:
+    role_family = _resolve_role_family(job, cv_variant)
+    template_path = _cover_letter_template_path(role_family)
     return {
         "schema_version": 1,
         "generated_at": datetime.now(UTC).isoformat(),
@@ -118,8 +124,112 @@ def _build_metadata(
         "level": evaluation.get("level"),
         "level_name": evaluation.get("level_name", ""),
         "profile_name": profile.get("name", "Arinze Elenasulu"),
+        "application_template_id": role_family,
+        "cover_letter_template": _relative_template_path(template_path),
         **cv_variant,
     }
+
+
+def _resolve_role_family(job: dict[str, Any], cv_variant: dict[str, Any]) -> str:
+    """Pick the role family that decides which application template to use."""
+    return str(
+        job.get("role_family")
+        or job.get("recommended_cv_variant")
+        or cv_variant.get("role_family")
+        or cv_variant.get("recommended_cv_variant")
+        or "backend_python"
+    )
+
+
+def _cover_letter_template_path(role_family: str) -> Path:
+    """Return the cover letter template path for a role family."""
+    template_path = APPLICATION_TEMPLATE_ROOT / "cover_letters" / f"{role_family}.md"
+    if template_path.exists():
+        return template_path
+    return APPLICATION_TEMPLATE_ROOT / "cover_letters" / "backend_python.md"
+
+
+def _relative_template_path(template_path: Path) -> str:
+    """Return a stable repo-relative template path for metadata."""
+    return str(template_path.relative_to(ROOT))
+
+
+def _extract_template_body(template_text: str) -> str:
+    """Extract only the user-facing body under '## Template'."""
+    match = re.search(
+        r"^## Template\s*$(.*?)(?=^## \S|\Z)",
+        template_text,
+        re.MULTILINE | re.DOTALL,
+    )
+    if not match:
+        raise ValueError("Cover letter template is missing a '## Template' section")
+    return match.group(1).strip()
+
+
+def _hiring_manager_or_team(job: dict[str, Any]) -> str:
+    """Use a real hiring contact only if the job payload provides one."""
+    manager = str(job.get("hiring_manager") or "").strip()
+    return manager if manager else "team"
+
+
+def _source_context(job: dict[str, Any]) -> str:
+    """Describe where the role came from without inventing a source."""
+    source = str(job.get("source") or "").strip()
+    if source:
+        return source
+    source_url = str(job.get("source_url") or "").strip()
+    return source_url if source_url else "the job listing"
+
+
+def _company_reason(job: dict[str, Any], evaluation: dict[str, Any]) -> str:
+    """Create a truthful, non-generic reason from available job data."""
+    jd_text = str(job.get("jd_text") or "").lower()
+    if "health" in jd_text or "pharmacy" in jd_text or "health" in str(job.get("company", "")).lower():
+        return "the operational and health-adjacent context. I have already built pharmacy workflows where the small details matter"
+    if "ai" in jd_text or "llm" in jd_text or "automation" in jd_text:
+        return "the practical AI angle. I like AI work most when it becomes useful software, not just a shiny demo"
+    summary = str(evaluation.get("summary") or "").strip()
+    if summary:
+        return summary.rstrip(".")
+    return "the way the role seems focused on useful engineering rather than buzzword theatre"
+
+
+def _evidence_story(role_family: str) -> str:
+    """Return role-family evidence from Arinze's confirmed profile."""
+    stories = {
+        "backend_python": "I built backend workflows at Vigilis and Pharmax around inventory, sales, invoicing, reporting, API design, PostgreSQL, SQLAlchemy, and pytest",
+        "fullstack_python_react": "I am backend-first, but HaxJobs gave me real product-surface work across FastAPI, React, TypeScript, dashboard flows, and API integration",
+        "ai_engineer_llm": "I built Pharmax AI workflows, used RAGAS for evaluation, trained and fine-tuned transformer models, and built FRAME/Haxaml around AI agent governance",
+        "ai_automation_agents": "I use Archilles daily, built Haxaml for AI agent governance, and built HaxJobs as a working automation pipeline rather than a slide-deck idea",
+        "junior_software": "I have real engineering time from Vigilis and Aptech, plus a project portfolio that shows I can learn quickly and ship useful work",
+        "data_python": "I built data-backed pharmacy workflows, reporting paths, and AI evaluation work with Python, SQL, and RAGAS",
+        "platform_backend": "I have worked with Docker, Linux, backend services, structured logging, and long-running agent infrastructure through Archilles and HaxJobs",
+    }
+    return stories.get(role_family, stories["backend_python"])
+
+
+def _gap_note(evaluation: dict[str, Any]) -> str:
+    """Turn evaluator gaps into honest cover-letter wording."""
+    gaps = _as_list(evaluation.get("major_gaps", []))
+    if not gaps:
+        return "I do not want to pretend I know every corner of the stack already, but the core engineering patterns here are familiar and I learn quickly."
+    gap_text = _sentence_list(gaps, "the remaining stack details")
+    return (
+        f"I have not had deep production time with every detail in the JD yet, so I will not pretend otherwise. "
+        f"One thing to discuss honestly: {gap_text}. "
+        f"But the surrounding engineering patterns are familiar: APIs, data flow, testing, debugging, and turning vague requirements into working software. Learning the missing bits should be very manageable."
+    )
+
+
+def _closing_availability(profile: dict[str, Any]) -> str:
+    """Return a short availability line if profile data has it."""
+    availability = str(profile.get("availability") or "").strip()
+    return availability if availability else "I am available to start immediately."
+
+
+# ---------------------------------------------------------------------------
+# Renderers
+# ---------------------------------------------------------------------------
 
 
 def _render_fit_report(job: dict[str, Any], evaluation: dict[str, Any], cv_variant: dict[str, Any]) -> str:
@@ -151,22 +261,40 @@ def _render_cover_letter(
     profile: dict[str, Any],
     cv_variant: dict[str, Any],
 ) -> str:
-    strongest = _sentence_list(evaluation.get("strongest_matches", []), "Python backend work")
-    gaps = _sentence_list(evaluation.get("major_gaps", []), "I can close the remaining gaps quickly")
-    name = profile.get("name", "Arinze Elenasulu")
-    return f"""# Cover letter draft
+    """Render the role-family cover letter template with job evidence.
 
-Hi {job.get('company', 'there')} team,
+    The template owns tone and structure. This function only fills truthful,
+    deterministic slots from the job, evaluation, profile, and CV metadata.
+    """
+    role_family = _resolve_role_family(job, cv_variant)
+    template_path = _cover_letter_template_path(role_family)
+    template = _extract_template_body(template_path.read_text())
 
-I'm interested in the {_job_title(job)} role because it lines up with the kind of systems I like building: useful backend services, clean APIs, and practical automation that helps people move faster.
+    slots = {
+        "hiring_manager_or_team": _hiring_manager_or_team(job),
+        "role_title": _job_title(job),
+        "company": str(job.get("company") or "the company"),
+        "source_or_context": _source_context(job),
+        "jd_match_points": _sentence_list(
+            evaluation.get("strongest_matches", []),
+            "Python backend APIs, clean data flow, and practical automation",
+        ),
+        "company_reason": _company_reason(job, evaluation),
+        "evidence_story": _evidence_story(role_family),
+        "gap_note": _gap_note(evaluation),
+        "closing_availability": _closing_availability(profile),
+    }
 
-My closest matches are {strongest}. The reusable CV variant for this application is {cv_variant['recommended_cv_variant']}, so the CV stays consistent while this letter focuses on the role.
+    rendered = template
+    for slot, value in slots.items():
+        rendered = rendered.replace("{" + slot + "}", value)
 
-One thing I would be ready to discuss is {gaps}. I care about being honest on that, but I also learn quickly and prefer shipping working software over hiding behind buzzwords.
+    if re.search(r"\{[a-zA-Z0-9_]+\}", rendered):
+        raise ValueError(f"Unfilled cover letter slot in {template_path}")
+    if "\u2014" in rendered:
+        raise ValueError("Cover letter output contains an em dash")
 
-Best,
-{name}
-"""
+    return "# Cover letter draft\n\n" + rendered.strip() + "\n"
 
 
 def _render_field_answers(

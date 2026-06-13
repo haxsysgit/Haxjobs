@@ -96,6 +96,31 @@ def test_generate_ready_packs_skips_low_scores_and_existing_packs(monkeypatch, t
     assert second["skipped_count"] >= 2
 
 
+def test_generate_ready_packs_uses_dynamic_cover_letter_template(monkeypatch, tmp_path):
+    """End-to-end generation should use the role-family cover letter template."""
+    use_temp_db(monkeypatch, tmp_path)
+    add_evaluated_job(title="Python Backend Engineer", score=82)
+
+    result = generate_ready_packs(
+        output_root=tmp_path / "packs",
+        registry_path=REGISTRY_PATH,
+        profile_path=PROFILE_PATH,
+        threshold=50,
+    )
+
+    pack_dir = Path(result["generated"][0]["pack_dir"])
+    cover_letter = (pack_dir / "cover_letter.md").read_text()
+    metadata = json.loads((pack_dir / "metadata.json").read_text())
+
+    assert "prayer circle" in cover_letter
+    assert "vibes and hope" in cover_letter
+    assert "ExampleCo" in cover_letter
+    assert "Python Backend Engineer" in cover_letter
+    assert "{role_title}" not in cover_letter
+    assert "\u2014" not in cover_letter
+    assert metadata["cover_letter_template"] == "application_templates/cover_letters/backend_python.md"
+
+
 def test_generate_ready_packs_respects_limit(monkeypatch, tmp_path):
     use_temp_db(monkeypatch, tmp_path)
     add_evaluated_job(title="Python Developer One", score=70)
