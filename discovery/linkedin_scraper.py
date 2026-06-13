@@ -340,8 +340,9 @@ async def main(target_company=None):
                 total_queued += queued
             except Exception as e:
                 log(f"  FAILED: {e}")
-            # Rate limit: 5-10s between companies
-            await asyncio.sleep(5 + (i % 3) * 2)
+            # Rate limit: 30-60s between companies (LinkedIn bot detection from VPS)
+            base_delay = 30
+            await asyncio.sleep(base_delay + (i % 5) * 6)
 
         await browser.close()
 
