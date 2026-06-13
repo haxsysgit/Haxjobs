@@ -79,10 +79,38 @@ def reject_draft(draft_id: int):
     print(f"Draft #{draft_id} rejected.")
 
 
+def show_agent():
+    """Output drafts one at a time in agent-parseable delimited format."""
+    schema.init()
+    drafts = get_drafts("draft")
+    if not drafts:
+        print("NO_DRAFTS")
+        return
+
+    for d in drafts:
+        print("---DRAFT---")
+        print(f"id: {d['id']}")
+        print(f"job_id: {d.get('job_id', '')}")
+        print(f"job_title: {d.get('job_title', '')}")
+        print(f"job_company: {d.get('job_company', '')}")
+        print(f"fit_score: {d.get('fit_score', 0)}")
+        print(f"subject: {d.get('subject', '')}")
+        print(f"contact_name: {d.get('contact_name', '')}")
+        print(f"contact_title: {d.get('contact_title', '')}")
+        print(f"pack_status: {d.get('pack_status', '')}")
+        print()
+        print(d.get("message_text", ""))
+        print("---END---")
+
+    print(f"\nTOTAL_DRAFTS: {len(drafts)}")
+
+
 if __name__ == "__main__":
     schema.init()
 
-    if "--pending" in sys.argv:
+    if "--agent" in sys.argv:
+        show_agent()
+    elif "--pending" in sys.argv:
         show_pending()
     elif "--approve" in sys.argv:
         idx = sys.argv.index("--approve")
