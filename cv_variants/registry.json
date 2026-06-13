@@ -31,7 +31,7 @@
       "relative_dir": "cv_variants/fullstack_python_react",
       "pdf": "Arinze_Elenasulu_Full_Stack_Python_React_CV.pdf",
       "html": "Arinze_Elenasulu_Full_Stack_Python_React_CV.html",
-      "source_status": "needs_final_generation",
+      "source_status": "generated",
       "focus": [
         "FastAPI",
         "React",
@@ -39,7 +39,8 @@
         "Vite",
         "PostgreSQL",
         "end-to-end delivery"
-      ]
+      ],
+      "source_md": "cv_variants/fullstack_python_react/cv_source.md"
     },
     "ai_engineer_llm": {
       "label": "AI and LLM Engineer CV",
@@ -47,7 +48,7 @@
       "relative_dir": "cv_variants/ai_engineer_llm",
       "pdf": "Arinze_Elenasulu_AI_LLM_Engineer_CV.pdf",
       "html": "Arinze_Elenasulu_AI_LLM_Engineer_CV.html",
-      "source_status": "needs_final_generation",
+      "source_status": "generated",
       "focus": [
         "LLM systems",
         "RAG",
@@ -55,7 +56,8 @@
         "pytest",
         "automation",
         "AI product workflows"
-      ]
+      ],
+      "source_md": "cv_variants/ai_engineer_llm/cv_source.md"
     },
     "ai_automation_agents": {
       "label": "AI Automation and Agent Tooling CV",
@@ -63,7 +65,7 @@
       "relative_dir": "cv_variants/ai_automation_agents",
       "pdf": "Arinze_Elenasulu_AI_Automation_Agents_CV.pdf",
       "html": "Arinze_Elenasulu_AI_Automation_Agents_CV.html",
-      "source_status": "needs_final_generation",
+      "source_status": "generated",
       "focus": [
         "agent workflows",
         "browser automation",
@@ -71,7 +73,8 @@
         "FRAME",
         "tool orchestration",
         "production scripts"
-      ]
+      ],
+      "source_md": "cv_variants/ai_automation_agents/cv_source.md"
     },
     "junior_software": {
       "label": "Junior and Graduate Software Engineer CV",
@@ -79,7 +82,7 @@
       "relative_dir": "cv_variants/junior_software",
       "pdf": "Arinze_Elenasulu_Junior_Software_Engineer_CV.pdf",
       "html": "Arinze_Elenasulu_Junior_Software_Engineer_CV.html",
-      "source_status": "needs_final_generation",
+      "source_status": "generated",
       "focus": [
         "software fundamentals",
         "Python",
@@ -88,7 +91,8 @@
         "Flutter",
         "projects",
         "learning speed"
-      ]
+      ],
+      "source_md": "cv_variants/junior_software/cv_source.md"
     },
     "data_python": {
       "label": "Python Data and Analytics CV",
@@ -96,7 +100,7 @@
       "relative_dir": "cv_variants/data_python",
       "pdf": "Arinze_Elenasulu_Python_Data_Analytics_CV.pdf",
       "html": "Arinze_Elenasulu_Python_Data_Analytics_CV.html",
-      "source_status": "needs_final_generation",
+      "source_status": "generated",
       "focus": [
         "Python",
         "SQL",
@@ -104,7 +108,8 @@
         "Tableau adjacency",
         "RAGAS evaluation",
         "reporting"
-      ]
+      ],
+      "source_md": "cv_variants/data_python/cv_source.md"
     },
     "platform_backend": {
       "label": "Platform and Backend Infrastructure CV",
@@ -112,7 +117,7 @@
       "relative_dir": "cv_variants/platform_backend",
       "pdf": "Arinze_Elenasulu_Platform_Backend_CV.pdf",
       "html": "Arinze_Elenasulu_Platform_Backend_CV.html",
-      "source_status": "needs_final_generation",
+      "source_status": "generated",
       "focus": [
         "Docker",
         "CI/CD",
@@ -120,7 +125,8 @@
         "observability",
         "backend services",
         "cloud-ready systems"
-      ]
+      ],
+      "source_md": "cv_variants/platform_backend/cv_source.md"
     }
   }
 }
