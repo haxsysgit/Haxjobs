@@ -20,7 +20,7 @@ from pathlib import Path
 from urllib.parse import urljoin
 
 import requests
-from sharp_filter import is_good_fit, save_intake
+from sharp_filter import save_intake
 
 INTAKE_DIR = "/home/hermes/haxjobs/intake"
 

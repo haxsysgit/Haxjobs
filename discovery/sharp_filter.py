@@ -75,6 +75,37 @@ def check(title, location="", description=""):
     return True, ""
 
 
+def save_intake(company, title, description, location, source, url):
+    """Save a job as a pending intake JSON file. Returns filename on success, None on skip."""
+    passes, reason = check(title, location, description)
+    if not passes:
+        return None
+    if already_queued(title, company, url):
+        return None
+
+    os.makedirs(INTAKE_DIR, exist_ok=True)
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    safe_company = re.sub(r'[^a-zA-Z0-9]', '_', company)[:40]
+    safe_title = re.sub(r'[^a-zA-Z0-9]', '_', title)[:60]
+    fname = f"{ts}_{source}_{safe_company}_{safe_title}.json"
+
+    intake = {
+        "received_at": datetime.now(timezone.utc).isoformat(),
+        "source": source,
+        "source_url": url,
+        "company": company,
+        "title": title,
+        "location": location,
+        "jd_text": description,
+        "status": "pending",
+    }
+
+    with open(os.path.join(INTAKE_DIR, fname), "w") as f:
+        json.dump(intake, f, indent=2)
+
+    return fname
+
+
 def already_queued(title, company, url=""):
     """Check if this job was queued recently."""
     cutoff = datetime.now(timezone.utc) - timedelta(days=DEDUP_WINDOW_DAYS)
