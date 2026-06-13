@@ -17,7 +17,14 @@ DASHBOARD_DIR = DASHBOARD_DIST_DIR if os.path.isdir(DASHBOARD_DIST_DIR) else DAS
 
 sys.path.insert(0, PIPELINE_DIR)
 import pipeline_db as db
-from server.routes.jobs import list_jobs, unskip_job, approve_job, toggle_auto_apply, queue_intake
+from server.routes.jobs import (
+    list_jobs,
+    unskip_job,
+    approve_job,
+    toggle_auto_apply,
+    queue_intake,
+    review_job_pack,
+)
 from server.routes.resources import (
     list_packs, serve_pack_file,
     handle_whitelist_get, handle_whitelist_post, handle_whitelist_remove,
@@ -189,6 +196,10 @@ class APIHandler(BaseHTTPRequestHandler):
 
         elif path == "/api/jobs/auto-apply":
             status, data = toggle_auto_apply(body)
+            self._json(data, status)
+
+        elif path == "/api/jobs/review-pack":
+            status, data = review_job_pack(body)
             self._json(data, status)
 
         # Favorites

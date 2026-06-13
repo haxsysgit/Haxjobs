@@ -1,0 +1,48 @@
+#!/usr/bin/env python3
+"""Review a generated application pack.
+
+Usage:
+  scripts/review-pack JOB_ID approve "Ready to send"
+  scripts/review-pack JOB_ID reject "Cover letter needs work"
+  scripts/review-pack JOB_ID changes "Mention FastAPI earlier"
+
+This is a manual gate. It never submits an application.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+from db import schema  # noqa: E402
+from db.pack_review import REVIEW_ACTIONS, review_pack  # noqa: E402
+
+
+def main(argv: list[str]) -> int:
+    """CLI entry point."""
+    if len(argv) < 3:
+        valid = ", ".join(sorted(REVIEW_ACTIONS))
+        print(f"Usage: {argv[0]} JOB_ID ACTION [NOTES]")
+        print(f"Actions: {valid}")
+        return 2
+
+    schema.init()
+    job_id = int(argv[1])
+    action = argv[2]
+    notes = " ".join(argv[3:])
+    result = review_pack(job_id, action, notes)
+    if not result.get("ok"):
+        print(f"ERROR: {result['error']}")
+        return 1
+
+    print(f"Pack review recorded for job {job_id}: {result['pack_status']}")
+    if notes:
+        print(f"Notes: {notes}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv))

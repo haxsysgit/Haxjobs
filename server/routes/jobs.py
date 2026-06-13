@@ -1,6 +1,7 @@
 """Job-related API routes."""
 import json
 from db import jobs as db_jobs, evaluations as db_evals, favorites as db_favs, saved as db_saved, decisions as db_decs, whitelist as db_wl
+from db.pack_review import review_pack
 
 
 def list_jobs():
@@ -18,6 +19,9 @@ def list_jobs():
             "roleFamilyConfidence": r.get("role_family_confidence", 0),
             "recommendedCvVariant": r.get("recommended_cv_variant", "unknown"),
             "packStatus": r.get("pack_status", "none"),
+            "packReviewStatus": r.get("pack_review_status", "none"),
+            "packReviewNotes": r.get("pack_review_notes", ""),
+            "packReviewedAt": r.get("pack_reviewed_at", ""),
             "outreachStatus": r.get("outreach_status", "none"),
             "fitScore": r.get("fit_score") if r.get("fit_score") is not None else 0,
             "status": r.get("status", "pending"),
@@ -101,6 +105,17 @@ def approve_job(body):
         "message": f"Job {job_id} manually approved — ready for pack generation",
         "whitelist_suggestion": suggestion,
     }
+
+
+def review_job_pack(body):
+    """Record a manual pack review action from API/dashboard."""
+    job_id = body.get("job_id")
+    if not job_id:
+        return 400, {"error": "job_id required"}
+    action = body.get("action", "")
+    notes = body.get("notes", body.get("reason", ""))
+    result = review_pack(int(job_id), action, notes)
+    return (200 if result.get("ok") else 400), result
 
 
 def toggle_auto_apply(body):

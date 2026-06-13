@@ -35,6 +35,9 @@ def init():
             role_family_terms TEXT DEFAULT '[]',
             pack_status TEXT DEFAULT 'none',
             outreach_status TEXT DEFAULT 'none',
+            pack_review_status TEXT DEFAULT 'none',
+            pack_review_notes TEXT DEFAULT '',
+            pack_reviewed_at TEXT,
             classified_at TEXT,
             discovered_at TEXT NOT NULL DEFAULT (datetime('now')),
             updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -157,6 +160,9 @@ def _ensure_jobs_columns(conn):
         "role_family_terms": "TEXT DEFAULT '[]'",
         "pack_status": "TEXT DEFAULT 'none'",
         "outreach_status": "TEXT DEFAULT 'none'",
+        "pack_review_status": "TEXT DEFAULT 'none'",
+        "pack_review_notes": "TEXT DEFAULT ''",
+        "pack_reviewed_at": "TEXT",
         "classified_at": "TEXT",
     }
     for column, definition in required.items():
@@ -170,5 +176,6 @@ def _ensure_jobs_indexes(conn):
         CREATE INDEX IF NOT EXISTS idx_jobs_role_family ON jobs(role_family);
         CREATE INDEX IF NOT EXISTS idx_jobs_cv_variant ON jobs(recommended_cv_variant);
         CREATE INDEX IF NOT EXISTS idx_jobs_pack_status ON jobs(pack_status);
+        CREATE INDEX IF NOT EXISTS idx_jobs_pack_review_status ON jobs(pack_review_status);
         CREATE INDEX IF NOT EXISTS idx_jobs_outreach_status ON jobs(outreach_status);
     """)
