@@ -138,6 +138,39 @@ def init():
             FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE
         );
         CREATE INDEX IF NOT EXISTS idx_eval_history_job ON evaluation_history(job_id);
+
+        -- Outreach contacts and drafts
+        CREATE TABLE IF NOT EXISTS outreach_contacts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            job_id INTEGER NOT NULL,
+            name TEXT NOT NULL DEFAULT '',
+            title TEXT NOT NULL DEFAULT '',
+            company TEXT NOT NULL DEFAULT '',
+            linkedin_url TEXT NOT NULL DEFAULT '',
+            github_url TEXT DEFAULT '',
+            found_via TEXT DEFAULT 'linkedin',
+            relevance TEXT DEFAULT 'medium',
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS outreach_drafts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            job_id INTEGER NOT NULL,
+            contact_id INTEGER,
+            subject TEXT NOT NULL DEFAULT '',
+            message_text TEXT NOT NULL DEFAULT '',
+            status TEXT DEFAULT 'draft',
+            sent_at TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE,
+            FOREIGN KEY (contact_id) REFERENCES outreach_contacts(id) ON DELETE SET NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_contacts_job ON outreach_contacts(job_id);
+        CREATE INDEX IF NOT EXISTS idx_contacts_company ON outreach_contacts(company);
+        CREATE INDEX IF NOT EXISTS idx_drafts_job ON outreach_drafts(job_id);
+        CREATE INDEX IF NOT EXISTS idx_drafts_status ON outreach_drafts(status);
     """)
     _ensure_jobs_columns(conn)
     _ensure_jobs_indexes(conn)
