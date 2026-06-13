@@ -6,6 +6,7 @@ TDD: these tests define the renderer contract BEFORE the renderer exists.
 from __future__ import annotations
 
 import re
+import shutil
 from pathlib import Path
 
 import pytest
@@ -143,6 +144,8 @@ class TestPdfOutput:
 
     def test_pdf_has_at_least_one_page(self, pdf_path):
         """Use pdftotext to verify the PDF has readable content."""
+        if shutil.which("pdftotext") is None:
+            pytest.skip("pdftotext not installed")
         import subprocess
 
         result = subprocess.run(
@@ -157,6 +160,8 @@ class TestPdfOutput:
 
     def test_pdf_has_no_browser_headers(self, pdf_path):
         """Browser-generated PDF must not have URL/date headers."""
+        if shutil.which("pdftotext") is None:
+            pytest.skip("pdftotext not installed")
         import subprocess
 
         result = subprocess.run(
