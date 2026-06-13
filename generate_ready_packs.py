@@ -67,7 +67,63 @@ def generate_ready_packs(
     }
 
 
+def generate_pack_for_job(
+    job_id: int,
+    output_root: str | Path = DEFAULT_OUTPUT_ROOT,
+    registry_path: str | Path = DEFAULT_REGISTRY_PATH,
+    profile_path: str | Path = DEFAULT_PROFILE_PATH,
+    threshold: int = DEFAULT_THRESHOLD,
+) -> dict[str, Any]:
+    """Build one pack for one explicitly requested job.
+
+    This is the manual gate used by API/dashboard/CLI. It intentionally does
+    not walk the whole ready queue.
+    """
+    init_db()
+    registry = load_cv_variant_registry(registry_path)
+    profile = _load_profile(profile_path)
+
+    matching_job = None
+    for job in get_jobs_with_evaluations():
+        if int(job.get("id")) == int(job_id):
+            matching_job = job
+            break
+
+    if matching_job is None:
+        return {"ok": False, "error": "job not found", "job_id": job_id}
+
+    decision = _should_generate(matching_job, threshold)
+    if decision:
+        return {
+            "ok": False,
+            "error": decision,
+            "job_id": job_id,
+            "generated_count": 0,
+        }
+
+    cv_metadata = build_pack_cv_metadata(
+        matching_job.get("recommended_cv_variant"), registry
+    )
+    result = build_job_pack(
+        job=matching_job,
+        evaluation=matching_job,
+        profile=profile,
+        cv_variant=cv_metadata,
+        output_root=output_root,
+    )
+    update_job_pack_status(matching_job["id"], "generated")
+    return {
+        "ok": True,
+        "job_id": matching_job["id"],
+        "generated_count": 1,
+        "pack_dir": result["pack_dir"],
+        "metadata": result["metadata"],
+    }
+
+
+
 def _should_generate(job: dict[str, Any], threshold: int) -> str | None:
+    """Return a skip reason, or None when a pack can be generated."""
     if job.get("pack_status") not in (None, "", "none"):
         return "pack already exists or is in progress"
 

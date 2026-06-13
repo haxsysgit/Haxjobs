@@ -1,5 +1,6 @@
 """Job-related API routes."""
 import json
+from generate_ready_packs import generate_pack_for_job
 from db import jobs as db_jobs, evaluations as db_evals, favorites as db_favs, saved as db_saved, decisions as db_decs, whitelist as db_wl
 from db.pack_review import review_pack
 
@@ -105,6 +106,21 @@ def approve_job(body):
         "message": f"Job {job_id} manually approved — ready for pack generation",
         "whitelist_suggestion": suggestion,
     }
+
+
+def generate_job_pack(body):
+    """Generate one pack for one explicitly requested job."""
+    job_id = body.get("job_id")
+    if not job_id:
+        return 400, {"error": "job_id required"}
+    result = generate_pack_for_job(
+        int(job_id),
+        output_root=body.get("output_root") or None or "packs",
+        registry_path=body.get("registry_path") or "cv_variants/registry.json",
+        profile_path=body.get("profile_path") or "profile/arinze_profile.local.json",
+        threshold=int(body.get("threshold", 50)),
+    )
+    return (200 if result.get("ok") else 400), result
 
 
 def review_job_pack(body):

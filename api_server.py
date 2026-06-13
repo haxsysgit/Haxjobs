@@ -24,6 +24,7 @@ from server.routes.jobs import (
     toggle_auto_apply,
     queue_intake,
     review_job_pack,
+    generate_job_pack,
 )
 from server.routes.resources import (
     list_packs, serve_pack_file,
@@ -200,6 +201,10 @@ class APIHandler(BaseHTTPRequestHandler):
 
         elif path == "/api/jobs/review-pack":
             status, data = review_job_pack(body)
+            self._json(data, status)
+
+        elif path == "/api/jobs/generate-pack":
+            status, data = generate_job_pack(body)
             self._json(data, status)
 
         # Favorites

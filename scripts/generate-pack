@@ -1,0 +1,50 @@
+#!/usr/bin/env python3
+"""Generate one application pack by explicit job id.
+
+Usage:
+  scripts/generate-pack JOB_ID
+
+This is intentionally manual. Cron must not call it.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+from generate_ready_packs import (  # noqa: E402
+    DEFAULT_OUTPUT_ROOT,
+    DEFAULT_PROFILE_PATH,
+    DEFAULT_REGISTRY_PATH,
+    generate_pack_for_job,
+)
+
+
+def main(argv: list[str] | None = None) -> int:
+    """CLI entry point."""
+    parser = argparse.ArgumentParser(description="Generate one gated HaxJobs pack")
+    parser.add_argument("job_id", type=int)
+    parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
+    parser.add_argument("--registry", default=str(DEFAULT_REGISTRY_PATH))
+    parser.add_argument("--profile", default=str(DEFAULT_PROFILE_PATH))
+    parser.add_argument("--threshold", type=int, default=50)
+    args = parser.parse_args(argv)
+
+    result = generate_pack_for_job(
+        args.job_id,
+        output_root=args.output_root,
+        registry_path=args.registry,
+        profile_path=args.profile,
+        threshold=args.threshold,
+    )
+    print(json.dumps(result, indent=2))
+    return 0 if result.get("ok") else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
