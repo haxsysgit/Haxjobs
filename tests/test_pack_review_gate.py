@@ -114,3 +114,45 @@ def test_review_job_pack_api_returns_review_result(monkeypatch, tmp_path):
     assert status == 200
     assert payload["ok"] is True
     assert payload["pack_status"] == "reviewed_approved"
+
+
+def test_review_pack_rejects_job_with_no_pack(monkeypatch, tmp_path):
+    """A job with pack_status='none' cannot be reviewed."""
+    use_temp_db(monkeypatch, tmp_path)
+    job_id = insert_job(
+        title="No Pack Job",
+        company="TestCo",
+        location="London",
+        jd_text="No pack generated yet.",
+        source="manual",
+    )
+
+    result = review_pack(job_id, "approve", "Trying to approve with no pack")
+
+    assert result["ok"] is False
+    assert "no pack to review" in result["error"]
+
+
+def test_review_pack_allows_changes_requested_review(monkeypatch, tmp_path):
+    """A pack in 'review_changes_requested' state can be reviewed again."""
+    use_temp_db(monkeypatch, tmp_path)
+    job_id = add_generated_job()
+    review_pack(job_id, "changes", "Fix the cover letter")
+
+    # Now approve the revised pack
+    result = review_pack(job_id, "approve", "Fixed version looks good")
+
+    assert result["ok"] is True
+    assert result["pack_status"] == "reviewed_approved"
+
+
+def test_review_pack_rejects_already_approved_pack(monkeypatch, tmp_path):
+    """Once approved, a pack cannot be re-approved."""
+    use_temp_db(monkeypatch, tmp_path)
+    job_id = add_generated_job()
+    review_pack(job_id, "approve", "First approval")
+
+    result = review_pack(job_id, "approve", "Second approval attempt")
+
+    assert result["ok"] is False
+    assert "no pack to review" in result["error"]

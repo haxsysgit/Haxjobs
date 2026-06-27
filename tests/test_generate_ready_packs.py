@@ -66,7 +66,9 @@ def test_generate_ready_packs_builds_for_evaluated_jobs_and_marks_status(monkeyp
     assert metadata["pack_owns_cv"] is False
 
     job = get_job(job_id)
+    assert job is not None
     assert job["pack_status"] == "generated"
+    assert job["pack_dir"] == str(pack_dir)
 
 
 def test_generate_ready_packs_skips_low_scores_and_existing_packs(monkeypatch, tmp_path):

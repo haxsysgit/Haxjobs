@@ -11,6 +11,7 @@ ROLE_COLUMNS = {
     "recommended_cv_variant",
     "role_family_terms",
     "pack_status",
+    "pack_dir",
     "outreach_status",
     "classified_at",
 }
@@ -80,4 +81,5 @@ def test_insert_job_classifies_role_family_and_cv_variant(monkeypatch, tmp_path)
     assert job["role_family_confidence"] > 0
     assert "python" in job["role_family_terms"].lower()
     assert job["pack_status"] == "none"
+    assert job["pack_dir"] == ""
     assert job["outreach_status"] == "none"
