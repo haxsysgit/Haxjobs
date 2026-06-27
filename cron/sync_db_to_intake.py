@@ -2,8 +2,10 @@
 """Sync pipeline.db evaluations back to intake JSON files so the dashboard can see them."""
 import sqlite3, json, os, glob
 
-DB = "/home/hermes/haxjobs/state/pipeline.db"
-INTAKE = "/home/hermes/haxjobs/intake"
+from haxjobs_config import DB_PATH
+DB = str(DB_PATH)
+from haxjobs_config import INTAKE_DIR
+INTAKE = str(INTAKE_DIR)
 
 conn = sqlite3.connect(DB)
 conn.row_factory = sqlite3.Row

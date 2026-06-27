@@ -3,10 +3,17 @@
 # Greenhouse exposes boards at boards.greenhouse.io/{company} as clean HTML with JSON embed
 set -euo pipefail
 
+# --- auto-detect HAXJOBS_HOME ---
+if [ -z "${HAXJOBS_HOME:-}" ]; then
+  HAXJOBS_HOME="$(cd "$(dirname "$0")" && pwd)"
+fi
+export HAXJOBS_HOME
+# --- end auto-detect ---
+
 BOARD_BASE="https://boards.greenhouse.io"
-COMPANIES_FILE="/home/hermes/haxjobs/discovery/greenhouse_companies.txt"
-INTAKE_DIR="/home/hermes/haxjobs/intake"
-LOG_FILE="/home/hermes/haxjobs/state/discovery.log"
+COMPANIES_FILE="$HAXJOBS_HOME/discovery/greenhouse_companies.txt"
+INTAKE_DIR="$HAXJOBS_HOME/intake"
+LOG_FILE="$HAXJOBS_HOME/state/discovery.log"
 USER_AGENTS=(
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36"
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
@@ -37,7 +44,7 @@ while IFS= read -r company; do
     echo "$html" | python3 -c "
 import json, sys, re, subprocess
 
-FILTER = '/home/hermes/haxjobs/discovery/sharp_filter.py'
+FILTER = '"$HAXJOBS_HOME/discovery/sharp_filter.py'
 COMPANY = '$company'
 
 html = sys.stdin.read()

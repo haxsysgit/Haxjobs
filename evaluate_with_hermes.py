@@ -13,13 +13,11 @@ Usage:
 import json, os, sys, glob, re, subprocess
 from datetime import datetime, timezone
 
-BASE_DIR = "/home/hermes/haxjobs"
-INTAKE_DIR = os.path.join(BASE_DIR, "intake")
-PROFILE_PATH = os.path.join(BASE_DIR, "profile", "arinze_profile.local.json")
+from haxjobs_config import HAXJOBS_HOME as BASE_DIR, INTAKE_DIR, PROFILE_PATH
 HERMES_BIN = "hermes"
 
 # Import pipeline_db
-sys.path.insert(0, BASE_DIR)
+sys.path.insert(0, str(BASE_DIR))
 import pipeline_db as db
 
 EXPECTED_SCHEMA = {

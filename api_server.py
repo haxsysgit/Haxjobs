@@ -13,9 +13,9 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 # ── Config ──
 
-PIPELINE_DIR = "/home/hermes/haxjobs"
-DASHBOARD_SOURCE_DIR = os.path.join(PIPELINE_DIR, "dashboard")
-DASHBOARD_DIST_DIR = os.path.join(DASHBOARD_SOURCE_DIR, "dist")
+from haxjobs_config import HAXJOBS_HOME as PIPELINE_DIR, DB_PATH
+DASHBOARD_SOURCE_DIR = str(PIPELINE_DIR / "dashboard")
+DASHBOARD_DIST_DIR = str(PIPELINE_DIR / "dashboard" / "dist")
 DASHBOARD_DIR = DASHBOARD_DIST_DIR if os.path.isdir(DASHBOARD_DIST_DIR) else DASHBOARD_SOURCE_DIR
 
 # Bind to loopback by default. Set HAXJOBS_API_HOST=0.0.0.0 only if required.
@@ -38,7 +38,7 @@ ALLOWED_ORIGINS = frozenset(
 
 MAX_POST_BODY_BYTES = int(os.environ.get("HAXJOBS_MAX_POST_BODY", "1048576"))  # 1 MiB
 
-sys.path.insert(0, PIPELINE_DIR)
+sys.path.insert(0, str(PIPELINE_DIR))
 import pipeline_db as db
 from server.routes.jobs import (
     list_jobs,
@@ -295,7 +295,7 @@ class APIHandler(BaseHTTPRequestHandler):
             try:
                 import subprocess
                 r = subprocess.run(
-                    ["python3", os.path.join(PIPELINE_DIR, "pipeline_db.py"), "companies"],
+                    ["python3", str(PIPELINE_DIR / "pipeline_db.py"), "companies"],
                     capture_output=True, text=True, timeout=10
                 )
                 self._json([{"name": l.split("(")[0].strip() if "(" in l else l.strip(),

@@ -23,6 +23,9 @@ def use_temp_db(monkeypatch, tmp_path):
     """Point the DB layer at a temporary SQLite database."""
     db_path = tmp_path / "pipeline.db"
     monkeypatch.setattr(schema, "DB_PATH", str(db_path))
+    # Point config at the local repo profile, not /home/hermes
+    import haxjobs_config
+    monkeypatch.setattr(haxjobs_config, "PROFILE_PATH", PROFILE_PATH)
     schema.init()
     return db_path
 

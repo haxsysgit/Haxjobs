@@ -2,19 +2,26 @@
 # pack_builder.sh — CV validator gate + PDF export
 # Runs cv_validator.py before exporting PDFs. Blocks if violations found.
 # Usage: pack_builder.sh <pack_dir>
-# Example: pack_builder.sh /home/hermes/haxjobs/packs/Spotify_Backend_Engineer/
+# Example: pack_builder.sh "$HAXJOBS_HOME/packs/Spotify_Backend_Engineer/
 
 set -euo pipefail
+
+# --- auto-detect HAXJOBS_HOME ---
+if [ -z "${HAXJOBS_HOME:-}" ]; then
+  HAXJOBS_HOME="$(cd "$(dirname "$0")" && pwd)"
+fi
+export HAXJOBS_HOME
+# --- end auto-detect ---
 
 PACK_DIR="${1:-}"
 if [ -z "$PACK_DIR" ] || [ ! -d "$PACK_DIR" ]; then
     echo "Usage: pack_builder.sh <pack_dir>"
-    echo "Example: pack_builder.sh /home/hermes/haxjobs/packs/Spotify_Backend_Engineer/"
+    echo "Example: pack_builder.sh "$HAXJOBS_HOME/packs/Spotify_Backend_Engineer/"
     exit 1
 fi
 
-VALIDATOR="/home/hermes/haxjobs/cv_validator.py"
-PROFILE="/home/hermes/haxjobs/cv_profile.typed.json"
+VALIDATOR="$HAXJOBS_HOME/cv_validator.py"
+PROFILE="$HAXJOBS_HOME/cv_profile.typed.json"
 CHROME="/usr/bin/google-chrome"
 
 if [ ! -f "$VALIDATOR" ]; then

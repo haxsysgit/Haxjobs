@@ -4,9 +4,16 @@
 # Thread ID varies by month — auto-discovers the current month's thread
 set -euo pipefail
 
+# --- auto-detect HAXJOBS_HOME ---
+if [ -z "${HAXJOBS_HOME:-}" ]; then
+  HAXJOBS_HOME="$(cd "$(dirname "$0")" && pwd)"
+fi
+export HAXJOBS_HOME
+# --- end auto-detect ---
+
 HN_API="https://hacker-news.firebaseio.com/v0"
-INTAKE_DIR="/home/hermes/haxjobs/intake"
-LOG_FILE="/home/hermes/haxjobs/state/discovery.log"
+INTAKE_DIR="$HAXJOBS_HOME/intake"
+LOG_FILE="$HAXJOBS_HOME/state/discovery.log"
 
 log() { echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] $*" >> "$LOG_FILE"; }
 

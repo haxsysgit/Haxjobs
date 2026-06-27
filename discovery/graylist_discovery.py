@@ -22,7 +22,8 @@ from urllib.parse import urljoin
 import requests
 from sharp_filter import save_intake
 
-INTAKE_DIR = "/home/hermes/haxjobs/intake"
+from haxjobs_config import INTAKE_DIR, DISCOVERY_LOG, HAXJOBS_HOME
+LOG_FILE = str(DISCOVERY_LOG)
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36"
@@ -31,7 +32,7 @@ HEADERS = {
 
 def log(msg: str):
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    log_path = "/home/hermes/haxjobs/state/discovery.log"
+    log_path = str(DISCOVERY_LOG)
     with open(log_path, "a") as f:
         f.write(f"[{timestamp}] {msg}\n")
     print(msg)
@@ -105,11 +106,11 @@ def main():
 
     if source in ("experis", "all"):
         log("Experis requires browser-based scraping — use hermes cron with browser tools")
-        log("See: /home/hermes/haxjobs/discovery/experis_browser.md")
+        log(f"See: {HAXJOBS_HOME}/discovery/experis_browser.md")
 
     if source in ("bcg", "all"):
         log("BCG CareerHub requires browser-based scraping — use hermes cron with browser tools")
-        log("See: /home/hermes/haxjobs/discovery/bcg_browser.md")
+        log(f"See: {HAXJOBS_HOME}/discovery/bcg_browser.md")
 
 
 if __name__ == "__main__":

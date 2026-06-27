@@ -9,12 +9,12 @@ from .activity import _log
 
 
 def seed_from_intake():
-    intake_dir = "/home/hermes/haxjobs/intake"
-    if not os.path.isdir(intake_dir):
+    from haxjobs_config import INTAKE_DIR
+    if not os.path.isdir(INTAKE_DIR):
         return 0
 
     seeded = 0
-    for fpath in glob.glob(f"{intake_dir}/*.json"):
+    for fpath in glob.glob(f"{INTAKE_DIR}/*.json"):
         try:
             d = json.load(open(fpath))
             fname = os.path.basename(fpath)

@@ -11,8 +11,7 @@ import os
 import re
 from datetime import datetime, timezone, timedelta
 
-INTAKE_DIR = "/home/hermes/haxjobs/intake"
-STATE_DIR = "/home/hermes/haxjobs/state"
+from haxjobs_config import INTAKE_DIR, STATE_DIR
 IMAP_HOST = "imap.gmail.com"
 IMAP_PORT = 993
 EMAIL_ADDRESS = "archilleshaxsys@gmail.com"

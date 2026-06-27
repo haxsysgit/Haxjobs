@@ -5,18 +5,21 @@ Uses Playwright with cookie injection (works because local IP isn't flagged).
 Scrapes LinkedIn job search results and writes a local cache file.
 
 The safe transfer workflow after scraping:
-  scp /tmp/linkedin_jobs_cache.json archilles:/tmp/
-  ssh archilles python3 /home/hermes/haxjobs/cron/import_linkedin_jobs.py /tmp/linkedin_jobs_cache.json
+    scp /tmp/linkedin_jobs_cache.json archilles:/tmp/
+    ssh archilles python3 REMOTE_HAXJOBS_HOME/cron/import_linkedin_jobs.py /tmp/linkedin_jobs_cache.json
 
 Usage:
   python3 discovery/linkedin_local_scraper.py           # Scrape + cache (dry run)
   python3 discovery/linkedin_local_scraper.py --upload  # Scrape + scp + ssh import
+
 """
 
 from __future__ import annotations
 
 import asyncio, json, os, re, sys, subprocess
 from pathlib import Path
+
+from haxjobs_config import HAXJOBS_HOME as REMOTE_HAXJOBS_HOME
 
 from playwright.async_api import async_playwright
 
@@ -51,7 +54,7 @@ def upload_cache():
     """Copy cache to Archilles and trigger the importer via SSH."""
     print("\nUploading cache to Archilles...")
     remote_cache = "/tmp/linkedin_jobs_cache.json"
-    remote_script = "/home/hermes/haxjobs/cron/import_linkedin_jobs.py"
+    remote_script = f"{REMOTE_HAXJOBS_HOME}/cron/import_linkedin_jobs.py"
 
     try:
         subprocess.run(
@@ -214,7 +217,7 @@ async def main(upload: bool = False):
         print("\nDRY RUN — use --upload to scp + ssh import to Archilles")
         print("Or run manually:")
         print(f"  scp {CACHE_FILE} archilles:/tmp/")
-        print(f"  ssh archilles python3 /home/hermes/haxjobs/cron/import_linkedin_jobs.py /tmp/linkedin_jobs_cache.json")
+        print(f"  ssh archilles python3 {REMOTE_HAXJOBS_HOME}/cron/import_linkedin_jobs.py /tmp/linkedin_jobs_cache.json")
         for j in unique[:10]:
             print(f"  {j['title'][:70]} | {j['company'][:30]} | {j['url'][:80]}")
 

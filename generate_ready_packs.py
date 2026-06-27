@@ -19,7 +19,7 @@ from packs_builder.job_pack import build_job_pack
 
 ROOT = Path(__file__).resolve().parent
 DEFAULT_REGISTRY_PATH = ROOT / "cv_variants" / "registry.json"
-DEFAULT_PROFILE_PATH = ROOT / "profile" / "arinze_profile.local.json"
+from haxjobs_config import PROFILE_PATH as DEFAULT_PROFILE_PATH
 DEFAULT_OUTPUT_ROOT = ROOT / "packs"
 DEFAULT_THRESHOLD = 50
 
@@ -71,7 +71,7 @@ def generate_pack_for_job(
     job_id: int,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     registry_path: str | Path = DEFAULT_REGISTRY_PATH,
-    profile_path: str | Path = DEFAULT_PROFILE_PATH,
+    profile_path: str | Path | None = None,
     threshold: int = DEFAULT_THRESHOLD,
 ) -> dict[str, Any]:
     """Build one pack for one explicitly requested job.
@@ -79,6 +79,9 @@ def generate_pack_for_job(
     This is the manual gate used by API/dashboard/CLI. It intentionally does
     not walk the whole ready queue.
     """
+    if profile_path is None:
+        from haxjobs_config import PROFILE_PATH  # resolve at call time
+        profile_path = PROFILE_PATH
     init_db()
     registry = load_cv_variant_registry(registry_path)
     profile = _load_profile(profile_path)

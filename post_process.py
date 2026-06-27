@@ -5,8 +5,7 @@ Runs after the main pipeline to fix LLM sessions that forget to update status.
 import json, os, glob, sys
 from datetime import datetime, timezone
 
-INTAKE_DIR = "/home/hermes/haxjobs/intake"
-PACKS_DIR = "/home/hermes/haxjobs/packs"
+from haxjobs_config import INTAKE_DIR, PACKS_DIR
 
 def normalize(s):
     return s.lower().replace(" ", "_").replace("/", "_").replace("-", "_")[:40]

@@ -74,7 +74,9 @@ def test_pull_script_exists_for_archilles_cv_variants():
     assert script.exists()
     text = script.read_text()
     assert "rsync" in text
-    assert "archilles:/home/hermes/haxjobs/cv_variants/" in text
+    assert "archilles:" in text
+    assert "cv_variants/" in text
+    # Remote path is configurable via HAXJOBS_REMOTE_HOME
 
 
 def test_backend_python_source_is_ready():

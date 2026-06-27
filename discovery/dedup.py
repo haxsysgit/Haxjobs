@@ -12,7 +12,7 @@ import re
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
-INTAKE_DIR = "/home/hermes/haxjobs/intake"
+from haxjobs_config import INTAKE_DIR
 DEDUP_WINDOW_DAYS = 7
 URL_DEDUP_WINDOW_DAYS = 30
 

@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
+# Pull reusable CV variants (PDFs, HTML, registry) from Archilles to a local dir.
+# Default local target is ~/haxjobs/cv_variants unless overridden.
+# Remote source defaults to Archilles' standard HaxJobs location.
+
 set -euo pipefail
 
-LOCAL_ROOT="${1:-/home/hax/haxjobs/cv_variants}"
-REMOTE_ROOT="archilles:/home/hermes/haxjobs/cv_variants/"
+LOCAL_ROOT="${1:-$HOME/haxjobs/cv_variants}"
+REMOTE_ROOT="archilles:${HAXJOBS_REMOTE_HOME:?Set HAXJOBS_REMOTE_HOME to the remote HaxJobs path}/cv_variants/"
 
 mkdir -p "$LOCAL_ROOT"
 

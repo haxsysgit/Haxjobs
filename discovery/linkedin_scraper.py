@@ -21,11 +21,13 @@ from pathlib import Path
 
 from playwright.async_api import async_playwright
 
-HAXJOBS_DIR = "/home/hermes/haxjobs"
-INTAKE_DIR = os.path.join(HAXJOBS_DIR, "intake")
-COOKIES_FILE = os.path.join(HAXJOBS_DIR, "discovery", "linkedin_cookies.json")
-LOG_FILE = os.path.join(HAXJOBS_DIR, "state", "discovery.log")
-COMPANIES_FILE = os.path.join(HAXJOBS_DIR, "discovery", "linkedin_companies.json")
+from haxjobs_config import (
+    HAXJOBS_HOME as HAXJOBS_DIR,
+    INTAKE_DIR,
+    DISCOVERY_LOG as LOG_FILE,
+)
+COOKIES_FILE = str(HAXJOBS_DIR / "discovery" / "linkedin_cookies.json")
+COMPANIES_FILE = str(HAXJOBS_DIR / "discovery" / "linkedin_companies.json")
 
 # Default companies to monitor — LinkedIn company slugs
 DEFAULT_COMPANIES = [

@@ -1,12 +1,19 @@
 #!/bin/bash
-# Archilles Dashboard Control — start, stop, restart, clean
-# Deploy to Archilles: /home/hermes/haxjobs/dashctl.sh
+# HaxJobs Dashboard Control — start, stop, restart, clean
+# Auto-detects HAXJOBS_HOME from script location when not set.
 
 set -euo pipefail
+
+# Resolve HAXJOBS_HOME from script location if not set
+if [ -z "${HAXJOBS_HOME:-}" ]; then
+  HAXJOBS_HOME="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+fi
+export HAXJOBS_HOME
+
 PORT=8800
-API_SCRIPT="/home/hermes/haxjobs/api_server.py"
+API_SCRIPT="$HAXJOBS_HOME/api_server.py"
 LOG="/tmp/pipeline-api.log"
-PACKS_DIR="/home/hermes/haxjobs/packs"
+PACKS_DIR="$HAXJOBS_HOME/packs"
 
 SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
 action="${1:-status}"
@@ -14,27 +21,28 @@ action="${1:-status}"
 case "$action" in
   check)
     echo "Checking dashboard asset integrity..."
-    if python3 /home/hermes/haxjobs/check_dashboard.py --quiet; then
+    if python3 "$HAXJOBS_HOME/check_dashboard.py" --quiet; then
       echo "✓ All assets resolve correctly"
       exit 0
     else
       echo "✗ STALE ASSETS DETECTED — run 'dashctl deploy' to auto-fix"
-      python3 /home/hermes/haxjobs/check_dashboard.py
+      python3 "$HAXJOBS_HOME/check_dashboard.py"
       exit 1
     fi
     ;;
 
   deploy)
     echo "Pre-deploy check..."
-    python3 /home/hermes/haxjobs/check_dashboard.py
-    if ! python3 /home/hermes/haxjobs/check_dashboard.py --quiet; then
+    python3 "$HAXJOBS_HOME/check_dashboard.py"
+    if ! python3 "$HAXJOBS_HOME/check_dashboard.py" --quiet; then
       echo ""
       echo "Auto-fixing stale references..."
-      python3 /home/hermes/haxjobs/check_dashboard.py --fix
+      python3 "$HAXJOBS_HOME/check_dashboard.py" --fix
     fi
     echo ""
     "$SCRIPT_PATH" restart
     ;;
+
   start)
     if ss -tlnp | grep -q ":$PORT "; then
       echo "Dashboard already running on port $PORT"

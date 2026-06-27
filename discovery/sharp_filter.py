@@ -6,7 +6,7 @@ Everything else passes through to Hermes for actual fit evaluation.
 import json, os, re
 from datetime import datetime, timezone, timedelta
 
-INTAKE_DIR = "/home/hermes/haxjobs/intake"
+from haxjobs_config import INTAKE_DIR
 DEDUP_WINDOW_DAYS = 7
 
 # === ONLY BLOCK THESE — everything else passes ===

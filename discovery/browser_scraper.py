@@ -8,7 +8,7 @@ import asyncio, json, os, sys, subprocess, re
 from datetime import datetime, timezone, timedelta
 from playwright.async_api import async_playwright
 
-HAXJOBS_DIR = "/home/hermes/haxjobs"
+from haxjobs_config import HAXJOBS_HOME as HAXJOBS_DIR
 INTAKE_DIR = os.path.join(HAXJOBS_DIR, "intake")
 SHARP_FILTER = os.path.join(HAXJOBS_DIR, "discovery", "sharp_filter.py")
 LOG_FILE = os.path.join(HAXJOBS_DIR, "state", "discovery.log")

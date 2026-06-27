@@ -1,8 +1,7 @@
 """Database connection and schema initialization."""
 import os
 import sqlite3
-
-DB_PATH = "/home/hermes/haxjobs/state/pipeline.db"
+from haxjobs_config import DB_PATH
 
 
 def get_db():

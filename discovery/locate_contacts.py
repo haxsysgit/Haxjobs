@@ -23,6 +23,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from haxjobs_config import HAXJOBS_HOME as REMOTE_HAXJOBS_DIR
+
 from playwright.async_api import async_playwright
 
 COOKIES_FILE = Path(__file__).parent / "linkedin_cookies.json"
@@ -50,7 +52,7 @@ def fetch_jobs_from_archilles(min_score: int = 75) -> list[dict]:
     """Fetch high-fit unevaluated jobs from Archilles DB via SSH."""
     cmd = [
         "ssh", "archilles",
-        "cd /home/hermes/haxjobs && python3 -c \""
+        f"cd {REMOTE_HAXJOBS_DIR} && python3 -c \""
         "import sys; sys.path.insert(0, '.'); "
         "from db.outreach import get_jobs_for_outreach; "
         "import json; "
@@ -127,7 +129,7 @@ def save_contacts_to_archilles(job_id: int, contacts: list[dict]):
     contacts_json = json.dumps(contacts)
     cmd = [
         "ssh", "archilles",
-        "cd /home/hermes/haxjobs && python3 -c \""
+        f"cd {REMOTE_HAXJOBS_DIR} && python3 -c \""
         "import sys, json; sys.path.insert(0, '.'); "
         "from db import schema; schema.init(); "
         "from db.outreach import insert_contact; "
@@ -157,7 +159,7 @@ async def main(save: bool = False, job_id: int | None = None):
         # Fetch single job via SSH
         cmd = [
             "ssh", "archilles",
-            "cd /home/hermes/haxjobs && python3 -c \""
+            f"cd {REMOTE_HAXJOBS_DIR} && python3 -c \""
             "import sys, json; sys.path.insert(0, '.'); "
             "from db import schema; schema.init(); "
             "import sqlite3; "

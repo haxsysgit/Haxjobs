@@ -7,8 +7,7 @@ import json, os, re, glob
 from collections import defaultdict
 from datetime import datetime, timezone
 
-INTAKE_DIR = "/home/hermes/haxjobs/intake"
-CLASSIFICATION_FILE = "/home/hermes/haxjobs/state/job_classifications.json"
+from haxjobs_config import INTAKE_DIR, JOB_CLASSIFICATION_FILE as CLASSIFICATION_FILE
 
 # Role clusters — each has keywords that identify the role type
 ROLE_CLUSTERS = {

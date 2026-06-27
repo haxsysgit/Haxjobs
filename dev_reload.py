@@ -11,11 +11,12 @@ from pathlib import Path
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
+from haxjobs_config import HAXJOBS_HOME
 WATCH_DIRS = [
-    "/home/hermes/haxjobs/server",
-    "/home/hermes/haxjobs/profile",
+    str(HAXJOBS_HOME / "server"),
+    str(HAXJOBS_HOME / "profile"),
 ]
-API_SCRIPT = "/home/hermes/haxjobs/api_server.py"
+API_SCRIPT = str(HAXJOBS_HOME / "api_server.py")
 API_PORT = 8800
 
 class RestartHandler(FileSystemEventHandler):

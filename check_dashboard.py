@@ -12,7 +12,7 @@ Usage:
 """
 import os, re, sys, glob
 
-DASHBOARD_DIR = "/home/hermes/haxjobs/dashboard"
+from haxjobs_config import DASHBOARD_DIR
 INDEX_PATH = os.path.join(DASHBOARD_DIR, "index.html")
 ASSETS_DIR = os.path.join(DASHBOARD_DIR, "assets")
 

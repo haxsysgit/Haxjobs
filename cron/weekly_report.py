@@ -19,7 +19,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.request import Request, urlopen
 
-DB_PATH = "/home/hermes/haxjobs/state/pipeline.db"
+from haxjobs_config import DB_PATH
 TELEGRAM_BOT_TOKEN = None
 TELEGRAM_CHAT_ID = "-1003991695885"
 TELEGRAM_THREAD_ID = 18  # Cron reports topic

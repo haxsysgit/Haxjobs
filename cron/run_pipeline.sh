@@ -4,7 +4,14 @@
 # Run by system crontab every 30 minutes.
 # Each invocation processes exactly ONE pending job.
 set -euo pipefail
-cd /home/hermes/haxjobs
+
+# --- auto-detect HAXJOBS_HOME ---
+if [ -z "${HAXJOBS_HOME:-}" ]; then
+  HAXJOBS_HOME="$(cd "$(dirname "$0")" && pwd)"
+fi
+export HAXJOBS_HOME
+# --- end auto-detect ---
+cd "$HAXJOBS_HOME"
 
 LOG_FILE="state/pipeline.log"
 
@@ -21,7 +28,7 @@ print(db.get_stats()['pending'])
 if [ "$PENDING" -eq 0 ]; then
     log "No pending jobs. Running maintenance syncs only."
     python3 pipeline_db.py classify-roles 2>&1 | tee -a "$LOG_FILE"
-    python3 /home/hermes/haxjobs/cron/sync_db_to_intake.py
+    python3 "$HAXJOBS_HOME/cron/sync_db_to_intake.py
     log "Pipeline done."
     exit 0
 fi
@@ -69,5 +76,5 @@ print(db.get_stats()['pending'])
 fi
 
 python3 pipeline_db.py classify-roles 2>&1 | tee -a "$LOG_FILE"
-python3 /home/hermes/haxjobs/cron/sync_db_to_intake.py
+python3 "$HAXJOBS_HOME/cron/sync_db_to_intake.py
 log "Pipeline done."

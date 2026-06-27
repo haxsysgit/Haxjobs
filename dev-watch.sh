@@ -4,7 +4,14 @@
 # Watches dashboard/src/ for changes, rebuilds when detected.
 
 set -euo pipefail
-DASHBOARD_DIR="/home/hermes/haxjobs/dashboard"
+
+# --- auto-detect HAXJOBS_HOME ---
+if [ -z "${HAXJOBS_HOME:-}" ]; then
+  HAXJOBS_HOME="$(cd "$(dirname "$0")" && pwd)"
+fi
+export HAXJOBS_HOME
+# --- end auto-detect ---
+DASHBOARD_DIR="$HAXJOBS_HOME/dashboard"
 
 echo "Watching $DASHBOARD_DIR/src/ for changes..."
 echo "Press Ctrl+C to stop."

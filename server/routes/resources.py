@@ -5,12 +5,14 @@ import subprocess
 import glob
 from datetime import datetime, timezone
 
-PIPELINE_DIR = "/home/hermes/haxjobs"
-PACKS_DIR = os.path.join(PIPELINE_DIR, "packs")
-PROFILE_DIR = os.path.join(PIPELINE_DIR, "profile")
-DISCOVERY_DIR = os.path.join(PIPELINE_DIR, "discovery")
-STATE_DIR = os.path.join(PIPELINE_DIR, "state")
-PROFILE_PATH = os.path.join(PROFILE_DIR, "arinze_profile.local.json")
+from haxjobs_config import (
+    HAXJOBS_HOME as PIPELINE_DIR,
+    PACKS_DIR,
+    PROFILE_DIR,
+    DISCOVERY_DIR,
+    STATE_DIR,
+    PROFILE_PATH,
+)
 
 
 def load_json(path):

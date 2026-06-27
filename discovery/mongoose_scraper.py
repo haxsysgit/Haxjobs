@@ -7,9 +7,8 @@ import asyncio, json, os, sys, subprocess
 from datetime import datetime, timezone
 from playwright.async_api import async_playwright
 
-INTAKE_DIR = "/home/hermes/haxjobs/intake"
-SHARP_FILTER = "/home/hermes/haxjobs/discovery/sharp_filter.py"
-LOG_FILE = "/home/hermes/haxjobs/state/discovery.log"
+from haxjobs_config import INTAKE_DIR, DISCOVERY_LOG, HAXJOBS_HOME
+SHARP_FILTER = str(HAXJOBS_HOME / "discovery" / "sharp_filter.py")
 BASE_URL = "https://www.mongoosejobs.com"
 
 SEARCH_TERMS = [
