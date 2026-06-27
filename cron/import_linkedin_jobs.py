@@ -29,7 +29,7 @@ def main(cache_path: str):
         try:
             jid = insert_job(
                 title=job["title"],
-                company="LinkedIn",
+                company=job.get("company") or "Unknown",
                 location=job.get("location", "UK"),
                 source_url=job.get("url", ""),
                 source="linkedin_local",
@@ -44,8 +44,11 @@ def main(cache_path: str):
 
     print(f"Inserted {inserted}, skipped {skipped} (total: {len(jobs)})")
 
-    conn = sqlite3.connect("state/pipeline.db")
-    total = conn.execute('SELECT count(*) FROM jobs WHERE source="linkedin_local"').fetchone()[0]
+    # Summary count — use schema's DB path, not a hardcoded relative path
+    conn = schema.get_db()
+    total = conn.execute(
+        'SELECT count(*) FROM jobs WHERE source="linkedin_local"'
+    ).fetchone()[0]
     conn.close()
     print(f"Total linkedin_local jobs in DB: {total}")
 

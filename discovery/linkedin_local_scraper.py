@@ -1,24 +1,27 @@
 #!/usr/bin/env python3
-"""Local LinkedIn job scraper — runs on Jade's laptop, sends results to Archilles.
+"""Local LinkedIn job scraper — runs on Jade's laptop.
 
 Uses Playwright with cookie injection (works because local IP isn't flagged).
-Scrapes LinkedIn job search results and sends discovered jobs to Archilles via API.
+Scrapes LinkedIn job search results and writes a local cache file.
+
+The safe transfer workflow after scraping:
+  scp /tmp/linkedin_jobs_cache.json archilles:/tmp/
+  ssh archilles python3 /home/hermes/haxjobs/cron/import_linkedin_jobs.py /tmp/linkedin_jobs_cache.json
 
 Usage:
-  python3 discovery/linkedin_local_scraper.py
-  python3 discovery/linkedin_local_scraper.py --send   # Actually send to Archilles
+  python3 discovery/linkedin_local_scraper.py           # Scrape + cache (dry run)
+  python3 discovery/linkedin_local_scraper.py --upload  # Scrape + scp + ssh import
 """
 
 from __future__ import annotations
 
 import asyncio, json, os, re, sys, subprocess
-from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 from playwright.async_api import async_playwright
 
 COOKIES_FILE = Path(__file__).parent / "linkedin_cookies.json"
-ARCHILLES_API = "http://178.105.245.120:8800/api/queue"
+CACHE_FILE = Path("/tmp/linkedin_jobs_cache.json")
 
 # Search queries — pairs of (keywords, location) for LinkedIn job search
 SEARCHES = [
@@ -44,24 +47,31 @@ def load_cookies():
     return json.loads(COOKIES_FILE.read_text())
 
 
-def send_to_archilles(job: dict) -> bool:
-    """POST a job to Archilles API queue. Returns True on success."""
+def upload_cache():
+    """Copy cache to Archilles and trigger the importer via SSH."""
+    print("\nUploading cache to Archilles...")
+    remote_cache = "/tmp/linkedin_jobs_cache.json"
+    remote_script = "/home/hermes/haxjobs/cron/import_linkedin_jobs.py"
+
     try:
-        import urllib.request
-        data = json.dumps({
-            "title": job["title"],
-            "company": job["company"],
-            "location": job.get("location", "London"),
-            "url": job.get("url", ""),
-            "source": "linkedin_local",
-            "jd_text": job.get("jd_text", f"{job['title']} at {job['company']} — {job.get('url', '')}"),
-        }).encode()
-        req = urllib.request.Request(ARCHILLES_API, data=data, headers={"Content-Type": "application/json"}, method="POST")
-        resp = urllib.request.urlopen(req, timeout=10)
-        result = json.loads(resp.read())
-        return result.get("ok", False)
-    except Exception as e:
-        print(f"  API error: {e}")
+        subprocess.run(
+            ["scp", str(CACHE_FILE), f"archilles:{remote_cache}"],
+            check=True, timeout=30,
+        )
+        print("  Cache uploaded.")
+    except subprocess.CalledProcessError as e:
+        print(f"  scp failed: {e}")
+        return False
+
+    try:
+        subprocess.run(
+            ["ssh", "archilles", "python3", remote_script, remote_cache],
+            check=True, timeout=30,
+        )
+        print("  Import triggered on Archilles.")
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"  Import failed: {e}")
         return False
 
 
@@ -90,7 +100,6 @@ async def scrape_search(context, keywords: str, location: str) -> list[dict]:
         if count_match:
             print(f"  {count_match.group(1)} results")
 
-        # Find all job links
         links = await page.query_selector_all("a")
         seen = set()
 
@@ -156,7 +165,7 @@ async def scrape_search(context, keywords: str, location: str) -> list[dict]:
     return unique
 
 
-async def main(send: bool = False):
+async def main(upload: bool = False):
     cookies = load_cookies()
     if not cookies:
         return
@@ -195,25 +204,21 @@ async def main(send: bool = False):
 
     print(f"\nTotal unique jobs: {len(unique)}")
 
-    if send:
-        sent = 0
-        for job in unique:
-            if send_to_archilles(job):
-                sent += 1
-            else:
-                print(f"  Failed: {job['title'][:60]} at {job['company']}")
-        print(f"Sent {sent}/{len(unique)} jobs to Archilles")
+    # Save local cache
+    CACHE_FILE.write_text(json.dumps(unique, indent=2))
+    print(f"Cached to {CACHE_FILE}")
+
+    if upload:
+        upload_cache()
     else:
-        print("\nDRY RUN — use --send to actually queue jobs on Archilles")
+        print("\nDRY RUN — use --upload to scp + ssh import to Archilles")
+        print("Or run manually:")
+        print(f"  scp {CACHE_FILE} archilles:/tmp/")
+        print(f"  ssh archilles python3 /home/hermes/haxjobs/cron/import_linkedin_jobs.py /tmp/linkedin_jobs_cache.json")
         for j in unique[:10]:
             print(f"  {j['title'][:70]} | {j['company'][:30]} | {j['url'][:80]}")
 
-    # Save local cache
-    cache_file = Path("/tmp/linkedin_jobs_cache.json")
-    cache_file.write_text(json.dumps(unique, indent=2))
-    print(f"Cached to {cache_file}")
-
 
 if __name__ == "__main__":
-    send_flag = "--send" in sys.argv
-    asyncio.run(main(send=send_flag))
+    upload_flag = "--upload" in sys.argv or "--send" in sys.argv
+    asyncio.run(main(upload=upload_flag))
