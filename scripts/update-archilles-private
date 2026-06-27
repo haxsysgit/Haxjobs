@@ -90,8 +90,8 @@ if git fetch origin "$ref" --prune; then
 else
   log "Private repo fetch unavailable on Archilles; using relay bundle."
   [[ -f "$bundle_path" ]] || fail "relay bundle missing: $bundle_path"
-  git fetch "$bundle_path" "$ref"
-  source_ref="FETCH_HEAD"
+  git fetch "$bundle_path" "$ref:refs/remotes/origin/$ref"
+  source_ref="origin/$ref"
 fi
 
 log "Updating tracked source to $source_ref."
