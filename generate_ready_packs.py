@@ -53,7 +53,7 @@ def generate_ready_packs(
             cv_variant=cv_metadata,
             output_root=output_root,
         )
-        update_job_pack_status(job["id"], "generated")
+        update_job_pack_status(job["id"], "generated", pack_dir=result["pack_dir"])
         generated.append(result)
 
         if limit is not None and len(generated) >= limit:
@@ -111,7 +111,7 @@ def generate_pack_for_job(
         cv_variant=cv_metadata,
         output_root=output_root,
     )
-    update_job_pack_status(matching_job["id"], "generated")
+    update_job_pack_status(matching_job["id"], "generated", pack_dir=result["pack_dir"])
     return {
         "ok": True,
         "job_id": matching_job["id"],

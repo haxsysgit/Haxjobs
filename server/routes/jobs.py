@@ -6,11 +6,24 @@ from db.pack_review import review_pack
 
 
 def list_jobs():
+    """Return all jobs with evaluations, hydrated with favorites and auto-apply state.
+
+    Uses batch lookups so the dashboard poll scales as O(1) DB round-trips
+    regardless of how many jobs are in the system.
+    """
     raw = db_evals.get_jobs_with_evaluations()
+
+    # Batch: gather all job IDs once
+    job_ids = [r["id"] for r in raw]
+    favorite_ids = set(db_favs.get_favorites())
+    saved_ids = {s["id"] for s in db_saved.get_saved_jobs()}
+    auto_apply_states = db_decs.get_latest_auto_apply_states(job_ids)
+
     result = []
     for r in raw:
+        jid = r["id"]
         result.append({
-            "id": str(r["id"]),
+            "id": str(jid),
             "company": r["company"],
             "title": r["title"],
             "location": r.get("location", ""),
@@ -39,28 +52,11 @@ def list_jobs():
             "skipReason": r.get("skip_reason", ""),
             "receivedAt": r.get("discovered_at", ""),
             "processedAt": r.get("evaluated_at", ""),
-            "isFavorite": db_favs.is_favorite(r["id"]),
-            "isSaved": False,
-            "isAutoApply": _is_auto_apply_enabled(r["id"]),
+            "isFavorite": jid in favorite_ids,
+            "isSaved": jid in saved_ids,
+            "isAutoApply": auto_apply_states.get(jid, False),
         })
-    saved_ids = {s["id"] for s in db_saved.get_saved_jobs()}
-    for j in result:
-        j["isSaved"] = int(j["id"]) in saved_ids
     return result
-
-
-def _is_auto_apply_enabled(job_id):
-    """Return the current dashboard auto-apply intent marker.
-
-    The dashboard stores auto-apply as decision events. The latest auto_apply or
-    auto_apply_remove event wins, so the UI can show a stable toggle state.
-    """
-    for decision in db_decs.get_decisions(int(job_id)):
-        if decision["decision"] == "auto_apply":
-            return True
-        if decision["decision"] == "auto_apply_remove":
-            return False
-    return False
 
 
 def unskip_job(body):
@@ -109,17 +105,15 @@ def approve_job(body):
 
 
 def generate_job_pack(body):
-    """Generate one pack for one explicitly requested job."""
+    """Generate one pack for one explicitly requested job via HTTP API.
+
+    Only job_id is accepted from the request body. Filesystem paths and
+    generation policy stay server-side.
+    """
     job_id = body.get("job_id")
     if not job_id:
         return 400, {"error": "job_id required"}
-    result = generate_pack_for_job(
-        int(job_id),
-        output_root=body.get("output_root") or None or "packs",
-        registry_path=body.get("registry_path") or "cv_variants/registry.json",
-        profile_path=body.get("profile_path") or "profile/arinze_profile.local.json",
-        threshold=int(body.get("threshold", 50)),
-    )
+    result = generate_pack_for_job(int(job_id))
     return (200 if result.get("ok") else 400), result
 
 

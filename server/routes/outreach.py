@@ -8,7 +8,6 @@ POST /api/outreach/reject   → Reject a draft with optional reason
 
 from __future__ import annotations
 
-import sqlite3
 import sys
 from pathlib import Path
 from typing import Any
@@ -20,13 +19,8 @@ from db.outreach import (
     update_draft_status,
 )
 
-DB_PATH = "/home/hermes/haxjobs/state/pipeline.db"
-
-
 def _get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    return schema.get_db()
 
 
 def list_outreach_jobs() -> list[dict[str, Any]]:
@@ -36,7 +30,7 @@ def list_outreach_jobs() -> list[dict[str, Any]]:
 
     rows = conn.execute("""
         SELECT DISTINCT j.id, j.title, j.company, j.location, j.source_url,
-               j.outreach_status, j.pack_status,
+               j.outreach_status, j.pack_status, j.pack_dir,
                e.fit_score, e.fit_verdict, e.level_name, e.summary,
                j.role_family, j.recommended_cv_variant,
                (SELECT count(*) FROM outreach_drafts d WHERE d.job_id = j.id AND d.status = 'draft') as draft_count,
@@ -64,6 +58,7 @@ def list_outreach_jobs() -> list[dict[str, Any]]:
             "summary": r["summary"] or "",
             "outreachStatus": r["outreach_status"] or "none",
             "packStatus": r["pack_status"] or "none",
+            "packDir": r["pack_dir"] or "",
             "roleFamily": r["role_family"] or "",
             "recommendedCvVariant": r["recommended_cv_variant"] or "",
             "draftCount": r["draft_count"],
@@ -84,7 +79,7 @@ def list_outreach_drafts(job_id: int | None = None) -> list[dict[str, Any]]:
     if job_id:
         rows = conn.execute("""
             SELECT d.*, j.title as job_title, j.company as job_company,
-                   j.outreach_status, j.pack_status,
+                   j.outreach_status, j.pack_status, j.pack_dir,
                    e.fit_score, e.fit_verdict,
                    c.name as contact_name, c.title as contact_title
             FROM outreach_drafts d
@@ -97,7 +92,7 @@ def list_outreach_drafts(job_id: int | None = None) -> list[dict[str, Any]]:
     else:
         rows = conn.execute("""
             SELECT d.*, j.title as job_title, j.company as job_company,
-                   j.outreach_status, j.pack_status,
+                   j.outreach_status, j.pack_status, j.pack_dir,
                    e.fit_score, e.fit_verdict,
                    c.name as contact_name, c.title as contact_title
             FROM outreach_drafts d
@@ -123,6 +118,7 @@ def list_outreach_drafts(job_id: int | None = None) -> list[dict[str, Any]]:
             "jobCompany": r["job_company"],
             "outreachStatus": r["outreach_status"] or "",
             "packStatus": r["pack_status"] or "",
+            "packDir": r["pack_dir"] or "",
             "fitScore": r["fit_score"] or 0,
             "fitVerdict": r["fit_verdict"] or "",
             "contactName": r["contact_name"] or "",
@@ -134,20 +130,24 @@ def list_outreach_drafts(job_id: int | None = None) -> list[dict[str, Any]]:
 
 
 def approve_draft(draft_id: int) -> dict[str, Any]:
-    """Approve a draft message."""
+    """Approve a draft message. Returns ok: false if draft not found."""
     schema.init()
     try:
-        update_draft_status(draft_id, "approved")
+        updated = update_draft_status(draft_id, "approved")
+        if not updated:
+            return {"ok": False, "error": "draft not found", "draft_id": draft_id}
         return {"ok": True, "draft_id": draft_id, "status": "approved"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
 
 def reject_draft(draft_id: int, reason: str = "") -> dict[str, Any]:
-    """Reject a draft message."""
+    """Reject a draft message. Returns ok: false if draft not found."""
     schema.init()
     try:
-        update_draft_status(draft_id, "rejected")
+        updated = update_draft_status(draft_id, "rejected")
+        if not updated:
+            return {"ok": False, "error": "draft not found", "draft_id": draft_id}
         return {"ok": True, "draft_id": draft_id, "status": "rejected", "reason": reason}
     except Exception as e:
         return {"ok": False, "error": str(e)}
