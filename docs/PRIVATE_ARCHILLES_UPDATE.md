@@ -35,12 +35,13 @@ The script refuses to run unless:
 1. Validates Jade private-dev.
 2. SSHes into Archilles.
 3. Changes `/home/hermes/haxjobs` origin to the private repo.
-4. Fetches `origin/main`.
-5. Hard-resets tracked source only to the private repo commit.
-6. Verifies protected runtime/private files still exist.
-7. Installs dashboard dependencies if needed.
-8. Restarts the dashboard/API with `dashctl.sh restart`.
-9. Calls `http://127.0.0.1:8800/api/status` and checks the JSON payload.
+4. Tries to fetch `origin/main` from the private repo.
+5. If Archilles has no GitHub credentials, falls back to a Jade-created git bundle copied to `/tmp`.
+6. Hard-resets tracked source only to the private commit.
+7. Verifies protected runtime/private files still exist.
+8. Installs dashboard dependencies if needed.
+9. Restarts the dashboard/API with `dashctl.sh restart`.
+10. Calls `http://127.0.0.1:8800/api/status` and checks the JSON payload.
 
 ## Protected Archilles paths
 
@@ -88,3 +89,7 @@ If the update fails after changing source but before API health passes:
 2. Check `/tmp/pipeline-api.log` on Archilles.
 3. Check `dashctl.sh status` on Archilles.
 4. If source rollback is required, reset Archilles to a known private repo commit, not to the public release lane.
+
+## Why the relay bundle exists
+
+Archilles may not have GitHub credentials for the private repo. That is intentional: Jade owns source development and private-repo push access. When Archilles cannot fetch the private repo directly, Jade relays the exact pushed commit as a temporary git bundle. Archilles fetches from that local bundle, then the bundle is removed.

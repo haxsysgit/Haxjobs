@@ -42,15 +42,26 @@ require_clean_private_dev() {
 
 update_remote() {
   local expected_head
+  local bundle_path
+  local remote_bundle_path
   expected_head="$(cd "$LOCAL_DIR" && git rev-parse HEAD)"
 
-  ssh "$REMOTE_HOST" bash -s -- "$REMOTE_DIR" "$PRIVATE_REPO_URL" "$REF" "$expected_head" <<'REMOTE'
+  bundle_path="$(mktemp /tmp/haxjobs-private-${REF}-XXXXXX.bundle)"
+  remote_bundle_path="/tmp/$(basename "$bundle_path")"
+  trap 'rm -f "$bundle_path"' RETURN
+
+  log "Creating local git bundle for Archilles relay."
+  (cd "$LOCAL_DIR" && git bundle create "$bundle_path" "$REF") >/dev/null
+  scp -q "$bundle_path" "$REMOTE_HOST:$remote_bundle_path"
+
+  ssh "$REMOTE_HOST" bash -s -- "$REMOTE_DIR" "$PRIVATE_REPO_URL" "$REF" "$expected_head" "$remote_bundle_path" <<'REMOTE'
 set -euo pipefail
 
 remote_dir="$1"
 repo_url="$2"
 ref="$3"
 expected_head="$4"
+bundle_path="$5"
 
 log() { printf '[archilles-private-update] %s\n' "$*"; }
 fail() { printf '[archilles-private-update] ERROR: %s\n' "$*" >&2; exit 1; }
@@ -74,12 +85,20 @@ done
 log "Setting origin to private repo."
 git remote set-url origin "$repo_url" 2>/dev/null || git remote add origin "$repo_url"
 
-log "Fetching $ref from private repo."
-git fetch origin "$ref" --prune
+log "Fetching $ref from private repo, falling back to Jade relay bundle if needed."
+if git fetch origin "$ref" --prune; then
+  source_ref="origin/$ref"
+else
+  log "Private repo fetch unavailable on Archilles; using relay bundle."
+  [[ -f "$bundle_path" ]] || fail "relay bundle missing: $bundle_path"
+  git fetch "$bundle_path" "$ref"
+  source_ref="FETCH_HEAD"
+fi
 
-log "Updating tracked source to origin/$ref."
+log "Updating tracked source to $source_ref."
 git checkout "$ref" 2>/dev/null || git checkout -B "$ref" "origin/$ref"
-git reset --hard "origin/$ref"
+git reset --hard "$source_ref"
+rm -f "$bundle_path"
 
 actual_head="$(git rev-parse HEAD)"
 [[ "$actual_head" == "$expected_head" ]] || fail "HEAD mismatch after update"
