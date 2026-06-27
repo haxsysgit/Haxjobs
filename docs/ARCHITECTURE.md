@@ -62,8 +62,8 @@ HaxJobs should create tasks. Hermes should complete them and write back structur
 
 Current repo already has a web app direction. Keep that unless there is a strong reason to reset.
 
-- Backend: Python / FastAPI
-- Frontend: Vue 3 / Vite
+- Backend: Python stdlib HTTP (current active) / FastAPI (possible future migration)
+- Frontend: React + TypeScript + Vite (current active) / Vue 3 (historical)
 - Local database: SQLite
 - Future production database: PostgreSQL
 - Browser extension: Manifest V3

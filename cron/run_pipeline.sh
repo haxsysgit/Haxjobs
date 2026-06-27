@@ -1,7 +1,7 @@
 #!/bin/bash
 # HaxJobs Pipeline Runner v2 — step-by-step, one job at a time
 # Uses evaluate_with_hermes.py for precise Hermes evaluation.
-# Run by system crontab every 3 hours.
+# Run by system crontab every 30 minutes.
 # Each invocation processes exactly ONE pending job.
 set -euo pipefail
 cd /home/hermes/haxjobs
@@ -51,7 +51,7 @@ else
 fi
 
 # If there are more pending and this is a manual trigger, process another
-# (system crontab fires every 3h, so naturally processes 8 jobs/day)
+# (system crontab fires every 30 min, so naturally processes 48 jobs/day)
 if [ "${1:-}" = "--all" ] && [ "$PENDING_AFTER" -gt 0 ]; then
     log "--all mode: processing remaining $PENDING_AFTER jobs one at a time..."
     while [ "$PENDING_AFTER" -gt 0 ]; do

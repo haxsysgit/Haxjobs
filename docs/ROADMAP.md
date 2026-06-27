@@ -90,8 +90,8 @@ Build:
 
 Recommended stack:
 
-- Backend: Python + FastAPI
-- Frontend: Vue 3 + Vite
+- Backend: Python stdlib HTTP (current active) / FastAPI (possible future)
+- Frontend: React + TypeScript + Vite (current active) / Vue 3 (historical)
 - Local DB: SQLite
 - Future production DB: PostgreSQL
 - ORM/migrations: SQLAlchemy + Alembic, or SQLModel + Alembic
