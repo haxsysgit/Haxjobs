@@ -119,7 +119,7 @@ fi
 
 log "Restarting dashboard/API."
 if [[ -x dashctl.sh ]]; then
-  bash dashctl.sh restart
+  bash dashctl.sh restart < /dev/null
 else
   fail "dashctl.sh is not executable"
 fi
