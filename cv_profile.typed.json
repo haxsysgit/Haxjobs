@@ -63,7 +63,7 @@
       "validation": "exact_match_only"
     },
     "university_graduation": {
-      "value": "Expected June 2026",
+      "value": "June 2026",
       "type": "literal",
       "validation": "exact_match_only"
     },

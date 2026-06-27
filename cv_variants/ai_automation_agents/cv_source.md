@@ -28,7 +28,7 @@ I build automation and agent workflows from the inside, not just by talking abou
 ---
 ## Education
 
-**BSc Information Technology**, Middlesex University London (Expected June 2026)
+**BSc Information Technology**, Middlesex University London (June 2026)
 
 **Advanced Diploma in Software Engineering (ADSE Java)**, Aptech Computer Education, Lagos (September 2022 to August 2024)
 A structured two-year programme combining classroom training with hands-on project work across four semesters. Covered Linux, Python, C++, C, Java, Spring Framework, EJB, Flutter/Dart, MERN and MEAN stacks. Python became my primary language during this period.
