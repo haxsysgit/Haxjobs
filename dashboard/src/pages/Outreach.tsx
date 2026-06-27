@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Send, Mail, Clock, CheckCircle, X, FileText, ExternalLink } from '../components/Icons'
+import { Send, CheckCircle, X, FileText, ExternalLink } from '../components/Icons'
 
 interface OutreachJob {
   id: number
@@ -68,6 +68,8 @@ export function Outreach() {
     setLoading(false)
   }
 
+  // Fetch-on-mount — no external system to subscribe to
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load() }, [])
 
   const handleApprove = async (draftId: number) => {

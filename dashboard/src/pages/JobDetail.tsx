@@ -39,7 +39,7 @@ export function JobDetailPage({ job, onBack }: { job: Job; onBack: () => void })
           {isSkipped && (
             <div className="detail-section" style={{ borderLeft: '3px solid var(--danger)', paddingLeft: 14 }}>
               <h3 style={{ color: 'var(--danger)' }}>Skipped</h3>
-              <p style={{ fontSize: 14, lineHeight: 1.65 }}>{(job as any).skipReason || 'No reason recorded'}</p>
+              <p style={{ fontSize: 14, lineHeight: 1.65 }}>{job.skipReason || 'No reason recorded'}</p>
             </div>
           )}
 

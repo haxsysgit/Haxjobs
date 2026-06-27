@@ -41,6 +41,44 @@ export interface Job {
   jdText?: string
 }
 
+// ── Response types for API calls ──
+
+export interface ApiResult {
+  ok: boolean
+  error?: string
+}
+
+export interface PackGenerateResult extends ApiResult {
+  pack_dir?: string
+}
+
+export interface PackReviewResult extends ApiResult {
+  pack_status?: string
+}
+
+export interface AutoApplyResult extends ApiResult {
+  auto_apply: boolean
+}
+
+export interface StatusResult {
+  pipeline_status: string
+}
+
+export interface ActivityEntry {
+  message: string
+}
+
+export interface WhitelistEntry {
+  id: number
+  pattern_type: string
+  pattern_value: string
+  reason?: string
+  source_job_id?: number
+  match_count?: number
+  active?: number
+  created_at?: string
+}
+
 export interface Pack {
   dir: string
   name: string
@@ -115,13 +153,13 @@ export const api = {
   getPacks: () => fetchAPI<Pack[]>('/api/packs'),
   getPackDetail: (packDir: string) => fetchAPI<PackDetail>(`/api/pack-detail?dir=${encodeURIComponent(packDir)}`),
   generatePack: (jobId: string) =>
-    fetchAPI<any>('/api/jobs/generate-pack', { method: 'POST', body: JSON.stringify({ job_id: jobId }) }),
+    fetchAPI<PackGenerateResult>('/api/jobs/generate-pack', { method: 'POST', body: JSON.stringify({ job_id: jobId }) }),
   reviewPack: (jobId: string, action: 'approve' | 'reject' | 'changes', notes?: string) =>
-    fetchAPI<any>('/api/jobs/review-pack', { method: 'POST', body: JSON.stringify({ job_id: jobId, action, notes }) }),
+    fetchAPI<PackReviewResult>('/api/jobs/review-pack', { method: 'POST', body: JSON.stringify({ job_id: jobId, action, notes }) }),
 
   // Stats
   getStats: () => fetchAPI<PipelineStats>('/api/stats'),
-  getStatus: () => fetchAPI<any>('/api/status'),
+  getStatus: () => fetchAPI<StatusResult>('/api/status'),
 
   // Discovery
   getDiscovery: () => fetchAPI<DiscoveryStatus>('/api/discovery'),
@@ -130,45 +168,45 @@ export const api = {
   getProfile: () => fetchAPI<ProfileData>('/api/profile'),
 
   // Activity
-  getActivity: () => fetchAPI<any[]>('/api/activity'),
+  getActivity: () => fetchAPI<ActivityEntry[]>('/api/activity'),
 
   // Favorites (server-side, persistent)
   getFavorites: () => fetchAPI<Job[]>('/api/favorites'),
   addFavorite: (jobId: string) =>
-    fetchAPI<any>('/api/favorites', { method: 'POST', body: JSON.stringify({ job_id: jobId }) }),
+    fetchAPI<ApiResult>('/api/favorites', { method: 'POST', body: JSON.stringify({ job_id: jobId }) }),
   removeFavorite: (jobId: string) =>
-    fetchAPI<any>('/api/favorites/remove', { method: 'POST', body: JSON.stringify({ job_id: jobId }) }),
+    fetchAPI<ApiResult>('/api/favorites/remove', { method: 'POST', body: JSON.stringify({ job_id: jobId }) }),
 
   // Saved Jobs (server-side, persistent)
-  getSavedJobs: () => fetchAPI<any[]>('/api/saved-jobs'),
+  getSavedJobs: () => fetchAPI<Job[]>('/api/saved-jobs'),
   saveJob: (jobId: string, notes?: string) =>
-    fetchAPI<any>('/api/saved-jobs', { method: 'POST', body: JSON.stringify({ job_id: jobId, notes }) }),
+    fetchAPI<ApiResult>('/api/saved-jobs', { method: 'POST', body: JSON.stringify({ job_id: jobId, notes }) }),
   unsaveJob: (jobId: string) =>
-    fetchAPI<any>('/api/saved-jobs/remove', { method: 'POST', body: JSON.stringify({ job_id: jobId }) }),
+    fetchAPI<ApiResult>('/api/saved-jobs/remove', { method: 'POST', body: JSON.stringify({ job_id: jobId }) }),
 
   // Pipeline actions
-  triggerPipeline: () => fetchAPI<any>('/api/trigger', { method: 'POST', body: '{}' }),
+  triggerPipeline: () => fetchAPI<ApiResult>('/api/trigger', { method: 'POST', body: '{}' }),
   queueIntake: (data: { jd_text: string; source?: string; company?: string; title?: string; url?: string }) =>
-    fetchAPI<any>('/api/queue', { method: 'POST', body: JSON.stringify(data) }),
+    fetchAPI<ApiResult>('/api/queue', { method: 'POST', body: JSON.stringify(data) }),
 
   // Unskip & Approve
   unskipJob: (jobId: string, reason?: string, addToWhitelist?: boolean) =>
-    fetchAPI<any>('/api/jobs/unskip', { method: 'POST', body: JSON.stringify({ job_id: jobId, reason, add_to_whitelist: addToWhitelist }) }),
+    fetchAPI<ApiResult>('/api/jobs/unskip', { method: 'POST', body: JSON.stringify({ job_id: jobId, reason, add_to_whitelist: addToWhitelist }) }),
   approveJob: (jobId: string, reason?: string, addToWhitelist?: boolean) =>
-    fetchAPI<any>('/api/jobs/approve', { method: 'POST', body: JSON.stringify({ job_id: jobId, reason, add_to_whitelist: addToWhitelist }) }),
+    fetchAPI<ApiResult>('/api/jobs/approve', { method: 'POST', body: JSON.stringify({ job_id: jobId, reason, add_to_whitelist: addToWhitelist }) }),
 
   // Whitelist
-  getWhitelist: () => fetchAPI<any[]>('/api/whitelist'),
+  getWhitelist: () => fetchAPI<WhitelistEntry[]>('/api/whitelist'),
   addWhitelist: (data: { pattern_type: string; pattern_value: string; reason?: string; source_job_id?: number }) =>
-    fetchAPI<any>('/api/whitelist', { method: 'POST', body: JSON.stringify(data) }),
+    fetchAPI<ApiResult>('/api/whitelist', { method: 'POST', body: JSON.stringify(data) }),
   removeWhitelist: (id: number) =>
-    fetchAPI<any>('/api/whitelist/remove', { method: 'POST', body: JSON.stringify({ id }) }),
+    fetchAPI<ApiResult>('/api/whitelist/remove', { method: 'POST', body: JSON.stringify({ id }) }),
 
   // Auto-apply
   toggleAutoApply: (jobId: string) =>
-    fetchAPI<any>('/api/jobs/auto-apply', { method: 'POST', body: JSON.stringify({ job_id: jobId }) }),
+    fetchAPI<AutoApplyResult>('/api/jobs/auto-apply', { method: 'POST', body: JSON.stringify({ job_id: jobId }) }),
 
   // Profile
   saveProfile: (name: string, headline: string) =>
-    fetchAPI<any>('/api/profile/save', { method: 'POST', body: JSON.stringify({ name, headline }) }),
+    fetchAPI<ApiResult>('/api/profile/save', { method: 'POST', body: JSON.stringify({ name, headline }) }),
 }

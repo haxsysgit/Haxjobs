@@ -8,10 +8,13 @@ export function Profile({ data }: { data: ProfileData | null }) {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
+  // Sync name/headline on first data load — form fields diverge after edit
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (data?.name && !name) setName(data.name)
     if (data?.headline && !headline) setHeadline(data.headline)
   }, [data])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleSave = async () => {
     setSaving(true)

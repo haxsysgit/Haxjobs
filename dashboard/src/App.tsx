@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { BrowserRouter, Routes, Route, useNavigate, useLocation, useParams } from 'react-router-dom'
 import { Dashboard } from './pages/Dashboard'
 import { Pipeline } from './pages/Pipeline'
@@ -10,37 +10,20 @@ import { Outreach } from './pages/Outreach'
 import { Settings } from './pages/Settings'
 import { PacksPage } from './pages/Packs'
 import { Whitelist } from './pages/WhitelistPage'
-import { ToastProvider, useToast } from './components/Toasts'
+import { ToastProvider } from './components/Toasts'
+import { useToast } from './components/useToast'
+import { useApiData } from './data/useApiData'
 import { Home, Layers, Activity as ActivityIcon, User, Globe, Send, Settings as SettingsIcon, ChevronLeft, ChevronRight, FileText, CheckCircle } from './components/Icons'
-import { api, type Job, type DiscoveryStatus, type ProfileData } from './data/api'
+import { api, type Job } from './data/api'
 import './theme.css'
-;(window as any).__HAXJOBS_VERSION__ = '3.0.0'
 
-// ── Shared data context ──
-export function useApiData() {
-  const [jobs, setJobs] = useState<Job[]>([])
-  const [discovery, setDiscovery] = useState<DiscoveryStatus | null>(null)
-  const [profile, setProfile] = useState<ProfileData | null>(null)
-  const [connected, setConnected] = useState(false)
-
-  useEffect(() => {
-    async function load() {
-      try {
-        const [j, d, p] = await Promise.all([api.getJobs(), api.getDiscovery(), api.getProfile()])
-        setJobs(j); setDiscovery(d); setProfile(p); setConnected(true)
-      } catch { setConnected(false) }
-    }
-    load()
-    const interval = setInterval(load, 30000)
-    return () => clearInterval(interval)
-  }, [])
-
-  const updateJob = (jobId: string, updates: Partial<Job>) => {
-    setJobs(prev => prev.map(j => j.id === jobId ? { ...j, ...updates } : j))
+// HaxJobs version — exposed on window for debugging
+declare global {
+  interface Window {
+    __HAXJOBS_VERSION__?: string
   }
-
-  return { jobs, discovery, profile, connected, updateJob }
 }
+window.__HAXJOBS_VERSION__ = '3.0.0'
 
 // ── Sidebar ──
 
@@ -78,7 +61,7 @@ function AppLayout() {
       await api.unskipJob(job.id, 'User unskipped from dashboard')
       updateJob(job.id, { status: 'pending' })
       toast.success(`Unskipped: ${job.title.slice(0, 40)}`)
-    } catch (err) { toast.error('Failed to unskip job') }
+    } catch { toast.error('Failed to unskip job') }
   }
 
   const handleApprove = async (job: Job) => {
@@ -86,7 +69,7 @@ function AppLayout() {
       await api.approveJob(job.id, 'User approved from dashboard')
       updateJob(job.id, { status: 'approved' })
       toast.success(`Approved: ${job.title.slice(0, 40)}`)
-    } catch (err) { toast.error('Failed to approve job') }
+    } catch { toast.error('Failed to approve job') }
   }
 
   return (

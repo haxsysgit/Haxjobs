@@ -56,9 +56,12 @@ tunnel-dash
 
 ## Checks
 
+Agents should read `AGENTS.md` before changing code.
+
 From repo root:
 
 ```bash
+python3 -m pytest -q
 python3 -m py_compile $(find . -path './dashboard/node_modules' -prune -o -path './.git' -prune -o -path './.venv' -prune -o -name '*.py' -print)
 bash -n cron/run_pipeline.sh scripts/haxjobs-update dashctl.sh build-dash.sh dev-watch.sh pack_builder.sh
 cd dashboard && npm ci && npm run build

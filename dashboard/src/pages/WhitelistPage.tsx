@@ -1,16 +1,6 @@
 import { useState, useEffect } from 'react'
-import { api } from '../data/api'
+import { api, type WhitelistEntry } from '../data/api'
 import { X, Globe } from '../components/Icons'
-
-interface WhitelistEntry {
-  id: number
-  pattern_type: string
-  pattern_value: string
-  reason: string
-  match_count: number
-  active: number
-  created_at: string
-}
 
 export function Whitelist({ connected }: { connected: boolean }) {
   const [entries, setEntries] = useState<WhitelistEntry[]>([])
@@ -112,7 +102,7 @@ export function Whitelist({ connected }: { connected: boolean }) {
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <span className="badge badge-neutral" style={{ fontSize: 10 }}>{typeLabel(e.pattern_type)}</span>
                 <strong style={{ fontSize: 13 }}>{e.pattern_value}</strong>
-                {e.match_count > 0 && (
+                {(e.match_count ?? 0) > 0 && (
                   <span style={{ fontSize: 11, color: 'var(--muted)' }}>matched {e.match_count} job{e.match_count !== 1 ? 's' : ''}</span>
                 )}
               </div>

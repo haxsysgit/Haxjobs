@@ -132,7 +132,7 @@ export function FilteredList({ jobs, onUnskip, onApprove, onToggleFav }: {
   return (
     <div className="pipeline-grid">
       {jobs.map(j => {
-        const reason = (j as any).skipReason || j.status
+        const reason = j.skipReason || j.status
         return (
           <div key={j.id} className="card" style={{ opacity: 0.55, cursor: 'pointer', position: 'relative' }}
             onClick={() => navigate(`/jobs/${j.id}`)}>
@@ -169,18 +169,13 @@ export function Pipeline({ jobs, onUnskip, onApprove, connected }: Props) {
   const [subView, setSubView] = useState<'evaluated' | 'pending' | 'favorites' | 'filtered'>('evaluated')
   const [favJobs, setFavJobs] = useState<Job[]>([])
   const [search, setSearch] = useState('')
-  const [autoApplyById, setAutoApplyById] = useState<Record<string, boolean>>({})
   const [packStatusById, setPackStatusById] = useState<Record<string, string>>({})
 
-  useEffect(() => {
-    setAutoApplyById(prev => {
-      const next = { ...prev }
-      jobs.forEach(job => {
-        if (job.isAutoApply !== undefined) next[job.id] = job.isAutoApply
-      })
-      return next
-    })
-  }, [jobs])
+  // Derive autoApplyById from jobs — no separate state needed
+  const autoApplyById: Record<string, boolean> = {}
+  jobs.forEach(job => {
+    if (job.isAutoApply !== undefined) autoApplyById[job.id] = job.isAutoApply
+  })
 
   useEffect(() => {
     if (!connected) return
@@ -228,7 +223,6 @@ export function Pipeline({ jobs, onUnskip, onApprove, connected }: Props) {
   const handleToggleAuto = async (job: Job) => {
     try {
       const result = await api.toggleAutoApply(job.id)
-      setAutoApplyById(prev => ({ ...prev, [job.id]: Boolean(result.auto_apply) }))
       setFavJobs(prev => prev.map(j => j.id === job.id ? { ...j, isAutoApply: Boolean(result.auto_apply) } : j))
     } catch (err) {
       console.error('Failed to toggle auto-apply:', err)
@@ -251,7 +245,8 @@ export function Pipeline({ jobs, onUnskip, onApprove, connected }: Props) {
       const notes = action === 'approve' ? 'Approved from dashboard' : `Marked ${action} from dashboard`
       const result = await api.reviewPack(job.id, action, notes)
       if (result.ok && result.pack_status) {
-        setPackStatusById(prev => ({ ...prev, [job.id]: result.pack_status }))
+        const packStatus: string = result.pack_status
+        setPackStatusById(prev => ({ ...prev, [job.id]: packStatus }))
       }
     } catch (err) {
       console.error('Failed to review pack:', err)

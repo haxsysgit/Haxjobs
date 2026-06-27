@@ -2,6 +2,10 @@ import { useState, useEffect } from 'react'
 import { api } from '../data/api'
 import { Clock, Zap, Globe } from '../components/Icons'
 
+interface ActivityEntry {
+  message: string
+}
+
 export function Activity({ connected }: { connected: boolean }) {
   const [log, setLog] = useState<string[]>([])
 
@@ -9,7 +13,7 @@ export function Activity({ connected }: { connected: boolean }) {
     async function load() {
       try {
         const data = await api.getActivity()
-        setLog(data.map((l: any) => l.message || '').filter(Boolean))
+        setLog(data.map((l: ActivityEntry) => l.message || '').filter(Boolean))
       } catch { /* offline */ }
     }
     load()
