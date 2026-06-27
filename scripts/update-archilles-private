@@ -1,0 +1,141 @@
+#!/usr/bin/env bash
+# Update Archilles live HaxJobs from Jade's private-dev lane.
+#
+# This script intentionally updates source through the private GitHub repo.
+# It does not copy files directly and never deletes Archilles runtime directories.
+
+set -euo pipefail
+
+LOCAL_DIR="${HAXJOBS_PRIVATE_DEV_DIR:-/home/hax/haxjobs-private-dev}"
+REMOTE_HOST="${HAXJOBS_REMOTE_HOST:-archilles}"
+REMOTE_DIR="${HAXJOBS_REMOTE_DIR:-/home/hermes/haxjobs}"
+PRIVATE_REPO_URL="${HAXJOBS_PRIVATE_REPO_URL:-https://github.com/haxsysgit/Haxjobs-Private.git}"
+REF="${HAXJOBS_REF:-main}"
+
+log() {
+  printf '[update-archilles-private] %s\n' "$*"
+}
+
+fail() {
+  printf '[update-archilles-private] ERROR: %s\n' "$*" >&2
+  exit 1
+}
+
+require_clean_private_dev() {
+  cd "$LOCAL_DIR"
+
+  local origin branch local_head remote_head
+  origin="$(git remote get-url origin)"
+  branch="$(git branch --show-current)"
+  local_head="$(git rev-parse HEAD)"
+
+  [[ "$origin" == "$PRIVATE_REPO_URL" ]] || fail "origin is $origin, expected $PRIVATE_REPO_URL"
+  [[ "$branch" == "$REF" ]] || fail "branch is $branch, expected $REF"
+  [[ -z "$(git status --short)" ]] || fail "working tree is dirty; commit or stash first"
+
+  git fetch origin "$REF" --quiet
+  remote_head="$(git rev-parse "origin/$REF")"
+  [[ "$local_head" == "$remote_head" ]] || fail "local HEAD is not pushed to origin/$REF"
+
+  log "Local private-dev is clean at $(git rev-parse --short HEAD)."
+}
+
+update_remote() {
+  local expected_head
+  expected_head="$(cd "$LOCAL_DIR" && git rev-parse HEAD)"
+
+  ssh "$REMOTE_HOST" bash -s -- "$REMOTE_DIR" "$PRIVATE_REPO_URL" "$REF" "$expected_head" <<'REMOTE'
+set -euo pipefail
+
+remote_dir="$1"
+repo_url="$2"
+ref="$3"
+expected_head="$4"
+
+log() { printf '[archilles-private-update] %s\n' "$*"; }
+fail() { printf '[archilles-private-update] ERROR: %s\n' "$*" >&2; exit 1; }
+
+cd "$remote_dir"
+
+tracked_dirty="$(git status --short --untracked-files=no)"
+if [[ -n "$tracked_dirty" ]]; then
+  printf '%s\n' "$tracked_dirty" >&2
+  fail "tracked working tree changes exist on Archilles; refusing to reset"
+fi
+
+for item in state intake packs reports outreach profile; do
+  [[ -e "$item" ]] || fail "protected runtime/private item missing before update: $item"
+done
+
+for file in profile/arinze_profile.local.json cv_profile.typed.json CV_FRAME_GOVERNANCE.md; do
+  [[ -e "$file" ]] || fail "private source file missing before update: $file"
+done
+
+log "Setting origin to private repo."
+git remote set-url origin "$repo_url" 2>/dev/null || git remote add origin "$repo_url"
+
+log "Fetching $ref from private repo."
+git fetch origin "$ref" --prune
+
+log "Updating tracked source to origin/$ref."
+git checkout "$ref" 2>/dev/null || git checkout -B "$ref" "origin/$ref"
+git reset --hard "origin/$ref"
+
+actual_head="$(git rev-parse HEAD)"
+[[ "$actual_head" == "$expected_head" ]] || fail "HEAD mismatch after update"
+
+for item in state intake packs reports outreach profile; do
+  [[ -e "$item" ]] || fail "protected runtime/private item missing after update: $item"
+done
+
+for file in profile/arinze_profile.local.json cv_profile.typed.json CV_FRAME_GOVERNANCE.md; do
+  [[ -e "$file" ]] || fail "private source file missing after update: $file"
+done
+
+log "Installing dashboard dependencies if needed."
+if [[ -f dashboard/package-lock.json ]]; then
+  (cd dashboard && npm ci --silent)
+elif [[ -f dashboard/package.json ]]; then
+  (cd dashboard && npm install --silent)
+fi
+
+log "Restarting dashboard/API."
+if [[ -x dashctl.sh ]]; then
+  bash dashctl.sh restart
+else
+  fail "dashctl.sh is not executable"
+fi
+
+log "Checking API status."
+python3 - <<'PY'
+import json
+import time
+import urllib.request
+
+last_error = None
+for _ in range(10):
+    try:
+        with urllib.request.urlopen('http://127.0.0.1:8800/api/status', timeout=3) as response:
+            payload = json.loads(response.read().decode('utf-8'))
+        if 'jobs' not in payload or 'packs' not in payload:
+            raise RuntimeError(f'unexpected status payload: {payload}')
+        print(f"API_HEALTH jobs={payload['jobs']} packs={payload['packs']}")
+        break
+    except Exception as exc:  # pragma: no cover - shell health loop
+        last_error = exc
+        time.sleep(1)
+else:
+    raise SystemExit(f'API health check failed: {last_error}')
+PY
+
+log "Done. Current HEAD: $(git rev-parse --short HEAD)"
+REMOTE
+}
+
+main() {
+  require_clean_private_dev
+  update_remote
+  log "Archilles update completed."
+}
+
+main "$@"
