@@ -25,7 +25,11 @@ REVIEW_ACTIONS = {
 
 
 def review_pack(job_id: int, action: str, notes: str = "") -> dict[str, Any]:
-    """Record a manual review decision for a generated application pack."""
+    """Record a manual review decision for a generated application pack.
+
+    Only allows review on packs with a reviewable status:
+    'generated' or 'review_changes_requested'.
+    """
     if action not in REVIEW_ACTIONS:
         return {
             "ok": False,
@@ -35,10 +39,23 @@ def review_pack(job_id: int, action: str, notes: str = "") -> dict[str, Any]:
 
     pack_status, review_status, decision = REVIEW_ACTIONS[action]
     conn = get_db()
-    row = conn.execute("SELECT id FROM jobs WHERE id=?", (job_id,)).fetchone()
+    row = conn.execute(
+        "SELECT id, pack_status FROM jobs WHERE id=?", (job_id,)
+    ).fetchone()
     if row is None:
         conn.close()
         return {"ok": False, "error": "job not found"}
+
+    current_pack_status = row["pack_status"] or "none"
+
+    # Only allow review when a pack is generated or changes were requested
+    if current_pack_status not in ("generated", "review_changes_requested"):
+        conn.close()
+        return {
+            "ok": False,
+            "error": f"no pack to review (current status: {current_pack_status})",
+            "current_pack_status": current_pack_status,
+        }
 
     conn.execute(
         """

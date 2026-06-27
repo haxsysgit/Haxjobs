@@ -122,20 +122,22 @@ def get_drafts(status: str | None = None) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def update_draft_status(draft_id: int, status: str):
-    """Update a draft's status (draft, approved, sent)."""
+def update_draft_status(draft_id: int, status: str) -> bool:
+    """Update a draft's status. Returns True if a row was updated."""
     conn = get_db()
     if status == "sent":
-        conn.execute(
+        cursor = conn.execute(
             "UPDATE outreach_drafts SET status=?, sent_at=datetime('now') WHERE id=?",
             (status, draft_id),
         )
     else:
-        conn.execute(
+        cursor = conn.execute(
             "UPDATE outreach_drafts SET status=? WHERE id=?", (status, draft_id)
         )
     conn.commit()
+    updated = cursor.rowcount > 0
     conn.close()
+    return updated
 
 
 def get_contacts_for_job(job_id: int) -> list[dict]:
