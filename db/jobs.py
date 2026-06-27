@@ -73,10 +73,17 @@ def update_job_status(job_id, status):
     conn.close()
 
 
-def update_job_pack_status(job_id, pack_status):
+def update_job_pack_status(job_id, pack_status, pack_dir=None):
+    """Update pack status and optionally the pack directory path."""
     conn = get_db()
-    conn.execute("UPDATE jobs SET pack_status=?, updated_at=datetime('now') WHERE id=?",
-                 (pack_status, job_id))
+    if pack_dir is not None:
+        conn.execute(
+            "UPDATE jobs SET pack_status=?, pack_dir=?, updated_at=datetime('now') WHERE id=?",
+            (pack_status, pack_dir, job_id))
+    else:
+        conn.execute(
+            "UPDATE jobs SET pack_status=?, updated_at=datetime('now') WHERE id=?",
+            (pack_status, job_id))
     conn.commit()
     conn.close()
 

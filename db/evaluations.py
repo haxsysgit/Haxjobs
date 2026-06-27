@@ -15,6 +15,7 @@ def save_evaluation(job_id, result):
             VALUES (?, ?, ?, ?, ?, ?)
         """, (job_id, old["fit_score"], old["fit_verdict"], old["level"], old["level_name"], old["evaluated_by"]))
 
+    decision = result.get("decision", "completed")
     conn.execute("""
         INSERT INTO evaluations (job_id, fit_score, fit_verdict, level, level_name,
             strongest_matches, major_gaps, sponsorship_risk, summary, decision,
@@ -39,12 +40,13 @@ def save_evaluation(job_id, result):
         json.dumps(result.get("major_gaps", [])),
         result.get("sponsorship_risk", "medium"),
         result.get("summary", ""),
-        result.get("decision", "completed"),
+        decision,
         result.get("skip_reason", ""),
         result.get("role_type", ""),
         result.get("evaluated_by", "hermes"),
     ))
-    new_status = "evaluated" if result.get("decision") == "completed" else "skipped"
+    # Use the same default for both DB row and job status calculation
+    new_status = "evaluated" if decision == "completed" else "skipped"
     conn.execute("UPDATE jobs SET status=?, updated_at=datetime('now') WHERE id=?",
                  (new_status, job_id))
     conn.commit()
