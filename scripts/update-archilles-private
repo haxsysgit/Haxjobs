@@ -48,7 +48,6 @@ update_remote() {
 
   bundle_path="$(mktemp /tmp/haxjobs-private-${REF}-XXXXXX.bundle)"
   remote_bundle_path="/tmp/$(basename "$bundle_path")"
-  trap 'rm -f "$bundle_path"' RETURN
 
   log "Creating local git bundle for Archilles relay."
   (cd "$LOCAL_DIR" && git bundle create "$bundle_path" "$REF") >/dev/null
@@ -149,6 +148,8 @@ PY
 
 log "Done. Current HEAD: $(git rev-parse --short HEAD)"
 REMOTE
+
+  rm -f "$bundle_path"
 }
 
 main() {
