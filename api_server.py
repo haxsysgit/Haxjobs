@@ -1,19 +1,42 @@
 #!/usr/bin/env python3
 """Archilles Pipeline API — serves live pipeline data as JSON for the dashboard.
-Listens on 0.0.0.0:8800. Called by systemd or run directly.
 
-v3.0 — Route handlers split into server/routes/ modules.
+v3.1 — Path containment, CORS restriction, optional token auth, structured errors.
 """
+
 import json
 import os
 import sys
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs
+from pathlib import Path
+from urllib.parse import parse_qs, unquote, urlparse
+
+# ── Config ──
 
 PIPELINE_DIR = "/home/hermes/haxjobs"
 DASHBOARD_SOURCE_DIR = os.path.join(PIPELINE_DIR, "dashboard")
 DASHBOARD_DIST_DIR = os.path.join(DASHBOARD_SOURCE_DIR, "dist")
 DASHBOARD_DIR = DASHBOARD_DIST_DIR if os.path.isdir(DASHBOARD_DIST_DIR) else DASHBOARD_SOURCE_DIR
+
+# Bind to loopback by default. Set HAXJOBS_API_HOST=0.0.0.0 only if required.
+API_HOST = os.environ.get("HAXJOBS_API_HOST", "127.0.0.1")
+API_PORT = int(os.environ.get("HAXJOBS_API_PORT", "8800"))
+
+# Optional token for mutating POST routes. If set, clients must send
+# Authorization: Bearer <token> or X-HaxJobs-Token: <token> on all POSTs.
+API_TOKEN = os.environ.get("HAXJOBS_API_TOKEN", "").strip() or None
+
+# Allowed dashboard origins for CORS.
+ALLOWED_ORIGINS = frozenset(
+    o for o in os.environ.get("HAXJOBS_CORS_ORIGINS", "").split(",") if o
+) or frozenset({
+    "http://127.0.0.1:5173",
+    "http://localhost:5173",
+    "http://127.0.0.1:8800",
+    "http://localhost:8800",
+})
+
+MAX_POST_BODY_BYTES = int(os.environ.get("HAXJOBS_MAX_POST_BODY", "1048576"))  # 1 MiB
 
 sys.path.insert(0, PIPELINE_DIR)
 import pipeline_db as db
@@ -49,11 +72,86 @@ MIME = {
 }
 
 
+# ── Helpers ──
+
+def _parse_json_body(value: str | None) -> tuple[dict, str | None]:
+    """Parse JSON POST body safely. Returns (parsed_dict, error_message)."""
+    if not value or not value.strip():
+        return {}, None
+    if len(value) > MAX_POST_BODY_BYTES:
+        return {}, "request body too large"
+    try:
+        return json.loads(value), None
+    except (json.JSONDecodeError, ValueError):
+        return {}, "invalid JSON in request body"
+
+
+def _safe_static_path(requested: str, root_dir: str) -> str | None:
+    """Resolve requested path and reject traversal outside root_dir."""
+    resolved_root = Path(root_dir).resolve()
+    decoded_path = unquote(requested)
+    filepath = (resolved_root / decoded_path.lstrip("/")).resolve()
+    try:
+        filepath.relative_to(resolved_root)
+    except ValueError:
+        return None
+    return str(filepath)
+
+
+def _read_json_body(request_handler) -> tuple[dict, int | None, str | None]:
+    """Read and parse a JSON request body from a BaseHTTPRequestHandler.
+
+    Returns (body, status_code, error). status_code and error are None when
+    parsing succeeds.
+    """
+    raw_length = request_handler.headers.get("Content-Length", "0")
+    try:
+        body_length = int(raw_length)
+    except (TypeError, ValueError):
+        return {}, 400, "invalid Content-Length"
+
+    if body_length > MAX_POST_BODY_BYTES:
+        return {}, 413, "request body too large"
+
+    if body_length <= 0:
+        return {}, None, None
+
+    try:
+        raw_body = request_handler.rfile.read(body_length).decode("utf-8")
+    except UnicodeDecodeError:
+        return {}, 400, "request body must be valid UTF-8"
+
+    parsed_body, parse_error = _parse_json_body(raw_body)
+    if parse_error:
+        return {}, 400, parse_error
+    return parsed_body, None, None
+
+
+# ── Handler ──
+
 class APIHandler(BaseHTTPRequestHandler):
+
+    # ── Response helpers ──
+
+    def _cors_origin(self):
+        """Return the allowed origin matching the request, or None."""
+        origin = self.headers.get("Origin", "")
+        if origin in ALLOWED_ORIGINS:
+            return origin
+        # Allow same-origin requests (no Origin header)
+        if not origin:
+            return None
+        # Return the first allowed origin for OPTIONS preflight
+        return None
+
     def _cors(self):
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        """Send CORS headers for allowed origins."""
+        origin = self._cors_origin()
+        if origin:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-HaxJobs-Token")
 
     def _json(self, data, status=200):
         self.send_response(status)
@@ -73,6 +171,33 @@ class APIHandler(BaseHTTPRequestHandler):
             self.wfile.write(f.read())
         return True
 
+    # ── Auth ──
+
+    def _check_auth(self) -> bool:
+        """Return True if the request is authorized for mutating operations.
+
+        If API_TOKEN is not set, only local (loopback) clients are allowed.
+        If API_TOKEN IS set, clients must pass a valid Bearer or X-HaxJobs-Token.
+        """
+        if API_TOKEN is None:
+            # Token not configured — allow only loopback clients
+            client_host = self.client_address[0] if self.client_address else ""
+            return client_host in ("127.0.0.1", "::1", "localhost")
+
+        # Token configured — require valid token
+        auth_header = self.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer ") and auth_header[7:] == API_TOKEN:
+            return True
+        custom_token = self.headers.get("X-HaxJobs-Token", "")
+        if custom_token == API_TOKEN:
+            return True
+        return False
+
+    def _reject_unauthorized(self):
+        self._json({"ok": False, "error": "unauthorized"}, 401)
+
+    # ── HTTP methods ──
+
     def do_OPTIONS(self):
         self.send_response(204)
         self._cors()
@@ -84,7 +209,8 @@ class APIHandler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         qs = parse_qs(urlparse(self.path).query)
 
-        # API routes
+        # API routes — all GETs are read-only, no auth required
+
         if path == "/api/jobs":
             status_filter = qs.get("status", [None])[0]
             jobs = list_jobs()
@@ -104,7 +230,6 @@ class APIHandler(BaseHTTPRequestHandler):
                 self._json(detail, 200 if detail.get("ok") else 404)
 
         elif path.startswith("/api/packs/"):
-            # Serve pack files: /api/packs/{pack_dir}/{filename}
             parts = path.split("/")
             if len(parts) >= 5:
                 filename = parts[-1]
@@ -179,14 +304,17 @@ class APIHandler(BaseHTTPRequestHandler):
                 self._json([])
 
         else:
-            # Static dashboard files
-            filepath = os.path.join(DASHBOARD_DIR, (path.lstrip("/") or "index.html"))
+            # Static dashboard files — reject traversal before SPA fallback.
+            filepath = _safe_static_path(path, DASHBOARD_DIR)
+            if filepath is None:
+                self._json({"error": "not found"}, 404)
+                return
             if os.path.isfile(filepath):
                 ext = os.path.splitext(filepath)[1]
                 self._file(filepath, MIME.get(ext, "application/octet-stream"))
             else:
-                index = os.path.join(DASHBOARD_DIR, "index.html")
-                if os.path.isfile(index):
+                index = _safe_static_path("index.html", DASHBOARD_DIR)
+                if index and os.path.isfile(index):
                     self._file(index, "text/html")
                 else:
                     self._json({"error": "not found"}, 404)
@@ -195,8 +323,17 @@ class APIHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = urlparse(self.path).path
-        length = int(self.headers.get("Content-Length", 0))
-        body = json.loads(self.rfile.read(length)) if length > 0 else {}
+
+        # Auth check for all mutating routes
+        if not self._check_auth():
+            self._reject_unauthorized()
+            return
+
+        # Safely parse the body
+        body, error_status, parse_error = _read_json_body(self)
+        if parse_error:
+            self._json({"ok": False, "error": parse_error}, error_status or 400)
+            return
 
         # Job actions
         if path == "/api/trigger":
@@ -300,7 +437,11 @@ class APIHandler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     db.init()
-    port = 8800
-    server = HTTPServer(("0.0.0.0", port), APIHandler)
-    print(f"HaxJobs Pipeline API v3.0 running on http://0.0.0.0:{port}")
+    server = HTTPServer((API_HOST, API_PORT), APIHandler)
+    print(f"HaxJobs Pipeline API v3.1 running on http://{API_HOST}:{API_PORT}")
+    if API_TOKEN:
+        print("  Token auth:  enabled")
+    else:
+        print("  Auth:        loopback-only")
+    print("  CORS:        %d allowed origins" % len(ALLOWED_ORIGINS))
     server.serve_forever()
