@@ -70,6 +70,16 @@ Editable PNG with embedded draw.io XML:
 
 Purpose: gives a clean checklist for debugging where a job is stuck.
 
+### 4. FRAME + FrameSDK + Haxaml architecture
+
+Editable draw.io source:
+
+```text
+/home/hax/haxjobs-private-dev/docs/diagrams/frame-haxaml-framesdk-architecture.drawio
+```
+
+Purpose: shows FRAME as the typed schema layer, FrameSDK as the pure library/API layer, Haxaml as the governance runtime, agents on the left, and composed context on the right.
+
 ## Open in draw.io
 
 Open any `.drawio` file directly with draw.io desktop or diagrams.net.

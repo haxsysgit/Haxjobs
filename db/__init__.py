@@ -21,6 +21,10 @@ from .whitelist import (
     get_whitelist_for_eval, suggest_whitelist,
 )
 from .seed import seed_from_intake
+from .discovered_jobs import (
+    insert_discovered_job, find_duplicate, list_discovered_jobs,
+    get_discovered_job, update_discovery_status, promote_discovered_job,
+)
 from .role_classification import (
     classify_job_payload, classify_existing_jobs, update_job_role_classification,
     infer_source_quality,

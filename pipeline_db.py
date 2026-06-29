@@ -59,6 +59,81 @@ if __name__ == "__main__":
         conn.close()
         print("All jobs reset to pending. Evaluations cleared.")
 
+    elif action == "discover-manual":
+        """Insert a manually-discovered job through the full ingestion spine."""
+        import argparse
+        parser = argparse.ArgumentParser(prog="pipeline_db.py discover-manual")
+        parser.add_argument("--title", required=True)
+        parser.add_argument("--company", required=True)
+        parser.add_argument("--location", default="")
+        parser.add_argument("--url", default="")
+        parser.add_argument("--apply-url", default="")
+        parser.add_argument("--jd-file", type=argparse.FileType("r"), default=None)
+        parser.add_argument("--source", default="manual")
+        args = parser.parse_args(sys.argv[2:])
+
+        jd_text = args.jd_file.read() if args.jd_file else ""
+        raw = {
+            "title": args.title,
+            "company": args.company,
+            "location": args.location,
+            "source_url": args.url,
+            "apply_url": args.apply_url,
+            "jd_text": jd_text,
+        }
+
+        from discovery import normalize_job, should_accept_discovered_job
+        from db.discovered_jobs import insert_discovered_job, update_discovery_status, promote_discovered_job
+
+        normalized = normalize_job(raw, source=args.source)
+        rec_id = insert_discovered_job(normalized)
+        if rec_id is None:
+            print("Duplicate — job already discovered (not inserted).")
+            sys.exit(0)
+
+        accepted, reason = should_accept_discovered_job(normalized)
+        if not accepted:
+            update_discovery_status(rec_id, reason, reason)
+            print(f"Job #{rec_id} rejected: {reason}")
+            sys.exit(0)
+
+        update_discovery_status(rec_id, "accepted", "accepted")
+        job_id = promote_discovered_job(rec_id)
+        if job_id:
+            print(f"Job #{rec_id} accepted and promoted to jobs #{job_id}: {args.title} at {args.company}")
+        else:
+            print(f"Job #{rec_id} accepted but promotion failed (duplicate in jobs table).")
+
+    elif action == "discover-run":
+        """Process discovered_jobs with status 'new' through hooks and promote accepted."""
+        from db.discovered_jobs import list_discovered_jobs, update_discovery_status, promote_discovered_job
+        from discovery import should_accept_discovered_job
+
+        new_jobs = list_discovered_jobs(status="new")
+        if not new_jobs:
+            print("No new discovered jobs to process.")
+            sys.exit(0)
+
+        accepted_count = 0
+        rejected_count = 0
+        for dj in new_jobs:
+            accepted, reason = should_accept_discovered_job(dj)
+            if not accepted:
+                update_discovery_status(dj["id"], reason, reason)
+                print(f"  [{dj['id']}] {dj['title'][:60]} at {dj['company']}: {reason}")
+                rejected_count += 1
+                continue
+            update_discovery_status(dj["id"], "accepted", "accepted")
+            job_id = promote_discovered_job(dj["id"])
+            if job_id:
+                print(f"  [{dj['id']}] -> jobs #{job_id} {dj['title'][:60]} at {dj['company']}: accepted")
+                accepted_count += 1
+            else:
+                print(f"  [{dj['id']}] {dj['title'][:60]} at {dj['company']}: promoted to existing job")
+                accepted_count += 1
+
+        print(f"Discover run complete: {accepted_count} accepted, {rejected_count} rejected")
+
     else:
         print(f"Unknown action: {action}")
-        print("Usage: pipeline_db.py [seed|classify-roles|status|activity|pending|favorites|reset]")
+        print("Usage: pipeline_db.py [seed|classify-roles|status|activity|pending|favorites|reset|discover-manual|discover-run]")
