@@ -43,3 +43,4 @@ coverage/
 
 # Vite generated bundle
 dashboard/assets/
+.claude/
