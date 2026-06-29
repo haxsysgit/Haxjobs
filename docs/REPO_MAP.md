@@ -78,7 +78,7 @@ haxjobs-private-dev/
 │   └── role_taxonomy.json       # Legacy — superseded by haxjobs.toml [[roles]]
 │
 ├── state/                       # Runtime artifacts (gitignored)
-│   ├── pipeline.db              # SQLite database
+│   ├── haxjobs.db               # SQLite database
 │   └── db_backups/              # DB backups
 │
 ├── packs/                       # Generated pack directories (gitignored)

@@ -8,7 +8,7 @@ home = "/home/hax/haxjobs-private-dev"
 
 [paths.state]
 dir = "state"
-db = "pipeline.db"
+db = "haxjobs.db"
 log = "pipeline.log"
 
 [paths.runtime]

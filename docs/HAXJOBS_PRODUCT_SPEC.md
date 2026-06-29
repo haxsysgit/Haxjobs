@@ -321,7 +321,7 @@ Telegram = delivery channel
 Dashboard = optional review UI
 ```
 
-Avoid having both `pipeline.db` and `intake/*.json` act as competing databases.
+Avoid having both `haxjobs.db` and `intake/*.json` act as competing databases.
 
 ## 11. Success criteria
 

@@ -83,7 +83,7 @@ cd dashboard && npx tsc -b --noEmit && npm run lint -- --quiet && npm run build
 - `node_modules/`, `dist/`, Vite build artifacts
 
 **Read but don't modify:**
-- Live runtime data on Archilles (`/home/hermes/haxjobs/state/pipeline.db`)
+- Live runtime data on Archilles (`/home/hermes/haxjobs/state/haxjobs.db`)
 - Archilles crontab (use `crontab -l` read-only)
 
 ## Safety rules
@@ -98,7 +98,7 @@ cd dashboard && npx tsc -b --noEmit && npm run lint -- --quiet && npm run build
 
 ## Product rules
 
-- **SQLite** (`state/pipeline.db`) is the source of truth for jobs, evaluations, packs, and outreach.
+- **SQLite** (`state/haxjobs.db`) is the source of truth for jobs, evaluations, packs, and outreach.
 - **`haxjobs.toml`** drives classification, evaluation agent choice, and level-based auto-pack decisions.
 - **Reusable CV variants** live in `cv_variants/`. Seven role variants exist. Packs reference a variant via metadata — never generate a new CV per job.
 - **Pack templates** live in `application_templates/`. Each role has a template with fillable slots. L1/L2 auto-fill; L3/L4 are report-only.

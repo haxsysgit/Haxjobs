@@ -7,7 +7,7 @@ from db.evaluations import save_evaluation, get_evaluation
 
 def use_temp_db(monkeypatch, tmp_path):
     """Point the DB layer at a temporary SQLite database."""
-    db_path = tmp_path / "pipeline.db"
+    db_path = tmp_path / "haxjobs.db"
     monkeypatch.setattr(schema, "DB_PATH", str(db_path))
     schema.init()
     return db_path

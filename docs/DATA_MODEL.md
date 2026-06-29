@@ -1,6 +1,6 @@
 # HaxJobs Data Model
 
-Single SQLite database (`state/pipeline.db`). All tables use integer primary keys, foreign keys with CASCADE where appropriate, and ISO-8601 timestamps.
+Single SQLite database (`state/haxjobs.db`). All tables use integer primary keys, foreign keys with CASCADE where appropriate, and ISO-8601 timestamps.
 
 ## Core tables
 

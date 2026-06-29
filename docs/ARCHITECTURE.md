@@ -62,7 +62,7 @@ End-of-cycle markdown report: all evaluated jobs with links, scores, levels, pac
 
 ## DB layout
 
-Single SQLite database (`state/pipeline.db`):
+Single SQLite database (`state/haxjobs.db`):
 
 ```
 discovered_jobs     — raw scraped/manual jobs before hooks

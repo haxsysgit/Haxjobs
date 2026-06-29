@@ -12,7 +12,7 @@ from server.routes.pack_resources import get_pack_detail
 
 
 def use_temp_db(monkeypatch, tmp_path):
-    db_path = tmp_path / "pipeline.db"
+    db_path = tmp_path / "haxjobs.db"
     monkeypatch.setattr(schema, "DB_PATH", str(db_path))
     schema.init()
     return db_path
