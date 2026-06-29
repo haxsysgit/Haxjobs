@@ -1,58 +1,35 @@
 # HaxJobs
 
-HaxJobs is Arinze's Hermes-native job application workflow.
+HaxJobs is Arinze's agent-native job-search workbench. It discovers jobs, evaluates fit, fills application packs from reusable templates, and produces cycle reports — all driven by a config file and a cron tick.
 
-It discovers jobs, evaluates them against Arinze's profile, generates application packs, and exposes a dashboard for reviewing jobs, skips, packs, and activity.
+The goal is to make it work fully for Arinze first, then strip the personal bits and ship it as an installable pipeline that any agent (Claude, Codex, Gemini, Cursor, Cline, OpenClaw, Hermes) can run.
 
-## Source of truth
+## Pipeline
 
-GitHub is the source of truth for code and docs.
-
-- Jade/local repo: `/home/hax/haxjobs`
-- Archilles live repo: `/home/hermes/haxjobs`
-- Remote: `https://github.com/haxsysgit/Haxjobs.git`
-
-Normal workflow:
-
-1. Work locally on Jade.
-2. Commit and push to GitHub.
-3. On Archilles, run:
-
-```bash
-haxjobs-update
+```
+DISCOVERY → CLASSIFICATION → EVALUATION → PACK GENERATION → REPORT
 ```
 
-That pulls the latest GitHub commit, preserves runtime state, installs dashboard dependencies, and restarts the dashboard/API stack.
+1. **Discovery** — scrapers find jobs, dedup and filter against `haxjobs.toml`, store raw jobs.
+2. **Classification** — profile-driven from config, no hardcoded taxonomy.
+3. **Evaluation** — pluggable agents score fit, assign levels (L1–L4).
+4. **Pack Generation** — pre-built role templates get filled with job-specific slots. L1/L2 auto-fill. L3/L4 go to the report for manual review.
+5. **Report** — markdown digest of every evaluated job with links, scores, pack paths. Delivered via configured channels.
 
-## Runtime state not committed
+## Config
 
-These are intentionally ignored:
+`haxjobs.toml` is the canonical config. `haxjobs_config.py` is a thin parser. Env vars override. Nothing is hardcoded.
 
-- `intake/`
-- `packs/`
-- `state/`
-- `reports/`
-- `outreach/`
-- SQLite databases
-- `.env` files
-- LinkedIn cookies/browser profiles
-- `node_modules/` and generated Vite bundles
-
-## Dashboard
-
-Dev server on Archilles:
+## Development
 
 ```bash
-cd /home/hermes/haxjobs/dashboard
-npx vite --port 5173 --host 127.0.0.1
+./dev-app.sh start          # backend + frontend
+python3 -m pytest -q        # tests
 ```
 
-Tunnel from Jade/local:
+## What's not committed
 
-```bash
-tunnel-dash
-# open http://localhost:5173
-```
+`intake/`, `packs/`, `state/`, `reports/`, `outreach/`, SQLite databases, `.env` files, LinkedIn cookies, `node_modules/`, Vite build artifacts.
 
 ## Checks
 
@@ -63,6 +40,6 @@ From repo root:
 ```bash
 python3 -m pytest -q
 python3 -m py_compile $(find . -path './dashboard/node_modules' -prune -o -path './.git' -prune -o -path './.venv' -prune -o -name '*.py' -print)
-bash -n cron/run_pipeline.sh scripts/haxjobs-update dashctl.sh build-dash.sh dev-watch.sh pack_builder.sh
-cd dashboard && npm ci && npm run build
+bash -n cron/run_pipeline.sh
+cd dashboard && npx tsc -b --noEmit && npm run lint -- --quiet && npm run build
 ```
