@@ -16,7 +16,7 @@ from typing import Callable
 
 from haxjobs_config import EVALUATION_AGENT, AUTO_PACK_LEVELS
 
-from .common import build_prompt, extract_json, validate_result
+from evaluate.common import build_prompt, extract_json, validate_result
 
 
 def select_agent(agent_name: str | None = None) -> Callable[..., str | None]:
@@ -64,7 +64,8 @@ def evaluate_one_job(job_data: dict, agent_name: str | None = None) -> dict | No
 
     parsed = extract_json(raw_output)
     if not parsed:
-        print(f"  FAILED: Could not extract JSON from agent output")
+        err_preview = raw_output[:200].replace('\n', ' ')
+        print(f"  FAILED: Could not extract JSON. Raw: {err_preview}")
         return None
 
     issues = validate_result(parsed)
