@@ -140,6 +140,24 @@ if __name__ == "__main__":
 
         raise SystemExit(greenhouse_main(sys.argv[2:]))
 
+    elif action == "scrape-ashby":
+        """Scrape Ashby boards into discovered_jobs."""
+        from discovery.scrapers.ashby import main as ashby_main
+
+        raise SystemExit(ashby_main(sys.argv[2:]))
+
+    elif action == "scrape-lever":
+        """Scrape Lever boards into discovered_jobs."""
+        from discovery.scrapers.lever import main as lever_main
+
+        raise SystemExit(lever_main(sys.argv[2:]))
+
+    elif action == "scrape-all":
+        """Run every configured discovery scraper."""
+        from discovery.scrapers.orchestrator import main as orchestrator_main
+
+        raise SystemExit(orchestrator_main())
+
     else:
         print(f"Unknown action: {action}")
-        print("Usage: pipeline_db.py [seed|classify-roles|status|activity|pending|favorites|reset|discover-manual|discover-run|scrape-greenhouse]")
+        print("Usage: pipeline_db.py [seed|classify-roles|status|activity|pending|favorites|reset|discover-manual|discover-run|scrape-greenhouse|scrape-ashby|scrape-lever|scrape-all]")

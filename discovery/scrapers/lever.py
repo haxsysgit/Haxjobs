@@ -1,0 +1,139 @@
+"""Lever scraper for the HaxJobs discovery pipeline."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+from typing import Any
+
+from db.schema import init
+from db.discovered_jobs import insert_discovered_job
+from discovery.normalize import normalize_job
+from discovery.scrapers.greenhouse import extract_jd_text, normalize_whitespace
+from haxjobs_config import DISCOVERY_CONFIG
+
+LEVER_API_TEMPLATE = "https://api.lever.co/v0/postings/{company}?mode=json"
+REQUEST_TIMEOUT_SECONDS = 30
+USER_AGENT = "HaxJobs Lever Scraper/1.0"
+
+
+def fetch_jobs(company: str) -> list[dict[str, Any]]:
+    """Fetch Lever postings for one company slug."""
+    encoded_company = urllib.parse.quote(company)
+    request = urllib.request.Request(
+        LEVER_API_TEMPLATE.format(company=encoded_company),
+        headers={"User-Agent": USER_AGENT},
+    )
+    with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT_SECONDS) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+
+    if not isinstance(payload, list):
+        return []
+    return [job for job in payload if isinstance(job, dict)]
+
+
+def get_location_name(job: dict[str, Any]) -> str:
+    """Read Lever's nested categories.location safely."""
+    categories = job.get("categories")
+    if isinstance(categories, dict):
+        return str(categories.get("location") or "").strip()
+    return ""
+
+
+def get_jd_text(job: dict[str, Any]) -> str:
+    """Prefer Lever plain text, then fall back to HTML cleanup."""
+    description_plain = normalize_whitespace(str(job.get("descriptionPlain") or ""))
+    if description_plain:
+        return description_plain
+    return extract_jd_text(str(job.get("description") or ""))
+
+
+def build_raw_job(company: str, job: dict[str, Any]) -> dict[str, Any]:
+    """Convert one Lever posting into normalize_job-friendly raw data."""
+    hosted_url = str(job.get("hostedUrl") or "").strip()
+    apply_url = str(job.get("applyUrl") or hosted_url).strip()
+    return {
+        "title": str(job.get("text") or "").strip(),
+        "company": company,
+        "location": get_location_name(job),
+        "source_url": hosted_url,
+        "apply_url": apply_url,
+        "external_id": str(job.get("id") or "").strip(),
+        "jd_text": get_jd_text(job),
+        "ats": "lever",
+        "raw_payload": job,
+    }
+
+
+def scrape_lever_company(company: str) -> dict[str, int]:
+    """Scrape one Lever company and insert new discovered jobs."""
+    jobs = fetch_jobs(company)
+    new_count = 0
+    for job in jobs:
+        raw_job = build_raw_job(company, job)
+        normalized_job = normalize_job(raw_job, source="lever")
+        row_id = insert_discovered_job(normalized_job)
+        if row_id is not None:
+            new_count += 1
+
+    print(f"Scraped {company}: {len(jobs)} Lever jobs found, {new_count} new")
+    return {"found": len(jobs), "new": new_count, "errors": 0}
+
+
+def configured_lever_companies() -> list[str]:
+    """Read configured Lever company slugs from haxjobs.toml."""
+    companies = DISCOVERY_CONFIG.get("lever_companies", [])
+    if not isinstance(companies, list):
+        return []
+    return [str(company) for company in companies]
+
+
+def scrape_lever_companies(companies: list[str]) -> dict[str, dict[str, int]]:
+    """Scrape multiple Lever company slugs."""
+    results: dict[str, dict[str, int]] = {}
+    for company in companies:
+        clean_company = company.strip()
+        if not clean_company:
+            continue
+        try:
+            results[clean_company] = scrape_lever_company(clean_company)
+        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+            print(f"Scraped {clean_company}: Lever failed ({exc})", file=sys.stderr)
+            results[clean_company] = {"found": 0, "new": 0, "errors": 1}
+    return results
+
+
+def scrape_lever(companies: list[str] | None = None) -> dict[str, dict[str, int]]:
+    """Scrape configured or provided Lever companies."""
+    selected_companies = companies if companies is not None else configured_lever_companies()
+    return scrape_lever_companies(selected_companies)
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse Lever scraper CLI arguments."""
+    parser = argparse.ArgumentParser(prog="lever.py")
+    parser.add_argument("--company", action="append", default=[])
+    parser.add_argument("--companies", nargs="*", default=[])
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    """CLI entrypoint for Lever scraping."""
+    args = parse_args(argv)
+    companies = [*args.company, *args.companies]
+    if not companies:
+        companies = configured_lever_companies()
+    if not companies:
+        print("No Lever companies configured. Use --company or --companies.", file=sys.stderr)
+        return 2
+    init()
+    scrape_lever_companies(companies)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -63,6 +63,15 @@ greenhouse_companies = [
     "datadog",
     "cloudflare",
 ]
+ashby_companies = [
+    "notion",
+    "linear",
+]
+lever_companies = [
+    "spotify",
+    "whoop",
+]
+linkedin_search_queries = []
 
 # ── Role families (drives classification — matches CV variants 1:1) ──
 
