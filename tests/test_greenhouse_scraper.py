@@ -78,3 +78,17 @@ def test_insert_greenhouse_job(test_db: str) -> None:
     assert discovered_job["title"] == "Backend Software Engineer"
     assert discovered_job["external_id"] == "1234567"
     assert "Build Python APIs." in discovered_job["jd_text"]
+
+
+def test_greenhouse_profile_filter_skips_unmatched_titles() -> None:
+    """Greenhouse filtering keeps target roles and drops unrelated roles."""
+    from discovery.scrapers.greenhouse import filter_profile_jobs
+
+    jobs = [
+        sample_greenhouse_job(title="Backend Engineer"),
+        sample_greenhouse_job(title="Account Executive", id=999),
+    ]
+
+    matched_jobs = filter_profile_jobs(jobs, ["backend"])
+
+    assert [job["title"] for job in matched_jobs] == ["Backend Engineer"]

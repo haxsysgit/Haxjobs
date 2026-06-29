@@ -64,3 +64,17 @@ def test_insert_lever_job(test_db: str) -> None:
     assert discovered_job["company"] == "spotify"
     assert discovered_job["title"] == "Backend Engineer"
     assert discovered_job["external_id"] == "lever_123"
+
+
+def test_lever_profile_filter_skips_unmatched_titles() -> None:
+    """Lever filtering keeps profile roles and avoids noisy board ingestion."""
+    from discovery.scrapers.lever import filter_profile_jobs
+
+    jobs = [
+        sample_lever_job(text="Platform Engineer"),
+        sample_lever_job(text="Sales Development Representative", id="lever_999"),
+    ]
+
+    matched_jobs = filter_profile_jobs(jobs, ["platform engineer"])
+
+    assert [job["text"] for job in matched_jobs] == ["Platform Engineer"]

@@ -16,6 +16,7 @@ from typing import Any
 
 from db.discovered_jobs import insert_discovered_job
 from discovery.normalize import normalize_job
+from discovery.profile_search import job_matches_profile, parse_cli_search_terms
 from haxjobs_config import DISCOVERY_CONFIG
 
 GREENHOUSE_API_TEMPLATE = "https://boards-api.greenhouse.io/v1/boards/{company}/jobs?content=true"
@@ -162,34 +163,45 @@ def build_raw_job(company: str, job: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def scrape_greenhouse_company(company: str) -> dict[str, int]:
+def filter_profile_jobs(jobs: list[dict[str, Any]], search_terms: list[str]) -> list[dict[str, Any]]:
+    """Keep only Greenhouse roles that look relevant to Arinze's profile."""
+    matched_jobs: list[dict[str, Any]] = []
+    for job in jobs:
+        if job_matches_profile(str(job.get("title") or ""), get_location_name(job), search_terms):
+            matched_jobs.append(job)
+    return matched_jobs
+
+
+def scrape_greenhouse_company(company: str, search_terms: list[str] | None = None) -> dict[str, int]:
     """Scrape one Greenhouse board and insert new discovered jobs."""
     jobs = fetch_jobs(company)
+    matched_jobs = filter_profile_jobs(jobs, search_terms or parse_cli_search_terms([]))
     new_count = 0
 
-    for job in jobs:
+    for job in matched_jobs:
         raw_job = build_raw_job(company, job)
         normalized_job = normalize_job(raw_job, source="greenhouse")
         row_id = insert_discovered_job(normalized_job)
         if row_id is not None:
             new_count += 1
 
-    print(f"Scraped {company}: {len(jobs)} jobs found, {new_count} new")
-    return {"found": len(jobs), "new": new_count}
+    print(f"Scraped {company}: {len(jobs)} jobs found, {len(matched_jobs)} profile matches, {new_count} new")
+    return {"found": len(jobs), "matched": len(matched_jobs), "new": new_count}
 
 
-def scrape_greenhouse_companies(companies: list[str]) -> dict[str, dict[str, int]]:
+def scrape_greenhouse_companies(companies: list[str], search_terms: list[str] | None = None) -> dict[str, dict[str, int]]:
     """Scrape multiple Greenhouse board slugs."""
     results: dict[str, dict[str, int]] = {}
+    active_search_terms = search_terms or parse_cli_search_terms([])
     for company in companies:
         clean_company = company.strip()
         if not clean_company:
             continue
         try:
-            results[clean_company] = scrape_greenhouse_company(clean_company)
+            results[clean_company] = scrape_greenhouse_company(clean_company, active_search_terms)
         except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
             print(f"Scraped {clean_company}: failed ({exc})", file=sys.stderr)
-            results[clean_company] = {"found": 0, "new": 0}
+            results[clean_company] = {"found": 0, "matched": 0, "new": 0, "errors": 1}
     return results
 
 
@@ -206,6 +218,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(prog="greenhouse.py")
     parser.add_argument("--company", action="append", default=[], help="Greenhouse board slug to scrape")
     parser.add_argument("--companies", nargs="*", default=[], help="One or more Greenhouse board slugs to scrape")
+    parser.add_argument("--query", action="append", default=[], help="Profile search term to match in job titles")
     return parser.parse_args(argv)
 
 
@@ -219,7 +232,7 @@ def main(argv: list[str] | None = None) -> int:
         print("No Greenhouse companies configured. Use --company or --companies.", file=sys.stderr)
         return 2
 
-    scrape_greenhouse_companies(companies)
+    scrape_greenhouse_companies(companies, parse_cli_search_terms(args.query))
     return 0
 
 

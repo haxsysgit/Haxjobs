@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Callable, TypeGuard
+from typing import Callable, TypeGuard, cast
 
 from discovery.scrapers.ashby import scrape_ashby
 from discovery.scrapers.greenhouse import scrape_greenhouse_companies, configured_greenhouse_companies
@@ -50,14 +50,17 @@ def summarize_results(results: dict[str, RunResult]) -> None:
             print(f"{scraper_name}: error={scraper_result['error']}")
             continue
 
+        company_results = cast(ScraperResult, scraper_result)
         found_count = 0
+        matched_count = 0
         new_count = 0
         error_count = 0
-        for company_result in scraper_result.values():
+        for company_result in company_results.values():
             found_count += int(company_result.get("found", 0))
+            matched_count += int(company_result.get("matched", 0))
             new_count += int(company_result.get("new", 0))
             error_count += int(company_result.get("errors", 0))
-        print(f"{scraper_name}: found={found_count}, new={new_count}, errors={error_count}")
+        print(f"{scraper_name}: found={found_count}, matched={matched_count}, new={new_count}, errors={error_count}")
 
 
 def main() -> int:

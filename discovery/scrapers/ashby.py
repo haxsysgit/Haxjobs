@@ -13,6 +13,7 @@ from typing import Any
 from db.schema import init
 from db.discovered_jobs import insert_discovered_job
 from discovery.normalize import normalize_job
+from discovery.profile_search import job_matches_profile, parse_cli_search_terms
 from discovery.scrapers.greenhouse import extract_jd_text
 from haxjobs_config import DISCOVERY_CONFIG
 
@@ -142,13 +143,25 @@ def build_raw_job(company: str, job: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def scrape_ashby_company(company: str) -> dict[str, int]:
+def filter_profile_jobs(jobs: list[dict[str, Any]], search_terms: list[str]) -> list[dict[str, Any]]:
+    """Keep only Ashby roles that look relevant to Arinze's profile."""
+    matched_jobs: list[dict[str, Any]] = []
+    for job in jobs:
+        title = str(job.get("title") or "")
+        location = get_location_name(job)
+        if job_matches_profile(title, location, search_terms):
+            matched_jobs.append(job)
+    return matched_jobs
+
+
+def scrape_ashby_company(company: str, search_terms: list[str] | None = None) -> dict[str, int]:
     """Scrape one Ashby board and insert new discovered jobs."""
     jobs = fetch_jobs(company)
+    matched_jobs = filter_profile_jobs(jobs, search_terms or parse_cli_search_terms([]))
     new_count = 0
     error_count = 0
 
-    for job in jobs:
+    for job in matched_jobs:
         try:
             raw_job = build_raw_job(company, job)
             normalized_job = normalize_job(raw_job, source="ashby")
@@ -159,8 +172,8 @@ def scrape_ashby_company(company: str) -> dict[str, int]:
             error_count += 1
         time.sleep(0.25)
 
-    print(f"Scraped {company}: {len(jobs)} Ashby jobs found, {new_count} new, {error_count} errors")
-    return {"found": len(jobs), "new": new_count, "errors": error_count}
+    print(f"Scraped {company}: {len(jobs)} Ashby jobs found, {len(matched_jobs)} profile matches, {new_count} new, {error_count} errors")
+    return {"found": len(jobs), "matched": len(matched_jobs), "new": new_count, "errors": error_count}
 
 
 def configured_ashby_companies() -> list[str]:
@@ -171,25 +184,26 @@ def configured_ashby_companies() -> list[str]:
     return [str(company) for company in companies]
 
 
-def scrape_ashby_companies(companies: list[str]) -> dict[str, dict[str, int]]:
+def scrape_ashby_companies(companies: list[str], search_terms: list[str] | None = None) -> dict[str, dict[str, int]]:
     """Scrape multiple Ashby board slugs."""
     results: dict[str, dict[str, int]] = {}
+    active_search_terms = search_terms or parse_cli_search_terms([])
     for company in companies:
         clean_company = company.strip()
         if not clean_company:
             continue
         try:
-            results[clean_company] = scrape_ashby_company(clean_company)
+            results[clean_company] = scrape_ashby_company(clean_company, active_search_terms)
         except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
             print(f"Scraped {clean_company}: Ashby failed ({exc})", file=sys.stderr)
             results[clean_company] = {"found": 0, "new": 0, "errors": 1}
     return results
 
 
-def scrape_ashby(companies: list[str] | None = None) -> dict[str, dict[str, int]]:
+def scrape_ashby(companies: list[str] | None = None, search_terms: list[str] | None = None) -> dict[str, dict[str, int]]:
     """Scrape configured or provided Ashby companies."""
     selected_companies = companies if companies is not None else configured_ashby_companies()
-    return scrape_ashby_companies(selected_companies)
+    return scrape_ashby_companies(selected_companies, search_terms)
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -197,6 +211,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(prog="ashby.py")
     parser.add_argument("--company", action="append", default=[])
     parser.add_argument("--companies", nargs="*", default=[])
+    parser.add_argument("--query", action="append", default=[])
     return parser.parse_args(argv)
 
 
@@ -210,7 +225,7 @@ def main(argv: list[str] | None = None) -> int:
         print("No Ashby companies configured. Use --company or --companies.", file=sys.stderr)
         return 2
     init()
-    scrape_ashby_companies(companies)
+    scrape_ashby_companies(companies, parse_cli_search_terms(args.query))
     return 0
 
 

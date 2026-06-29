@@ -65,3 +65,17 @@ def test_insert_ashby_job(test_db: str) -> None:
     assert discovered_job["company"] == "notion"
     assert discovered_job["title"] == "Backend Engineer"
     assert discovered_job["external_id"] == "ashby_123"
+
+
+def test_ashby_profile_filter_skips_unmatched_titles() -> None:
+    """Ashby filtering happens before detail fetches and inserts."""
+    from discovery.scrapers.ashby import filter_profile_jobs
+
+    jobs = [
+        sample_ashby_job(title="AI Engineer"),
+        sample_ashby_job(title="Customer Success Manager", id="ashby_999"),
+    ]
+
+    matched_jobs = filter_profile_jobs(jobs, ["ai engineer"])
+
+    assert [job["title"] for job in matched_jobs] == ["AI Engineer"]

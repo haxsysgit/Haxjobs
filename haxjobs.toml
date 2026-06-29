@@ -58,20 +58,50 @@ blacklisted_keywords = ["sales", "marketing", "legal", "finance", "admin"]
 lenient_filtering = true
 
 [discovery]
-# Greenhouse companies to scrape (board slugs)
+# Public ATS boards to scrape. Keep these small and profile-aligned; the
+# scrapers filter titles before inserting, so we don't mass-ingest giant boards.
 greenhouse_companies = [
-    "datadog",
-    "cloudflare",
+    "monzo",
 ]
 ashby_companies = [
-    "notion",
-    "linear",
+    "posthog",
+    "incident",
+    "paddle",
+    "sequence",
+    "faculty",
 ]
 lever_companies = [
-    "spotify",
-    "whoop",
+    "zopa",
 ]
-linkedin_search_queries = []
+profile_search_terms = [
+    "backend",
+    "back end",
+    "software engineer",
+    "software developer",
+    "python",
+    "ai engineer",
+    "machine learning engineer",
+    "ml engineer",
+    "platform engineer",
+    "infrastructure engineer",
+    "data engineer",
+    "automation engineer",
+    "full stack",
+    "fullstack",
+    "junior",
+    "graduate",
+]
+profile_excluded_terms = [
+    "account",
+    "sales",
+    "marketer",
+    "customer success",
+    "support specialist",
+    "people",
+    "talent",
+    "recruiter",
+    "designer",
+]
 
 # ── Role families (drives classification — matches CV variants 1:1) ──
 

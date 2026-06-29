@@ -13,6 +13,7 @@ from typing import Any
 from db.schema import init
 from db.discovered_jobs import insert_discovered_job
 from discovery.normalize import normalize_job
+from discovery.profile_search import job_matches_profile, parse_cli_search_terms
 from discovery.scrapers.greenhouse import extract_jd_text, normalize_whitespace
 from haxjobs_config import DISCOVERY_CONFIG
 
@@ -69,19 +70,31 @@ def build_raw_job(company: str, job: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def scrape_lever_company(company: str) -> dict[str, int]:
+def filter_profile_jobs(jobs: list[dict[str, Any]], search_terms: list[str]) -> list[dict[str, Any]]:
+    """Keep only Lever roles that look relevant to Arinze's profile."""
+    matched_jobs: list[dict[str, Any]] = []
+    for job in jobs:
+        title = str(job.get("text") or "")
+        location = get_location_name(job)
+        if job_matches_profile(title, location, search_terms):
+            matched_jobs.append(job)
+    return matched_jobs
+
+
+def scrape_lever_company(company: str, search_terms: list[str] | None = None) -> dict[str, int]:
     """Scrape one Lever company and insert new discovered jobs."""
     jobs = fetch_jobs(company)
+    matched_jobs = filter_profile_jobs(jobs, search_terms or parse_cli_search_terms([]))
     new_count = 0
-    for job in jobs:
+    for job in matched_jobs:
         raw_job = build_raw_job(company, job)
         normalized_job = normalize_job(raw_job, source="lever")
         row_id = insert_discovered_job(normalized_job)
         if row_id is not None:
             new_count += 1
 
-    print(f"Scraped {company}: {len(jobs)} Lever jobs found, {new_count} new")
-    return {"found": len(jobs), "new": new_count, "errors": 0}
+    print(f"Scraped {company}: {len(jobs)} Lever jobs found, {len(matched_jobs)} profile matches, {new_count} new")
+    return {"found": len(jobs), "matched": len(matched_jobs), "new": new_count, "errors": 0}
 
 
 def configured_lever_companies() -> list[str]:
@@ -92,25 +105,26 @@ def configured_lever_companies() -> list[str]:
     return [str(company) for company in companies]
 
 
-def scrape_lever_companies(companies: list[str]) -> dict[str, dict[str, int]]:
+def scrape_lever_companies(companies: list[str], search_terms: list[str] | None = None) -> dict[str, dict[str, int]]:
     """Scrape multiple Lever company slugs."""
     results: dict[str, dict[str, int]] = {}
+    active_search_terms = search_terms or parse_cli_search_terms([])
     for company in companies:
         clean_company = company.strip()
         if not clean_company:
             continue
         try:
-            results[clean_company] = scrape_lever_company(clean_company)
+            results[clean_company] = scrape_lever_company(clean_company, active_search_terms)
         except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
             print(f"Scraped {clean_company}: Lever failed ({exc})", file=sys.stderr)
             results[clean_company] = {"found": 0, "new": 0, "errors": 1}
     return results
 
 
-def scrape_lever(companies: list[str] | None = None) -> dict[str, dict[str, int]]:
+def scrape_lever(companies: list[str] | None = None, search_terms: list[str] | None = None) -> dict[str, dict[str, int]]:
     """Scrape configured or provided Lever companies."""
     selected_companies = companies if companies is not None else configured_lever_companies()
-    return scrape_lever_companies(selected_companies)
+    return scrape_lever_companies(selected_companies, search_terms)
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -118,6 +132,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(prog="lever.py")
     parser.add_argument("--company", action="append", default=[])
     parser.add_argument("--companies", nargs="*", default=[])
+    parser.add_argument("--query", action="append", default=[])
     return parser.parse_args(argv)
 
 
@@ -131,7 +146,7 @@ def main(argv: list[str] | None = None) -> int:
         print("No Lever companies configured. Use --company or --companies.", file=sys.stderr)
         return 2
     init()
-    scrape_lever_companies(companies)
+    scrape_lever_companies(companies, parse_cli_search_terms(args.query))
     return 0
 
 
