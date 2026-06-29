@@ -56,7 +56,7 @@ fi
 log "Pipeline starting — $PENDING pending jobs. Processing up to $BATCH job(s)…"
 
 # ── Evaluate batch ──
-python3 evaluate_with_hermes.py --batch "$BATCH" 2>&1 | tee -a "$LOG_FILE"
+python3 evaluate/run.py --batch "$BATCH" 2>&1 | tee -a "$LOG_FILE"
 EXIT_CODE=$?
 
 # Re-count pending
@@ -78,7 +78,7 @@ if [ "${1:-}" = "--all" ] && [ "$PENDING_AFTER" -gt 0 ]; then
     log "--all mode: processing remaining $PENDING_AFTER jobs…"
     while [ "$PENDING_AFTER" -gt 0 ]; do
         sleep 5
-        python3 evaluate_with_hermes.py --batch "$BATCH" 2>&1 | tail -3 | tee -a "$LOG_FILE"
+        python3 evaluate/run.py --batch "$BATCH" 2>&1 | tail -3 | tee -a "$LOG_FILE"
         PENDING_AFTER=$(python3 -c "
 import sys; sys.path.insert(0, '.')
 import pipeline_db as db

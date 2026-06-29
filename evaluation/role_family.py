@@ -5,22 +5,13 @@ wants to maintain. It is intentionally deterministic and lightweight: the LLM
 can still reason about fit later, but CV-family selection should be stable.
 
 Classification reads role profiles from ``haxjobs.toml`` ``[[roles]]`` via
-``haxjobs_config.ROLE_PROFILES``. The old hardcoded ``profile/role_taxonomy.json``
-path still works for backward-compatible test fixtures, but the default is now
-config-driven.
+``haxjobs_config.ROLE_PROFILES``.
 """
 from __future__ import annotations
 
-import json
 import re
-from pathlib import Path
 from typing import Any
 
-# Backward-compat: load from JSON taxonomy if no config roles are available.
-# This keeps tests that pass an explicit taxonomy_path working.
-_FALLBACK_TAXONOMY_PATH = Path(__file__).resolve().parents[1] / "profile" / "role_taxonomy.json"
-# ponytail: legacy fallback for backward-compat taxonomy_path= parameter in tests.
-# Remove when all callers use haxjobs_config.ROLE_PROFILES directly.
 
 
 def load_role_profiles(roles: list[dict] | None = None) -> dict[str, dict[str, Any]]:
@@ -30,15 +21,10 @@ def load_role_profiles(roles: list[dict] | None = None) -> dict[str, dict[str, A
     ``titles``, ``positive_keywords``, ``negative_keywords``.
 
     If *roles* is None, reads from ``haxjobs_config.ROLE_PROFILES``.
-    Falls back to the legacy JSON taxonomy if config is empty.
     """
     if roles is None:
         from haxjobs_config import ROLE_PROFILES as _cfg_roles
         roles = _cfg_roles
-
-    if not roles:
-        # Fallback to JSON taxonomy for backward compat
-        return _load_json_taxonomy(str(_FALLBACK_TAXONOMY_PATH))
 
     taxonomy: dict[str, dict[str, Any]] = {}
     for role in roles:
@@ -56,25 +42,11 @@ def load_role_profiles(roles: list[dict] | None = None) -> dict[str, dict[str, A
     return taxonomy
 
 
-def _load_json_taxonomy(path: str) -> dict[str, dict[str, Any]]:
-    """Load the legacy JSON taxonomy file (backward compat)."""
-    with Path(path).open("r", encoding="utf-8") as handle:
-        raw = json.load(handle)
-    # Normalize to same shape as TOML roles
-    taxonomy: dict[str, dict[str, Any]] = {}
-    for family_id, config in raw.items():
-        if isinstance(config, dict):
-            taxonomy[family_id] = dict(config)
-            taxonomy[family_id].setdefault("priority", 99)
-    return taxonomy
-
-
 def classify_role_family(
     title: str,
     description: str = "",
     *,
     roles: list[dict] | None = None,
-    taxonomy_path: str | Path | None = None,
 ) -> dict[str, Any]:
     """Classify a job into one role family and recommended CV variant.
 
@@ -83,16 +55,11 @@ def classify_role_family(
         description: Job description or short summary.
         roles: Optional list of role config dicts (from TOML [[roles]]).
                If None, reads from ``haxjobs_config.ROLE_PROFILES``.
-        taxonomy_path: Optional path for backward-compat tests.
-                       If provided, loads JSON taxonomy instead of config roles.
 
     Returns:
         A deterministic classification dict with confidence and evidence.
     """
-    if taxonomy_path is not None:
-        taxonomy = _load_json_taxonomy(str(taxonomy_path))
-    else:
-        taxonomy = load_role_profiles(roles)
+    taxonomy = load_role_profiles(roles)
 
     title_norm = _normalize(title)
     description_norm = _normalize(description)

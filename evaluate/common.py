@@ -1,7 +1,4 @@
 """Shared evaluation utilities — prompt building, JSON extraction, validation.
-
-Extracted from the old ``evaluate_with_hermes.py`` so the agent adapter and
-the prompt logic are independent.
 """
 from __future__ import annotations
 

@@ -5,9 +5,6 @@ These tests verify classification works without hardcoded JSON taxonomy.
 """
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
 
 # ── helpers ──
 
@@ -193,29 +190,20 @@ def test_junior_software_role():
     assert result["cv_variant"] == "junior_software"
 
 
-def test_backward_compat_taxonomy_path(tmp_path):
-    """The taxonomy_path parameter still works for backward compat."""
-    import json
+def test_classify_with_explicit_roles_list():
+    """Classify works with an explicit roles list (no JSON path needed)."""
     from evaluation.role_family import classify_role_family
 
-    # Write a minimal taxonomy to a temp file (no more role_taxonomy.json on disk)
-    tax = {
-        "backend_python": {
-            "label": "Python Backend",
-            "cv_variant": "backend_python",
-            "priority": 1,
-            "titles": ["Python Backend Engineer", "Backend Developer"],
-            "positive_keywords": ["python", "fastapi", "postgresql"],
-            "negative_keywords": [],
-        },
-    }
-    tax_path = tmp_path / "test_taxonomy.json"
-    tax_path.write_text(json.dumps(tax))
-
+    explicit_roles = [
+        {"id": "backend_python", "cv_variant": "backend_python", "priority": 1,
+         "titles": ["Python Backend Engineer", "Backend Developer"],
+         "positive_keywords": ["python", "fastapi", "postgresql"],
+         "negative_keywords": []},
+    ]
     result = classify_role_family(
         title="Python Backend Engineer",
         description="Build APIs with FastAPI and PostgreSQL.",
-        taxonomy_path=str(tax_path),
+        roles=explicit_roles,
     )
     assert result["role_family"] == "backend_python"
     assert result["cv_variant"] == "backend_python"

@@ -169,7 +169,7 @@ def get_activity():
 # ── Pipeline trigger ──
 
 def trigger_pipeline():
-    script = os.path.join(PIPELINE_DIR, "evaluate_with_hermes.py")
+    script = os.path.join(PIPELINE_DIR, "evaluate", "run.py")
     try:
         result = subprocess.run(
             ["python3", script, "--batch", "1"],

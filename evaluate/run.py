@@ -184,7 +184,7 @@ def _auto_pack(job: dict, result: dict) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """CLI entry point — same interface as the old evaluate_with_hermes.py."""
+    """CLI entry point for the pluggable evaluation system."""
     if argv is None:
         argv = sys.argv
 

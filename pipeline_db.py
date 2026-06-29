@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """HaxJobs pipeline CLI — unified entry point for all pipeline operations.
 
-Backward-compatibility wrapper: `import pipeline_db as db` still works.
-All functionality lives in db/ and discovery/ submodules.
+`import pipeline_db as db` provides access to all db/ and discovery/ modules.
 """
 from db import *  # noqa: F401, F403
 

@@ -1,7 +1,7 @@
 """HaxJobs database layer — single source of truth.
 
-This module re-exports all functions from the db/ submodules
-for backward compatibility with `import pipeline_db as db`.
+Re-exports all functions from db/ submodules. Import as
+`import pipeline_db as db` from the project root.
 """
 from .schema import DB_PATH, get_db, init
 from .jobs import (

@@ -1,9 +1,9 @@
-"""Characterization tests for evaluate_with_hermes.py parsing functions.
+"""Tests for evaluator JSON parsing and validation on evaluate.common.
 
 Tests extract_json() and validate_result() directly — no Hermes calls.
 """
 
-from evaluate_with_hermes import extract_json, validate_result
+from evaluate.common import extract_json, validate_result
 
 
 # ── extract_json ──
