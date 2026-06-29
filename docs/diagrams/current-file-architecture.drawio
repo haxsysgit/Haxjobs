@@ -1,0 +1,115 @@
+<mxfile host="65bd71144e">
+    <diagram name="File Architecture" id="0">
+        <mxGraphModel dx="1466" dy="896" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="800" math="0" shadow="0" adaptiveColors="auto">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" value="&lt;b&gt;HaxJobs File Architecture&lt;/b&gt;" style="text;html=1;strokeColor=none;fillColor=none;fontSize=18;fontFamily=Helvetica;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="300" y="10" width="600" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="z1" value="Config" style="swimlane;startSize=24;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;html=1;fontStyle=1;fontSize=13;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="60" width="200" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="z1a" value="haxjobs_config.py" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontFamily=Helvetica;align=center;fillColor=#fafafa;strokeColor=#999999;" parent="z1" vertex="1">
+                    <mxGeometry x="15" y="32" width="170" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="z2" value="Discovery" style="swimlane;startSize=24;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;html=1;fontStyle=1;fontSize=13;" parent="1" vertex="1">
+                    <mxGeometry x="280" y="60" width="240" height="130" as="geometry"/>
+                </mxCell>
+                <mxCell id="z2a" value="discovery/&lt;br&gt;scrapers, sharp_filter.py, job_classifier.py" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontFamily=Helvetica;align=center;fillColor=#e3f2fd;strokeColor=#6c8ebf;" parent="z2" vertex="1">
+                    <mxGeometry x="15" y="32" width="210" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="z2b" value="intake/*.json" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontFamily=Helvetica;align=center;fillColor=#e3f2fd;strokeColor=#6c8ebf;" parent="z2" vertex="1">
+                    <mxGeometry x="15" y="80" width="210" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="z3" value="Database + State" style="swimlane;startSize=24;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;html=1;fontStyle=1;fontSize=13;" parent="1" vertex="1">
+                    <mxGeometry x="560" y="60" width="240" height="130" as="geometry"/>
+                </mxCell>
+                <mxCell id="z3a" value="db/&lt;br&gt;schema, jobs, evaluations, activity,&lt;br&gt;outreach, decisions, role_classification" style="shape=cylinder3;whiteSpace=wrap;html=1;fontSize=11;fontFamily=Helvetica;align=center;fillColor=#fff9e6;strokeColor=#d6b656;size=12;" parent="z3" vertex="1">
+                    <mxGeometry x="10" y="30" width="220" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="z3b" value="state/pipeline.db" style="shape=cylinder3;whiteSpace=wrap;html=1;fontSize=11;fontFamily=Helvetica;align=center;fillColor=#fff9e6;strokeColor=#d6b656;size=10;" parent="z3" vertex="1">
+                    <mxGeometry x="10" y="85" width="220" height="32" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_z6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=2;strokeColor=#82b366;" parent="z3" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="280" y="110.00000000000023" as="sourcePoint"/>
+                        <mxPoint x="40" y="215" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="z4" value="Processing" style="swimlane;startSize=24;fillColor=#e1d5e7;strokeColor=#9673a6;strokeWidth=2;html=1;fontStyle=1;fontSize=13;" parent="1" vertex="1">
+                    <mxGeometry x="840" y="60" width="280" height="190" as="geometry"/>
+                </mxCell>
+                <mxCell id="z4a" value="evaluate_with_hermes.py" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontFamily=Helvetica;align=center;fillColor=#f3e8f7;strokeColor=#9673a6;" parent="z4" vertex="1">
+                    <mxGeometry x="15" y="32" width="250" height="32" as="geometry"/>
+                </mxCell>
+                <mxCell id="z4b" value="cron/&lt;br&gt;run_pipeline.sh, draft_outreach.py" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontFamily=Helvetica;align=center;fillColor=#f3e8f7;strokeColor=#9673a6;" parent="z4" vertex="1">
+                    <mxGeometry x="15" y="72" width="250" height="32" as="geometry"/>
+                </mxCell>
+                <mxCell id="z4c" value="generate_ready_packs.py + packs_builder/" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontFamily=Helvetica;align=center;fillColor=#f3e8f7;strokeColor=#9673a6;" parent="z4" vertex="1">
+                    <mxGeometry x="15" y="112" width="250" height="32" as="geometry"/>
+                </mxCell>
+                <mxCell id="z4d" value="profile/ + cv_variants/ + application_templates/" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontFamily=Helvetica;align=center;fillColor=#f3e8f7;strokeColor=#9673a6;" parent="z4" vertex="1">
+                    <mxGeometry x="15" y="150" width="250" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="z5" value="Dashboard + API" style="swimlane;startSize=24;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;html=1;fontStyle=1;fontSize=13;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="260" width="380" height="145" as="geometry"/>
+                </mxCell>
+                <mxCell id="z5a" value="api_server.py + server/routes/" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontFamily=Helvetica;align=center;fillColor=#e3f2fd;strokeColor=#6c8ebf;" parent="z5" vertex="1">
+                    <mxGeometry x="15" y="32" width="350" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="z5b" value="dashboard/ (React + TypeScript + Vite)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontFamily=Helvetica;align=center;fillColor=#e3f2fd;strokeColor=#6c8ebf;" parent="z5" vertex="1">
+                    <mxGeometry x="15" y="72" width="350" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="z5c" value="dev-app.sh + scripts/debug_job_pipeline.py" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontFamily=Helvetica;align=center;fillColor=#e3f2fd;strokeColor=#6c8ebf;" parent="z5" vertex="1">
+                    <mxGeometry x="15" y="110" width="350" height="27" as="geometry"/>
+                </mxCell>
+                <mxCell id="z6" value="Output" style="swimlane;startSize=24;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;html=1;fontStyle=1;fontSize=13;" parent="1" vertex="1">
+                    <mxGeometry x="460" y="260" width="280" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="z6a" value="packs/&lt;job&gt;/*.md + metadata.json" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontFamily=Helvetica;align=center;fillColor=#e8f5e9;strokeColor=#82b366;" parent="z6" vertex="1">
+                    <mxGeometry x="15" y="32" width="250" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="z6b" value="outreach_drafts (DB)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontFamily=Helvetica;align=center;fillColor=#e8f5e9;strokeColor=#82b366;" parent="z6" vertex="1">
+                    <mxGeometry x="15" y="65" width="250" height="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_z1z2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=2;strokeColor=#666666;" parent="1" source="z1" target="z2" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_z2z3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=2;strokeColor=#d6b656;" parent="1" source="z2" target="z3" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_z3z4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=2;strokeColor=#9673a6;" parent="1" source="z3" target="z4" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_z3z5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=2;strokeColor=#6c8ebf;" parent="1" source="z3" target="z5" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="680" y="230"/>
+                            <mxPoint x="230" y="230"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_z5z4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#9673a6;dashed=1;" parent="1" source="z5" target="z6" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="230" y="310"/>
+                            <mxPoint x="440" y="310"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_fb" value="reads / writes" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#d6b656;dashed=1;fontSize=10;" parent="1" source="z4" target="z3" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="980" y="230"/>
+                            <mxPoint x="680" y="230"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_fb2" value="reads / writes" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=1.5;strokeColor=#d6b656;dashed=1;fontSize=10;" parent="1" source="z5" target="z3" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

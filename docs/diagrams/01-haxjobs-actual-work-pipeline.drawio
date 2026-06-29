@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="drawio" version="30.2.4">
+  <diagram name="Actual Work Pipeline">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+<mxCell id="title" value="HaxJobs Actual Work Pipeline&#xa;Clean flow: input → decision → useful outputs" style="text;html=1;strokeColor=none;fillColor=none;fontSize=22;fontStyle=1;fontFamily=Helvetica;align=center;" vertex="1" parent="1">
+  <mxGeometry x="250" y="30" width="1300" height="70" as="geometry" />
+</mxCell>
+<mxCell id="s1" value="1. Job Source&#xa;LinkedIn / ATS / manual job URL" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="60" y="170" width="170" height="90" as="geometry" />
+</mxCell>
+<mxCell id="s1_out" value="Input: job description + URL" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="60" y="310" width="170" height="70" as="geometry" />
+</mxCell>
+<mxCell id="e1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;" edge="1" parent="1" source="s1" target="s2">
+  <mxGeometry relative="1" as="geometry" />
+</mxCell>
+<mxCell id="s2" value="2. Intake Record&#xa;Store raw job safely" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="270" y="170" width="170" height="90" as="geometry" />
+</mxCell>
+<mxCell id="s2_out" value="Output: jobs row in SQLite" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="270" y="310" width="170" height="70" as="geometry" />
+</mxCell>
+<mxCell id="e2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;" edge="1" parent="1" source="s2" target="s3">
+  <mxGeometry relative="1" as="geometry" />
+</mxCell>
+<mxCell id="s3" value="3. Role Understanding&#xa;Role family + level + requirements" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="480" y="170" width="170" height="90" as="geometry" />
+</mxCell>
+<mxCell id="s3_out" value="Output: backend_python etc." style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="480" y="310" width="170" height="70" as="geometry" />
+</mxCell>
+<mxCell id="e3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;" edge="1" parent="1" source="s3" target="s4">
+  <mxGeometry relative="1" as="geometry" />
+</mxCell>
+<mxCell id="s4" value="4. Fit Evaluation&#xa;Compare JD against Arinze profile" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="690" y="170" width="170" height="90" as="geometry" />
+</mxCell>
+<mxCell id="s4_out" value="Output: score + verdict + reasons" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="690" y="310" width="170" height="70" as="geometry" />
+</mxCell>
+<mxCell id="e4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;" edge="1" parent="1" source="s4" target="s5">
+  <mxGeometry relative="1" as="geometry" />
+</mxCell>
+<mxCell id="s5" value="5. Decision&#xa;Apply, hold, or skip?" style="rhombus;whiteSpace=wrap;html=1;fontSize=13;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="900" y="170" width="170" height="90" as="geometry" />
+</mxCell>
+<mxCell id="s5_out" value="Output: approved / review / skipped" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="900" y="310" width="170" height="70" as="geometry" />
+</mxCell>
+<mxCell id="e5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;" edge="1" parent="1" source="s5" target="s6">
+  <mxGeometry relative="1" as="geometry" />
+</mxCell>
+<mxCell id="s6" value="6. Application Pack&#xa;Generate practical materials" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="1110" y="170" width="170" height="90" as="geometry" />
+</mxCell>
+<mxCell id="s6_out" value="Output: pack folder + files" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="1110" y="310" width="170" height="70" as="geometry" />
+</mxCell>
+<mxCell id="e6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;" edge="1" parent="1" source="s6" target="s7">
+  <mxGeometry relative="1" as="geometry" />
+</mxCell>
+<mxCell id="s7" value="7. Human Review&#xa;Arinze checks truth + quality" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="1320" y="170" width="170" height="90" as="geometry" />
+</mxCell>
+<mxCell id="s7_out" value="Output: approved pack or edits" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="1320" y="310" width="170" height="70" as="geometry" />
+</mxCell>
+<mxCell id="e7" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;" edge="1" parent="1" source="s7" target="s8">
+  <mxGeometry relative="1" as="geometry" />
+</mxCell>
+<mxCell id="s8" value="8. Manual Action&#xa;Apply or prepare outreach" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="1530" y="170" width="170" height="90" as="geometry" />
+</mxCell>
+<mxCell id="s8_out" value="Output: human-controlled final action" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="1530" y="310" width="170" height="70" as="geometry" />
+</mxCell>
+<mxCell id="boundary" value="Hard boundary&#xa;HaxJobs prepares outputs.&#xa;Arinze approves real-world actions.&#xa;No auto-submit. No auto-outreach." style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="620" y="470" width="540" height="100" as="geometry" />
+</mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

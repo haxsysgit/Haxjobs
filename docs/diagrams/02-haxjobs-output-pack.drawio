@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="drawio" version="30.2.4">
+  <diagram name="Output Pack">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="700" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+<mxCell id="title" value="HaxJobs Output Pack&#xa;Actual files produced for one approved job" style="text;html=1;strokeColor=none;fillColor=none;fontSize=24;fontStyle=1;fontFamily=Helvetica;align=center;" vertex="1" parent="1">
+  <mxGeometry x="250" y="30" width="1100" height="70" as="geometry" />
+</mxCell>
+<mxCell id="job" value="Approved Job&#xa;Backend Python Engineer" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="120" y="170" width="260" height="90" as="geometry" />
+</mxCell>
+<mxCell id="eval" value="Fit Evaluation&#xa;score + verdict + reasons" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="470" y="170" width="280" height="90" as="geometry" />
+</mxCell>
+<mxCell id="e1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;" edge="1" parent="1" source="job" target="eval">
+  <mxGeometry relative="1" as="geometry" />
+</mxCell>
+<mxCell id="pack" value="Application Pack Folder" style="swimlane;startSize=36;whiteSpace=wrap;html=1;fontSize=16;fontStyle=1;fontFamily=Helvetica;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=3;" vertex="1" parent="1">
+  <mxGeometry x="880" y="120" width="620" height="440" as="geometry" />
+</mxCell>
+<mxCell id="f1" value="metadata.json&#xa;job, score, CV variant" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#ffffff;strokeColor=#82b366;strokeWidth=2;" vertex="1" parent="pack">
+  <mxGeometry x="30" y="70" width="250" height="80" as="geometry" />
+</mxCell>
+<mxCell id="f2" value="fit_report.md&#xa;should I apply? why?" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#ffffff;strokeColor=#82b366;strokeWidth=2;" vertex="1" parent="pack">
+  <mxGeometry x="320" y="70" width="250" height="80" as="geometry" />
+</mxCell>
+<mxCell id="f3" value="cover_letter.md&#xa;truthful tailored letter" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#ffffff;strokeColor=#82b366;strokeWidth=2;" vertex="1" parent="pack">
+  <mxGeometry x="30" y="190" width="250" height="80" as="geometry" />
+</mxCell>
+<mxCell id="f4" value="field_answers.md&#xa;application form answers" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#ffffff;strokeColor=#82b366;strokeWidth=2;" vertex="1" parent="pack">
+  <mxGeometry x="320" y="190" width="250" height="80" as="geometry" />
+</mxCell>
+<mxCell id="f5" value="interview_prep.md&#xa;notes + likely questions" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#ffffff;strokeColor=#82b366;strokeWidth=2;" vertex="1" parent="pack">
+  <mxGeometry x="30" y="310" width="250" height="80" as="geometry" />
+</mxCell>
+<mxCell id="f6" value="outreach_draft.md&#xa;draft only, never auto-send" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#ffffff;strokeColor=#82b366;strokeWidth=2;" vertex="1" parent="pack">
+  <mxGeometry x="320" y="310" width="250" height="80" as="geometry" />
+</mxCell>
+<mxCell id="e2" value="approved" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;" edge="1" parent="1" source="eval" target="pack">
+  <mxGeometry relative="1" as="geometry" />
+</mxCell>
+<mxCell id="rule" value="Review rule&#xa;If an output is unsupported, vague, or fake → revise before use.&#xa;Human approval before any real application/outreach." style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="280" y="390" width="460" height="120" as="geometry" />
+</mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

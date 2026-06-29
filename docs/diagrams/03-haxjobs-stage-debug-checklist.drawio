@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="drawio" version="30.2.4">
+  <diagram name="Stage Debug Checklist">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+<mxCell id="title" value="HaxJobs Stage Debug Checklist&#xa;Use this when a job gets stuck" style="text;html=1;strokeColor=none;fillColor=none;fontSize=22;fontStyle=1;fontFamily=Helvetica;align=center;" vertex="1" parent="1">
+  <mxGeometry x="250" y="30" width="1200" height="60" as="geometry" />
+</mxCell>
+<mxCell id="d1" value="Stage 1: Intake" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="120" y="140" width="260" height="80" as="geometry" />
+</mxCell>
+<mxCell id="d1_check" value="Check: job exists in jobs table&#xa;Expected: title, company, JD, URL saved" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="520" y="140" width="520" height="80" as="geometry" />
+</mxCell>
+<mxCell id="e0" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;" edge="1" parent="1" source="d1" target="d1_check">
+  <mxGeometry relative="1" as="geometry" />
+</mxCell>
+<mxCell id="d2" value="Stage 2: Role routing" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="120" y="270" width="260" height="80" as="geometry" />
+</mxCell>
+<mxCell id="d2_check" value="Check: role_family + recommended_cv_variant&#xa;Expected: backend_python / ai_engineer / etc." style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="520" y="270" width="520" height="80" as="geometry" />
+</mxCell>
+<mxCell id="e1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;" edge="1" parent="1" source="d2" target="d2_check">
+  <mxGeometry relative="1" as="geometry" />
+</mxCell>
+<mxCell id="d3" value="Stage 3: Evaluation" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="120" y="400" width="260" height="80" as="geometry" />
+</mxCell>
+<mxCell id="d3_check" value="Check: evaluations row&#xa;Expected: fit_score, verdict, reasons" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="520" y="400" width="520" height="80" as="geometry" />
+</mxCell>
+<mxCell id="e2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;" edge="1" parent="1" source="d3" target="d3_check">
+  <mxGeometry relative="1" as="geometry" />
+</mxCell>
+<mxCell id="d4" value="Stage 4: Decision" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="120" y="530" width="260" height="80" as="geometry" />
+</mxCell>
+<mxCell id="d4_check" value="Check: decisions table&#xa;Expected: approved / skipped / review reason" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="520" y="530" width="520" height="80" as="geometry" />
+</mxCell>
+<mxCell id="e3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;" edge="1" parent="1" source="d4" target="d4_check">
+  <mxGeometry relative="1" as="geometry" />
+</mxCell>
+<mxCell id="d5" value="Stage 5: Pack generation" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="120" y="660" width="260" height="80" as="geometry" />
+</mxCell>
+<mxCell id="d5_check" value="Check: packs/&lt;job&gt;/ folder&#xa;Expected: metadata + markdown outputs" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="520" y="660" width="520" height="80" as="geometry" />
+</mxCell>
+<mxCell id="e4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;" edge="1" parent="1" source="d5" target="d5_check">
+  <mxGeometry relative="1" as="geometry" />
+</mxCell>
+<mxCell id="d6" value="Stage 6: Final review" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="120" y="790" width="260" height="80" as="geometry" />
+</mxCell>
+<mxCell id="d6_check" value="Check: output quality&#xa;Expected: truthful, useful, application-ready" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;" vertex="1" parent="1">
+  <mxGeometry x="520" y="790" width="520" height="80" as="geometry" />
+</mxCell>
+<mxCell id="e5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;" edge="1" parent="1" source="d6" target="d6_check">
+  <mxGeometry relative="1" as="geometry" />
+</mxCell>
+<mxCell id="command" value="Practical command&#xa;python3 scripts/debug_job_pipeline.py JOB_ID" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontFamily=Helvetica;align=center;verticalAlign=middle;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=1;dashed=1;" vertex="1" parent="1">
+  <mxGeometry x="1120" y="360" width="420" height="100" as="geometry" />
+</mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
