@@ -3,6 +3,11 @@
 This module maps noisy job titles into the small set of CV families Arinze
 wants to maintain. It is intentionally deterministic and lightweight: the LLM
 can still reason about fit later, but CV-family selection should be stable.
+
+Classification reads role profiles from ``haxjobs.toml`` ``[[roles]]`` via
+``haxjobs_config.ROLE_PROFILES``. The old hardcoded ``profile/role_taxonomy.json``
+path still works for backward-compatible test fixtures, but the default is now
+config-driven.
 """
 from __future__ import annotations
 
@@ -11,61 +16,103 @@ import re
 from pathlib import Path
 from typing import Any
 
-DEFAULT_TAXONOMY_PATH = Path(__file__).resolve().parents[1] / "profile" / "role_taxonomy.json"
+# Backward-compat: load from JSON taxonomy if no config roles are available.
+# This keeps tests that pass an explicit taxonomy_path working.
+_FALLBACK_TAXONOMY_PATH = Path(__file__).resolve().parents[1] / "profile" / "role_taxonomy.json"
 
 
-_ROLE_TIEBREAK_ORDER = [
-    "backend_python",
-    "fullstack_python_react",
-    "ai_engineer_llm",
-    "ai_automation_agents",
-    "junior_software",
-    "data_python",
-    "platform_backend",
-]
+def load_role_profiles(roles: list[dict] | None = None) -> dict[str, dict[str, Any]]:
+    """Build a role-family lookup dict from a list of role configs.
+
+    Each role dict must have ``id``, ``cv_variant``, and optional ``priority``,
+    ``titles``, ``positive_keywords``, ``negative_keywords``.
+
+    If *roles* is None, reads from ``haxjobs_config.ROLE_PROFILES``.
+    Falls back to the legacy JSON taxonomy if config is empty.
+    """
+    if roles is None:
+        from haxjobs_config import ROLE_PROFILES as _cfg_roles
+        roles = _cfg_roles
+
+    if not roles:
+        # Fallback to JSON taxonomy for backward compat
+        return _load_json_taxonomy(str(_FALLBACK_TAXONOMY_PATH))
+
+    taxonomy: dict[str, dict[str, Any]] = {}
+    for role in roles:
+        family_id = role.get("id", "")
+        if not family_id:
+            continue
+        taxonomy[family_id] = {
+            "label": role.get("label", family_id),
+            "cv_variant": role.get("cv_variant", family_id),
+            "priority": role.get("priority", 99),
+            "titles": role.get("titles", []),
+            "positive_keywords": role.get("positive_keywords", []),
+            "negative_keywords": role.get("negative_keywords", []),
+        }
+    return taxonomy
 
 
-def load_role_taxonomy(path: str | Path = DEFAULT_TAXONOMY_PATH) -> dict[str, dict[str, Any]]:
-    """Load the role taxonomy JSON file."""
-    taxonomy_path = Path(path)
-    with taxonomy_path.open("r", encoding="utf-8") as handle:
-        return json.load(handle)
+def _load_json_taxonomy(path: str) -> dict[str, dict[str, Any]]:
+    """Load the legacy JSON taxonomy file (backward compat)."""
+    with Path(path).open("r", encoding="utf-8") as handle:
+        raw = json.load(handle)
+    # Normalize to same shape as TOML roles
+    taxonomy: dict[str, dict[str, Any]] = {}
+    for family_id, config in raw.items():
+        if isinstance(config, dict):
+            taxonomy[family_id] = dict(config)
+            taxonomy[family_id].setdefault("priority", 99)
+    return taxonomy
 
 
 def classify_role_family(
     title: str,
     description: str = "",
     *,
-    taxonomy_path: str | Path = DEFAULT_TAXONOMY_PATH,
+    roles: list[dict] | None = None,
+    taxonomy_path: str | Path | None = None,
 ) -> dict[str, Any]:
     """Classify a job into one role family and recommended CV variant.
 
     Args:
         title: Job title from the source.
         description: Job description or short summary.
-        taxonomy_path: Optional path for tests or alternate taxonomies.
+        roles: Optional list of role config dicts (from TOML [[roles]]).
+               If None, reads from ``haxjobs_config.ROLE_PROFILES``.
+        taxonomy_path: Optional path for backward-compat tests.
+                       If provided, loads JSON taxonomy instead of config roles.
 
     Returns:
         A deterministic classification dict with confidence and evidence.
     """
-    taxonomy = load_role_taxonomy(taxonomy_path)
+    if taxonomy_path is not None:
+        taxonomy = _load_json_taxonomy(str(taxonomy_path))
+    else:
+        taxonomy = load_role_profiles(roles)
+
     title_norm = _normalize(title)
     description_norm = _normalize(description)
     combined_norm = f"{title_norm} {description_norm}".strip()
 
     best_family = "unknown"
     best_score = 0.0
+    best_priority = 999
     best_evidence: dict[str, Any] = {
         "matched_terms": [],
         "negative_matches": [],
         "title_matches": [],
     }
 
-    for family, config in taxonomy.items():
-        score, evidence = _score_family(family, config, title_norm, description_norm, combined_norm)
-        if score > best_score or (score == best_score and _beats_tiebreak(family, best_family)):
-            best_family = family
+    for family_id, config in taxonomy.items():
+        score, evidence = _score_family(config, title_norm, description_norm, combined_norm)
+        family_priority = config.get("priority", 99)
+
+        if score > best_score or (score == best_score and family_priority < best_priority):
+            best_family = family_id
             best_score = score
+            best_priority = family_priority
             best_evidence = evidence
 
     if best_score < 2.0:
@@ -94,12 +141,16 @@ def classify_role_family(
 
 
 def _score_family(
-    family: str,
     config: dict[str, Any],
     title_norm: str,
     description_norm: str,
     combined_norm: str,
 ) -> tuple[float, dict[str, list[str]]]:
+    """Score a single role family against the job title and description.
+
+    No hardcoded nudges — all scoring comes from the role config's titles,
+    positive_keywords, and negative_keywords.
+    """
     score = 0.0
     matched_terms: list[str] = []
     title_matches: list[str] = []
@@ -135,21 +186,6 @@ def _score_family(
             score -= 2.5
             negative_matches.append(keyword)
 
-    # Small product-specific nudges. These prevent broad terms from stealing
-    # obvious cases without turning the classifier into a giant rules engine.
-    if family == "fullstack_python_react" and _contains_any(title_norm, ["full stack", "fullstack", "web engineer"]):
-        score += 8.0
-    if family == "ai_engineer_llm" and _contains_any(title_norm, ["ai engineer", "machine learning", "ml engineer", "llm"]):
-        score += 3.0
-    if family == "ai_automation_agents" and _contains_any(title_norm, ["automation", "agentic", "agent designer", "tooling"]):
-        score += 3.0
-    if family == "junior_software" and _contains_any(title_norm, ["junior", "graduate", "apprenticeship"]):
-        score += 3.0
-    if family == "data_python" and _contains_any(title_norm, ["data", "analytics", "tableau"]):
-        score += 3.0
-    if family == "platform_backend" and _contains_any(title_norm, ["platform", "infrastructure", "reliability", "production engineer"]):
-        score += 3.0
-
     return score, {
         "matched_terms": _unique_preserve_order(matched_terms),
         "negative_matches": _unique_preserve_order(negative_matches),
@@ -168,16 +204,6 @@ def _contains_phrase(text: str, phrase: str) -> bool:
         return False
     pattern = r"(?<![a-z0-9+#.])" + re.escape(phrase) + r"(?![a-z0-9+#.])"
     return re.search(pattern, text) is not None
-
-
-def _contains_any(text: str, phrases: list[str]) -> bool:
-    return any(_contains_phrase(text, _normalize(phrase)) for phrase in phrases)
-
-
-def _beats_tiebreak(candidate: str, current: str) -> bool:
-    if current == "unknown":
-        return True
-    return _ROLE_TIEBREAK_ORDER.index(candidate) < _ROLE_TIEBREAK_ORDER.index(current)
 
 
 def _unique_preserve_order(values: list[str]) -> list[str]:
