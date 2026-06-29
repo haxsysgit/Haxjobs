@@ -23,8 +23,8 @@ DISCOVERY → CLASSIFICATION → EVALUATION → PACK GENERATION → REPORT
 ## Development
 
 ```bash
-./dev-app.sh start          # backend + frontend
-python3 -m pytest -q        # tests
+./dev-app.sh start                     # backend + frontend
+PYTHONPATH=. python3 -m pytest -q tests/   # tests (PYTHONPATH required)
 ```
 
 ## What's not committed
@@ -38,8 +38,8 @@ Agents should read `AGENTS.md` before changing code.
 From repo root:
 
 ```bash
-python3 -m pytest -q
-python3 -m py_compile $(find . -path './dashboard/node_modules' -prune -o -path './.git' -prune -o -path './.venv' -prune -o -name '*.py' -print)
+PYTHONPATH=. python3 -m pytest -q tests/
+PYTHONPATH=. python3 -m py_compile $(find . -path './dashboard/node_modules' -prune -o -path './.git' -prune -o -path './.venv' -prune -o -name '*.py' -print)
 bash -n cron/run_pipeline.sh
 cd dashboard && npx tsc -b --noEmit && npm run lint -- --quiet && npm run build
 ```

@@ -1,6 +1,6 @@
 # HaxJobs — Pi Handoff
 
-Yo Pi. Here is everything you need to know about HaxJobs before you start on plan 017.
+Yo Pi. Here is everything you need to know about HaxJobs. Next up: plan 018.
 
 ## What HaxJobs is
 
@@ -31,12 +31,15 @@ Fixed pack file serving, fixed eval job-id bug, added pagination to /api/jobs, r
 ### Wave 3 cleanup (plans 020-022) — DONE
 Cut 10 stale tests. Swept 7 dead scripts. Aligned all docs to the current vision.
 
-### Pipeline wave (plans 015-016) — DONE (worktrees, not merged)
-- **Plan 015**: Added `discovered_jobs` table, `discovery/` package with normalize.py + hooks.py, `db/discovered_jobs.py` CRUD, CLI for `discover-manual` and `discover-run`, wired cron. 8 new tests. Worktree: `agent-a1bc793be8b5986cd`
-- **Plan 016**: Expanded `haxjobs.toml` with `[user]`, `[job_search]`, `[[roles]]` (7 families), `[evaluation]`, `[delivery]`. Added 10 config constants to `haxjobs_config.py`. 15 new tests. Worktree: `agent-ad6d708d5c1c96f0b`
+### Pipeline wave (plans 015-017) — DONE (merged to main)
+- **Plan 015**: Discovery ingestion spine — `discovered_jobs` table, `discovery/` package (normalize.py + hooks.py), `db/discovered_jobs.py`, `discover-manual` / `discover-run` CLI. 8 new tests.
+- **Plan 016**: Config contract — expanded `haxjobs.toml` with `[user]`, `[job_search]`, `[[roles]]` (7 families), `[evaluation]`, `[delivery]`. 10 config constants in `haxjobs_config.py`.
+- **Plan 017**: Config-driven classifier + pluggable evaluator. `evaluation/role_family.py` reads from `ROLE_PROFILES` instead of hardcoded JSON. `evaluate/` package with `common.py` (prompt, parse, validate), `agents/hermes.py`, `run.py` (agent selection). `evaluate_with_hermes.py` is a backward-compat shim. 12 new role-family tests, 10 new evaluator tests.
 
-### What's next: Plan 017
-**Make classification profile-driven and evaluation agent-pluggable.** This is the plan you should execute. The config contract is ready (plan 016). The discovery spine is ready (plan 015). Now the classifier should read from `haxjobs.toml` `[[roles]]` instead of the hardcoded `profile/role_taxonomy.json`, and the evaluator should use the pluggable agent adapter in `evaluate/` instead of calling `hermes chat` directly.
+Test count: 197.
+
+### What's next: Plan 018
+**Split raw discovered jobs from evaluated job outcomes** in SQLite. Extend the `evaluations` table with agent, report_markdown, pack_dir, pack_template_id, report_cycle_id. Additive migration only.
 
 ## Repo conventions
 
@@ -107,8 +110,8 @@ Config constants exposed by `haxjobs_config.py`: `USER_PROFILE`, `JOB_SEARCH_CON
 ## Verification commands
 
 ```bash
-python3 -m pytest -q                                    # tests (167 currently)
-python3 -m py_compile $(find . -path './dashboard/node_modules' -prune -o -path './.git' -prune -o -path './.venv' -prune -o -name '*.py' -print)  # compile check
+PYTHONPATH=. python3 -m pytest -q tests/                # tests (197 currently)
+PYTHONPATH=. python3 -m py_compile $(find . -path './dashboard/node_modules' -prune -o -path './.git' -prune -o -path './.venv' -prune -o -name '*.py' -print)  # compile check
 bash -n cron/run_pipeline.sh                            # bash syntax
 cd dashboard && npx tsc -b --noEmit && npm run lint -- --quiet && npm run build  # dashboard
 ```
@@ -125,14 +128,14 @@ haxjobs-private-dev/
 │   └── run_pipeline.sh       ← pipeline entry point
 ├── pipeline_db.py            ← CLI: seed, classify-roles, discover-manual, discover-run, status, etc.
 ├── api_server.py             ← HTTP API server (stdlib HTTPServer)
-├── evaluate_with_hermes.py   ← current evaluator (hardcoded to hermes CLI — plan 017 will replace this)
+├── evaluate_with_hermes.py   ← backward-compat shim → delegates to evaluate.run
 ├── generate_ready_packs.py   ← pack generation trigger
 ├── db/                       ← SQLite layer
 │   ├── schema.py             ← table definitions + migrations
 │   ├── jobs.py               ← job CRUD
 │   ├── discovered_jobs.py    ← discovery ingestion (plan 015)
 │   ├── evaluations.py        ← evaluation save/read
-│   ├── role_classification.py← hardcoded classifier (plan 017 will make this config-driven)
+│   ├── role_classification.py  ← persists role-family from config-driven classifier
 │   ├── activity.py, outreach.py, decisions.py, pack_review.py, seed.py, stats.py, favorites.py, saved.py, whitelist.py
 ├── discovery/                ← ingestion spine (plan 015)
 │   ├── normalize.py          ← job record normalization
@@ -156,19 +159,15 @@ haxjobs-private-dev/
     └── diagrams/             ← draw.io pipeline diagrams
 ```
 
-## Plan 017 — what you're building
+## Plan 018 — what's next
 
-The plan lives at `plans/017-profile-classification-and-agent-evaluation.md`. Read it fully before starting.
+The plan lives at `plans/018-split-raw-and-evaluated-job-state.md`. Read it fully before starting.
 
-In short: the classifier (`db/role_classification.py`) currently reads from the hardcoded `profile/role_taxonomy.json`. It should read from `haxjobs.toml` `[[roles]]` instead. The evaluator (`evaluate_with_hermes.py`) currently calls `hermes chat` directly. It should use the pluggable agent adapter in `evaluate/` so the agent is swappable via config.
+In short: extend the `evaluations` table additively with `agent`, `profile_snapshot_json`, `report_markdown`, `pack_dir`, `pack_template_id`, `report_cycle_id`. Update `save_evaluation()` to accept the new optional fields. This is an additive-only migration — no destructive schema changes.
 
 ## Worktrees with pending work
 
-Two worktrees have unmerged changes you may need:
-- `agent-a1bc793be8b5986cd` — plan 015 (discovery ingestion)
-- `agent-ad6d708d5c1c96f0b` — plan 016 (config contract)
-
-Both have been reviewed and approved. Their changes modify files that plan 017 depends on. You may want to merge or cherry-pick from them before starting.
+Plans 015/016 changes were cherry-picked from their worktrees onto main. The worktrees (`agent-a1bc793be8b5986cd`, `agent-ad6d708d5c1c96f0b`) still exist on disk but their useful content is now on main. They can be cleaned up.
 
 ## Git hygiene
 
