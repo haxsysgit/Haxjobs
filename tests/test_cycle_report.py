@@ -1,24 +1,11 @@
 """Tests for cycle report generation."""
 
-import re
-from pathlib import Path
-
-from db import schema
 from db.jobs import insert_job
 from db.evaluations import save_evaluation
 
 
-def test_db(monkeypatch, tmp_path):
-    """Shared test fixture — function-scoped temp DB."""
-    db_path = tmp_path / "haxjobs.db"
-    monkeypatch.setattr(schema, "DB_PATH", str(db_path))
-    schema.init()
-    return db_path
-
-
-def test_report_renders_job_entries(monkeypatch, tmp_path):
+def test_report_renders_job_entries(test_db):
     """Cycle report markdown contains job title, company, score, and URL."""
-    db_path = test_db(monkeypatch, tmp_path)
 
     job_id = insert_job(
         title="Python Backend Engineer",
@@ -61,9 +48,8 @@ def test_report_renders_job_entries(monkeypatch, tmp_path):
     assert "https://testco.com/jobs/1" in body
 
 
-def test_report_separates_levels(monkeypatch, tmp_path):
+def test_report_separates_levels(test_db):
     """L3 and L4 jobs appear under their own sections."""
-    test_db(monkeypatch, tmp_path)
 
     l1_jobs = [{"id": 1, "title": "A", "company": "X", "fit_score": 85, "level": 1,
                  "source_url": "", "summary": ""}]
@@ -84,9 +70,8 @@ def test_report_separates_levels(monkeypatch, tmp_path):
     assert "A" in body[l1_pos:]
 
 
-def test_report_with_pack_dir_shows_pack_link(monkeypatch, tmp_path):
+def test_report_with_pack_dir_shows_pack_link(test_db):
     """Jobs with pack paths include the pack directory in the report."""
-    test_db(monkeypatch, tmp_path)
 
     l1_jobs = [{
         "id": 1, "title": "Engineer", "company": "Corp",

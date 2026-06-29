@@ -141,7 +141,7 @@ def _should_generate(job: dict[str, Any], threshold: int) -> str | None:
     if level is not None and level not in AUTO_PACK_LEVELS:
         return f"level {level} not in auto-pack levels {AUTO_PACK_LEVELS}"
 
-    if int(fit_score) < threshold:
+    if fit_score < threshold:
         return f"fit score below {threshold}"
 
     variant = job.get("recommended_cv_variant")

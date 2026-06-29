@@ -64,6 +64,9 @@ USER_PROFILE: dict = _cfg.get("user", {})
 # ── Job search preferences (plan 016) ──
 JOB_SEARCH_CONFIG: dict = _cfg.get("job_search", {})
 
+# ── Discovery scraper settings (plan 023) ──
+DISCOVERY_CONFIG: dict = _cfg.get("discovery", {})
+
 # ── Role profiles for classification (plan 016) ──
 # TOML [[roles]] arrays become a list of dicts keyed by "roles"
 ROLE_PROFILES: list[dict] = _cfg.get("roles", [])
@@ -71,9 +74,9 @@ ROLE_PROFILES: list[dict] = _cfg.get("roles", [])
 # ── Evaluation config (plan 016) ──
 EVALUATION_CONFIG: dict = _cfg.get("evaluation", {})
 EVALUATION_AGENT: str = EVALUATION_CONFIG.get("agent", "hermes")
-AUTO_PACK_LEVELS: list[int] = EVALUATION_CONFIG.get("levels", {}).get("auto_pack", [1, 2])
-MANUAL_REVIEW_LEVELS: list[int] = EVALUATION_CONFIG.get("levels", {}).get("manual_review", [3])
-SKIP_LEVELS: list[int] = EVALUATION_CONFIG.get("levels", {}).get("skip", [4])
+AUTO_PACK_LEVELS: frozenset[int] = frozenset(EVALUATION_CONFIG.get("levels", {}).get("auto_pack", [1, 2]))
+MANUAL_REVIEW_LEVELS: frozenset[int] = frozenset(EVALUATION_CONFIG.get("levels", {}).get("manual_review", [3]))
+SKIP_LEVELS: frozenset[int] = frozenset(EVALUATION_CONFIG.get("levels", {}).get("skip", [4]))
 
 # ── Delivery config (plan 016) ──
 DELIVERY_CONFIG: dict = _cfg.get("delivery", {})
@@ -88,3 +91,7 @@ def db_path_str() -> str:
 
 def profile_path_str() -> str:
     return str(PROFILE_PATH)
+
+def load_config() -> dict:
+    """Return the parsed haxjobs.toml config."""
+    return dict(_cfg)

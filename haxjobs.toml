@@ -57,6 +57,13 @@ blacklisted_companies = []
 blacklisted_keywords = ["sales", "marketing", "legal", "finance", "admin"]
 lenient_filtering = true
 
+[discovery]
+# Greenhouse companies to scrape (board slugs)
+greenhouse_companies = [
+    "datadog",
+    "cloudflare",
+]
+
 # ── Role families (drives classification — matches CV variants 1:1) ──
 
 [[roles]]

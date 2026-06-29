@@ -134,6 +134,12 @@ if __name__ == "__main__":
 
         print(f"Discover run complete: {accepted_count} accepted, {rejected_count} rejected")
 
+    elif action == "scrape-greenhouse":
+        """Scrape Greenhouse boards into discovered_jobs."""
+        from discovery.scrapers.greenhouse import main as greenhouse_main
+
+        raise SystemExit(greenhouse_main(sys.argv[2:]))
+
     else:
         print(f"Unknown action: {action}")
-        print("Usage: pipeline_db.py [seed|classify-roles|status|activity|pending|favorites|reset|discover-manual|discover-run]")
+        print("Usage: pipeline_db.py [seed|classify-roles|status|activity|pending|favorites|reset|discover-manual|discover-run|scrape-greenhouse]")
