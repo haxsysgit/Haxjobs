@@ -38,8 +38,11 @@ Cut 10 stale tests. Swept 7 dead scripts. Aligned all docs to the current vision
 
 Test count: 197.
 
-### What's next: Plan 018
-**Split raw discovered jobs from evaluated job outcomes** in SQLite. Extend the `evaluations` table with agent, report_markdown, pack_dir, pack_template_id, report_cycle_id. Additive migration only.
+### What's next: Plan 010 (rejected) → fresh packaging plan needed
+
+Plans 018 and 019 are DONE. The remaining TODO (Plan 010 — package as installable engine) was written against an old repo shape (June 2026, pre 015-019) and has been rejected. A fresh packaging plan should be written against the current codebase.
+
+Deferred audit findings (6-9, D1-D2) and the 3-Agent Simulation Loop are the natural next work.
 
 ## Repo conventions
 
