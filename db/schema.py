@@ -57,8 +57,14 @@ def init():
             decision TEXT DEFAULT 'completed',
             skip_reason TEXT DEFAULT '',
             role_type TEXT DEFAULT '',
-            evaluated_by TEXT DEFAULT 'hermes',
+            evaluated_by TEXT DEFAULT '',
             evaluated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            agent TEXT DEFAULT '',
+            profile_snapshot_json TEXT DEFAULT '{}',
+            report_markdown TEXT DEFAULT '',
+            pack_dir TEXT DEFAULT '',
+            pack_template_id TEXT DEFAULT '',
+            report_cycle_id TEXT DEFAULT '',
             FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE
         );
 
@@ -171,9 +177,36 @@ def init():
         CREATE INDEX IF NOT EXISTS idx_contacts_company ON outreach_contacts(company);
         CREATE INDEX IF NOT EXISTS idx_drafts_job ON outreach_drafts(job_id);
         CREATE INDEX IF NOT EXISTS idx_drafts_status ON outreach_drafts(status);
+
+        -- Discovered / raw jobs (pre-promotion ingestion spine)
+        CREATE TABLE IF NOT EXISTS discovered_jobs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            source TEXT NOT NULL DEFAULT 'manual',
+            source_url TEXT DEFAULT '',
+            apply_url TEXT DEFAULT '',
+            ats TEXT DEFAULT '',
+            external_id TEXT DEFAULT '',
+            title TEXT NOT NULL,
+            company TEXT NOT NULL,
+            location TEXT DEFAULT '',
+            jd_text TEXT DEFAULT '',
+            raw_payload_json TEXT DEFAULT '{}',
+            discovery_status TEXT NOT NULL DEFAULT 'new',
+            filter_reason TEXT DEFAULT '',
+            promoted_job_id INTEGER,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (promoted_job_id) REFERENCES jobs(id) ON DELETE SET NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_dj_source_url ON discovered_jobs(source_url);
+        CREATE INDEX IF NOT EXISTS idx_dj_company ON discovered_jobs(company);
+        CREATE INDEX IF NOT EXISTS idx_dj_title ON discovered_jobs(title);
+        CREATE INDEX IF NOT EXISTS idx_dj_discovery_status ON discovered_jobs(discovery_status);
     """)
     _ensure_jobs_columns(conn)
     _ensure_jobs_indexes(conn)
+    _ensure_evaluation_columns(conn)
     conn.commit()
     conn.close()
 
@@ -213,3 +246,23 @@ def _ensure_jobs_indexes(conn):
         CREATE INDEX IF NOT EXISTS idx_jobs_pack_review_status ON jobs(pack_review_status);
         CREATE INDEX IF NOT EXISTS idx_jobs_outreach_status ON jobs(outreach_status);
     """)
+
+
+def _ensure_evaluation_columns(conn):
+    """Add Plan 018 evaluation-outcome columns to older databases.
+
+    Each column is additive with a safe default. SQLite requires one
+    ALTER TABLE per column.
+    """
+    existing = {row[1] for row in conn.execute("PRAGMA table_info(evaluations)")}
+    required = {
+        "agent": "TEXT DEFAULT ''",
+        "profile_snapshot_json": "TEXT DEFAULT '{}'",
+        "report_markdown": "TEXT DEFAULT ''",
+        "pack_dir": "TEXT DEFAULT ''",
+        "pack_template_id": "TEXT DEFAULT ''",
+        "report_cycle_id": "TEXT DEFAULT ''",
+    }
+    for column, definition in required.items():
+        if column not in existing:
+            conn.execute(f"ALTER TABLE evaluations ADD COLUMN {column} {definition}")

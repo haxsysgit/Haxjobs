@@ -91,3 +91,98 @@ def test_explicit_skipped_decision_sets_status_correctly(monkeypatch, tmp_path):
     job_row = conn.execute("SELECT status FROM jobs WHERE id=?", (job_id,)).fetchone()
     conn.close()
     assert job_row["status"] == "skipped"
+
+
+def test_new_fields_saved(monkeypatch, tmp_path):
+    """Plan 018: agent, pack_dir, report_markdown, and cycle fields are persisted."""
+    use_temp_db(monkeypatch, tmp_path)
+
+    job_id = insert_job(
+        title="Test Job",
+        company="TestCo",
+        location="London",
+        jd_text="Some description.",
+        source="manual",
+    )
+
+    result = {
+        "fit_score": 82,
+        "fit_verdict": "STRONG_FIT",
+        "level": 1,
+        "level_name": "Standard",
+        "strongest_matches": ["Python", "FastAPI"],
+        "major_gaps": [],
+        "summary": "Great fit.",
+        "agent": "hermes",
+        "report_markdown": "# Cycle Report\nJob was great.",
+        "pack_dir": "packs/TestCo_Python_Backend_Engineer",
+        "pack_template_id": "backend_python",
+        "report_cycle_id": "cycle-2026-06-29",
+    }
+
+    save_evaluation(job_id, result)
+    eval_row = get_evaluation(job_id)
+
+    assert eval_row["agent"] == "hermes"
+    assert eval_row["report_markdown"] == "# Cycle Report\nJob was great."
+    assert eval_row["pack_dir"] == "packs/TestCo_Python_Backend_Engineer"
+    assert eval_row["pack_template_id"] == "backend_python"
+    assert eval_row["report_cycle_id"] == "cycle-2026-06-29"
+
+
+def test_old_result_dict_still_works(monkeypatch, tmp_path):
+    """Plan 018: old result dict without new keys saves without errors."""
+    use_temp_db(monkeypatch, tmp_path)
+
+    job_id = insert_job(
+        title="Test Job",
+        company="TestCo",
+        location="London",
+        jd_text="Some description.",
+        source="manual",
+    )
+
+    # Old-style result — no agent, pack_dir, or report fields
+    result = {
+        "fit_score": 75,
+        "fit_verdict": "GOOD_FIT",
+        "level": 2,
+        "level_name": "Quick Apply",
+        "strongest_matches": ["Python"],
+        "major_gaps": [],
+        "summary": "OK fit.",
+    }
+
+    save_evaluation(job_id, result)
+    eval_row = get_evaluation(job_id)
+
+    assert eval_row is not None
+    assert eval_row["fit_score"] == 75
+    assert eval_row["decision"] == "completed"  # default
+    # New fields should be empty defaults
+    assert eval_row["agent"] == "hermes"  # falls back to EVALUATION_AGENT
+    assert eval_row["report_markdown"] == ""
+    assert eval_row["pack_dir"] == ""
+    assert eval_row["pack_template_id"] == ""
+    assert eval_row["report_cycle_id"] == ""
+
+
+def test_agent_defaults_to_evaluation_agent(monkeypatch, tmp_path):
+    """Plan 018: agent defaults to configured EVALUATION_AGENT when not provided."""
+    use_temp_db(monkeypatch, tmp_path)
+
+    job_id = insert_job(
+        title="Test Job", company="TestCo", location="London",
+        jd_text="Desc.", source="manual",
+    )
+
+    # No agent field at all
+    result = {
+        "fit_score": 70, "fit_verdict": "GOOD_FIT",
+        "level": 2, "level_name": "Quick Apply",
+        "strongest_matches": [], "major_gaps": [], "summary": "ok",
+    }
+    save_evaluation(job_id, result)
+    eval_row = get_evaluation(job_id)
+    # haxjobs.toml says agent = "hermes"
+    assert eval_row["agent"] == "hermes"

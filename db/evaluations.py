@@ -2,6 +2,7 @@
 import json
 from .schema import get_db
 from .activity import _log
+from haxjobs_config import EVALUATION_AGENT
 
 
 def save_evaluation(job_id, result):
@@ -16,11 +17,15 @@ def save_evaluation(job_id, result):
         """, (job_id, old["fit_score"], old["fit_verdict"], old["level"], old["level_name"], old["evaluated_by"]))
 
     decision = result.get("decision", "completed")
+    agent = result.get("agent") or result.get("evaluated_by") or EVALUATION_AGENT
     conn.execute("""
         INSERT INTO evaluations (job_id, fit_score, fit_verdict, level, level_name,
             strongest_matches, major_gaps, sponsorship_risk, summary, decision,
-            skip_reason, role_type, evaluated_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            skip_reason, role_type, evaluated_by,
+            agent, profile_snapshot_json, report_markdown,
+            pack_dir, pack_template_id, report_cycle_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?, ?)
         ON CONFLICT(job_id) DO UPDATE SET
             fit_score=excluded.fit_score, fit_verdict=excluded.fit_verdict,
             level=excluded.level, level_name=excluded.level_name,
@@ -29,7 +34,14 @@ def save_evaluation(job_id, result):
             sponsorship_risk=excluded.sponsorship_risk,
             summary=excluded.summary, decision=excluded.decision,
             skip_reason=excluded.skip_reason, role_type=excluded.role_type,
-            evaluated_by=excluded.evaluated_by, evaluated_at=datetime('now')
+            evaluated_by=excluded.evaluated_by,
+            agent=excluded.agent,
+            profile_snapshot_json=excluded.profile_snapshot_json,
+            report_markdown=excluded.report_markdown,
+            pack_dir=excluded.pack_dir,
+            pack_template_id=excluded.pack_template_id,
+            report_cycle_id=excluded.report_cycle_id,
+            evaluated_at=datetime('now')
     """, (
         job_id,
         result["fit_score"],
@@ -44,6 +56,12 @@ def save_evaluation(job_id, result):
         result.get("skip_reason", ""),
         result.get("role_type", ""),
         result.get("evaluated_by", "hermes"),
+        agent,
+        json.dumps(result.get("profile_snapshot_json", {})),
+        result.get("report_markdown", ""),
+        result.get("pack_dir", ""),
+        result.get("pack_template_id", ""),
+        str(result.get("report_cycle_id", "")),
     ))
     # Use the same default for both DB row and job status calculation
     new_status = "evaluated" if decision == "completed" else "skipped"

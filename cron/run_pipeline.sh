@@ -71,4 +71,8 @@ print(db.get_stats()['pending'])
 fi
 
 python3 pipeline_db.py classify-roles 2>&1 | tee -a "$LOG_FILE"
+
+# Generate cycle report (collects all evaluated jobs into a markdown digest)
+PYTHONPATH=. python3 cron/generate_cycle_report.py 2>&1 | tee -a "$LOG_FILE"
+
 log "Pipeline done."
