@@ -253,3 +253,12 @@ skip = [4]
 [delivery]
 channels = ["email"]
 report_format = "markdown"
+
+# ── Cron (automated pipeline scheduling) ──
+
+[cron]
+# Jobs to evaluate per pipeline tick (cron fires every 30 min)
+evaluate_batch = 1
+# How often discovery runs (minutes). 720 = 12 hours.
+# Cron skips discovery if the last run was within this interval.
+discovery_interval_minutes = 720

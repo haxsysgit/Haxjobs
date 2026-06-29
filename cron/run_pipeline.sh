@@ -1,8 +1,8 @@
 #!/bin/bash
-# HaxJobs Pipeline Runner v2 — step-by-step, one job at a time
-# Uses evaluate_with_hermes.py for precise Hermes evaluation.
+# HaxJobs Pipeline Runner v3 — full pipeline with configurable discovery
 # Run by system crontab every 30 minutes.
-# Each invocation processes exactly ONE pending job.
+# Discovery runs conditionally (once per discovery_interval_minutes).
+# Evaluation processes evaluate_batch jobs per tick.
 set -euo pipefail
 
 # --- auto-detect HAXJOBS_HOME ---
@@ -14,8 +14,31 @@ export HAXJOBS_HOME
 cd "$HAXJOBS_HOME"
 
 LOG_FILE="state/pipeline.log"
+DISCOVERY_MARKER="state/.last_discovery"
 
 log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] $*" | tee -a "$LOG_FILE"; }
+
+# Read config values
+BATCH=$(python3 -c "
+import sys; sys.path.insert(0, '.')
+from haxjobs_config import CRON_CONFIG
+print(CRON_CONFIG.get('evaluate_batch', 1))
+")
+DISCOVERY_INTERVAL=$(python3 -c "
+import sys; sys.path.insert(0, '.')
+from haxjobs_config import CRON_CONFIG
+print(CRON_CONFIG.get('discovery_interval_minutes', 720))
+")
+
+# ── Conditional discovery (plan 026) ──
+# Run discovery if the marker is missing or older than discovery_interval_minutes.
+if [ ! -f "$DISCOVERY_MARKER" ] || [ "$(find "$DISCOVERY_MARKER" -mmin +"$DISCOVERY_INTERVAL")" ]; then
+    log "Running discovery cycle…"
+    PYTHONPATH=. python3 pipeline_db.py discover-full 2>&1 | tee -a "$LOG_FILE" || log "Discovery had issues (continuing)"
+    touch "$DISCOVERY_MARKER"
+else
+    log "Discovery skipped (last run within ${DISCOVERY_INTERVAL} minutes)."
+fi
 
 # Count pending jobs
 PENDING=$(python3 -c "
@@ -26,16 +49,14 @@ print(db.get_stats()['pending'])
 ")
 
 if [ "$PENDING" -eq 0 ]; then
-    log "No pending jobs. Running maintenance syncs only."
-    python3 pipeline_db.py classify-roles 2>&1 | tee -a "$LOG_FILE"
-    log "Pipeline done."
+    log "No pending jobs. Pipeline done."
     exit 0
 fi
 
-log "Pipeline starting — $PENDING pending jobs. Processing 1 job..."
+log "Pipeline starting — $PENDING pending jobs. Processing up to $BATCH job(s)…"
 
-# ── Process exactly ONE job using evaluate_with_hermes.py ──
-python3 evaluate_with_hermes.py --batch 1 2>&1 | tee -a "$LOG_FILE"
+# ── Evaluate batch ──
+python3 evaluate_with_hermes.py --batch "$BATCH" 2>&1 | tee -a "$LOG_FILE"
 EXIT_CODE=$?
 
 # Re-count pending
@@ -47,18 +68,17 @@ print(db.get_stats()['pending'])
 ")
 
 if [ $EXIT_CODE -eq 0 ]; then
-    log "Job evaluated successfully. $PENDING_AFTER remaining."
+    log "Evaluation done. $PENDING_AFTER remaining."
 else
     log "Evaluation had issues (exit $EXIT_CODE). $PENDING_AFTER remaining."
 fi
 
-# If there are more pending and this is a manual trigger, process another
-# (system crontab fires every 30 min, so naturally processes 48 jobs/day)
+# --all mode: process everything in a single run
 if [ "${1:-}" = "--all" ] && [ "$PENDING_AFTER" -gt 0 ]; then
-    log "--all mode: processing remaining $PENDING_AFTER jobs one at a time..."
+    log "--all mode: processing remaining $PENDING_AFTER jobs…"
     while [ "$PENDING_AFTER" -gt 0 ]; do
         sleep 5
-        python3 evaluate_with_hermes.py --batch 1 2>&1 | tail -3 | tee -a "$LOG_FILE"
+        python3 evaluate_with_hermes.py --batch "$BATCH" 2>&1 | tail -3 | tee -a "$LOG_FILE"
         PENDING_AFTER=$(python3 -c "
 import sys; sys.path.insert(0, '.')
 import pipeline_db as db
@@ -70,9 +90,9 @@ print(db.get_stats()['pending'])
     log "--all mode: complete."
 fi
 
-python3 pipeline_db.py classify-roles 2>&1 | tee -a "$LOG_FILE"
+# Always refresh classifications and report
+PYTHONPATH=. python3 pipeline_db.py classify-roles 2>&1 | tee -a "$LOG_FILE"
 
-# Generate cycle report (collects all evaluated jobs into a markdown digest)
 PYTHONPATH=. python3 cron/generate_cycle_report.py 2>&1 | tee -a "$LOG_FILE"
 
 log "Pipeline done."

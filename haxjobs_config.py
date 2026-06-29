@@ -82,6 +82,9 @@ SKIP_LEVELS: frozenset[int] = frozenset(EVALUATION_CONFIG.get("levels", {}).get(
 DELIVERY_CONFIG: dict = _cfg.get("delivery", {})
 DELIVERY_CHANNELS: list[str] = DELIVERY_CONFIG.get("channels", ["email"])
 
+# ── Cron config (plan 026) ──
+CRON_CONFIG: dict = _cfg.get("cron", {})
+
 
 def haxjobs_home_str() -> str:
     return str(HAXJOBS_HOME)
