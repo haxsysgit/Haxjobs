@@ -121,11 +121,70 @@ def is_obvious_non_tech(title: str, jd_text: str = "") -> bool:
     return signal_count >= 2
 
 
+def passes_location_filter(location: str) -> bool:
+    """Check a job location against configured preferred locations.
+
+    Reads ``[job_search].preferred_locations`` and
+    ``[job_search].lenient_filtering`` from ``JOB_SEARCH_CONFIG``.
+    If the location doesn't match any preferred location and doesn't
+    mention remote/UK, the job is rejected early — before it wastes
+    an evaluation call.
+
+    Returns
+    -------
+    bool
+        True if the location passes the filter.
+    """
+    loc = (location or "").strip().lower()
+    if not loc:
+        # ponytail: no location provided — let it through, classifier/eval
+        # will catch obviously wrong geography.
+        return True
+
+    preferred = [
+        p.strip().lower()
+        for p in JOB_SEARCH_CONFIG.get("preferred_locations", [])
+        if p and p.strip()
+    ]
+    if not preferred:
+        return True  # no locations configured, don't filter
+
+    lenient = JOB_SEARCH_CONFIG.get("lenient_filtering", True)
+
+    # Direct match against preferred locations
+    for pref in preferred:
+        if pref in loc:
+            return True
+
+    # Remote/UK patterns — remote only passes if paired with a UK signal
+    uk_signals = ("uk", "united kingdom", "gb", "england",
+                  "scotland", "wales", "britain", "london",
+                  "manchester", "leeds")
+
+    if "remote" in loc:
+        # Must be paired with UK or a preferred location
+        if any(sig in loc for sig in uk_signals):
+            return True
+        if lenient:
+            for pref in preferred:
+                if pref in loc:
+                    return True
+        # "Remote" alone without UK/preferred → reject
+        return False
+
+    if lenient:
+        if any(kw in loc for kw in uk_signals):
+            return True
+
+    return False
+
+
 def should_accept_discovered_job(record: dict) -> tuple[bool, str]:
     """Determine whether a discovered job should be accepted.
 
     Runs blacklist check (from TOML config + hardcoded defaults),
-    obvious non-tech check, and any configured filters.
+    obvious non-tech check, location preference filter, and any
+    configured filters.
 
     Returns
     -------
@@ -135,11 +194,15 @@ def should_accept_discovered_job(record: dict) -> tuple[bool, str]:
     company = (record.get("company") or "").strip()
     title = (record.get("title") or "").strip()
     jd_text = record.get("jd_text") or ""
+    location = (record.get("location") or "").strip()
 
     if is_blacklisted_company(company):
         return False, "blacklisted"
 
     if is_obvious_non_tech(title, jd_text):
         return False, "filtered"
+
+    if not passes_location_filter(location):
+        return False, f"location not in preferred: {location[:60]}"
 
     return True, "accepted"

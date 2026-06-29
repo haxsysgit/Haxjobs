@@ -33,7 +33,7 @@ def make_discovered_job(**overrides) -> dict:
         source_url="https://example.com/jobs/1",
         title="Software Engineer",
         company="ExampleCorp",
-        location="Remote",
+        location="London, UK",
         jd_text="Build and maintain web services.",
     )
     defaults.update(overrides)
@@ -279,3 +279,88 @@ def test_insert_discovered_job_preserves_raw_payload(tmp_path, monkeypatch):
     stored = json.loads(dj["raw_payload_json"])
     assert stored["extra_field"] == "should be preserved"
     assert stored["nested"]["key"] == "value"
+
+
+# -------- location preference filter --------
+
+
+def test_location_filter_london_passes():
+    """Jobs in London pass the location filter."""
+    from discovery.hooks import passes_location_filter
+
+    assert passes_location_filter("London, UK") is True
+    assert passes_location_filter("London, United Kingdom") is True
+    assert passes_location_filter("London, England") is True
+
+
+def test_location_filter_manchester_leeds_pass():
+    """Jobs in Manchester or Leeds pass the location filter."""
+    from discovery.hooks import passes_location_filter
+
+    assert passes_location_filter("Manchester, UK") is True
+    assert passes_location_filter("Leeds, United Kingdom") is True
+
+
+def test_location_filter_remote_passes():
+    """Remote jobs pass only when paired with UK or preferred location."""
+    from discovery.hooks import passes_location_filter
+
+    assert passes_location_filter("Remote UK") is True
+    assert passes_location_filter("Remote, UK") is True
+    assert passes_location_filter("London, UK (Remote)") is True
+    assert passes_location_filter("Manchester, Remote") is True
+    # "Remote" alone without UK → reject
+    assert passes_location_filter("Remote") is False
+    assert passes_location_filter("Remote, USA") is False
+    assert passes_location_filter("Remote, Germany") is False
+
+
+def test_location_filter_nyc_rejected():
+    """Jobs in New York (no UK/remote) are rejected."""
+    from discovery.hooks import passes_location_filter
+
+    assert passes_location_filter("New York, New York, USA") is False
+    assert passes_location_filter("Sao Paulo, Brazil") is False
+    assert passes_location_filter("Tokyo, Japan") is False
+    assert passes_location_filter("Paris, France") is False
+
+
+def test_location_filter_empty_passes():
+    """Empty location passes — let classifier/eval handle it."""
+    from discovery.hooks import passes_location_filter
+
+    assert passes_location_filter("") is True
+    assert passes_location_filter("   ") is True
+
+
+def test_location_filter_uk_variants_pass():
+    """Various UK spelling/casing passes."""
+    from discovery.hooks import passes_location_filter
+
+    assert passes_location_filter("Edinburgh, Scotland") is True
+    assert passes_location_filter("Cardiff, Wales") is True
+    assert passes_location_filter("Bristol, GB") is True
+    assert passes_location_filter("London, GREAT BRITAIN") is True
+    assert passes_location_filter("Cambridge, uk") is True
+
+
+def test_should_accept_rejects_wrong_location(tmp_path, monkeypatch):
+    """should_accept_discovered_job rejects non-UK locations during discovery."""
+    init_temp_db(tmp_path, monkeypatch)
+    from discovery.hooks import should_accept_discovered_job
+    from discovery.normalize import normalize_job
+
+    # Good job: London
+    good = normalize_job(make_discovered_job(
+        title="Python Backend Engineer", company="GoodCo",
+        source_url="https://good.com/1", location="London, UK"))
+    accepted, reason = should_accept_discovered_job(good)
+    assert accepted is True, f"Expected accepted, got {reason}"
+
+    # Bad location: NYC
+    bad = normalize_job(make_discovered_job(
+        title="Python Backend Engineer", company="GoodCo",
+        source_url="https://good.com/2", location="New York, USA"))
+    accepted, reason = should_accept_discovered_job(bad)
+    assert accepted is False
+    assert "location" in reason
