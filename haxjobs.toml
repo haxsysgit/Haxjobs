@@ -1,0 +1,39 @@
+# HaxJobs configuration
+# Canonical defaults. Environment variables override any value.
+# Edit this file, never hardcode paths in scripts.
+
+[paths]
+# Root — everything derives from here
+home = "/home/hax/haxjobs-private-dev"
+
+[paths.state]
+dir = "state"
+db = "pipeline.db"
+log = "pipeline.log"
+
+[paths.runtime]
+intake = "intake"
+packs = "packs"
+reports = "reports"
+outreach = "outreach"
+
+[paths.profile]
+dir = "profile"
+local = "arinze_profile.local.json"
+cv_typed = "cv_profile.typed.json"
+
+[paths.registry]
+cv_variants = "cv_variants/registry.json"
+
+[paths.dashboard]
+dir = "dashboard"
+
+[email]
+imap_host = "imap.gmail.com"
+imap_port = 993
+address = "archilleshaxsys@gmail.com"
+allowed_senders = ["elenasuluarinze@gmail.com", "pentacker@gmail.com"]
+
+[telegram]
+chat_id = "-1003991695885"
+thread_id = 18
