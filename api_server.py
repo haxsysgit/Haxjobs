@@ -213,9 +213,17 @@ class APIHandler(BaseHTTPRequestHandler):
 
         if path == "/api/jobs":
             status_filter = qs.get("status", [None])[0]
-            jobs = list_jobs()
-            if status_filter:
-                jobs = [j for j in jobs if j["status"] == status_filter]
+            offset_str = qs.get("offset", ["0"])[0]
+            limit_str = qs.get("limit", [None])[0]
+            try:
+                offset = max(0, int(offset_str))
+            except (ValueError, TypeError):
+                offset = 0
+            try:
+                limit = int(limit_str) if limit_str else None
+            except (ValueError, TypeError):
+                limit = None
+            jobs = list_jobs(status_filter=status_filter, offset=offset, limit=limit)
             self._json(jobs)
 
         elif path == "/api/packs":

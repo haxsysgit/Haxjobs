@@ -63,7 +63,7 @@ def get_evaluation(job_id):
     return dict(row) if row else None
 
 
-def get_jobs_with_evaluations(status_filter=None):
+def get_jobs_with_evaluations(status_filter=None, offset=0, limit=None):
     conn = get_db()
     query = """
         SELECT j.*, e.fit_score, e.fit_verdict, e.level, e.level_name,
@@ -75,10 +75,19 @@ def get_jobs_with_evaluations(status_filter=None):
     """
     if status_filter:
         query += " WHERE j.status=?"
-        rows = conn.execute(query + " ORDER BY j.discovered_at DESC",
-                           (status_filter,)).fetchall()
+        query += " ORDER BY j.discovered_at DESC"
+        if limit is not None:
+            query += " LIMIT ? OFFSET ?"
+            rows = conn.execute(query, (status_filter, limit, offset)).fetchall()
+        else:
+            rows = conn.execute(query, (status_filter,)).fetchall()
     else:
-        rows = conn.execute(query + " ORDER BY j.discovered_at DESC").fetchall()
+        query += " ORDER BY j.discovered_at DESC"
+        if limit is not None:
+            query += " LIMIT ? OFFSET ?"
+            rows = conn.execute(query, (limit, offset)).fetchall()
+        else:
+            rows = conn.execute(query).fetchall()
     conn.close()
     return [_job_with_eval(r) for r in rows]
 

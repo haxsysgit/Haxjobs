@@ -144,9 +144,13 @@ async function fetchAPI<T>(path: string, options?: RequestInit): Promise<T> {
 
 export const api = {
   // Jobs
-  getJobs: (status?: string) => {
-    const qs = status ? `?status=${status}` : ''
-    return fetchAPI<Job[]>(`/api/jobs${qs}`)
+  getJobs: (status?: string, offset?: number, limit?: number) => {
+    const params = new URLSearchParams()
+    if (status) params.set('status', status)
+    if (offset !== undefined) params.set('offset', String(offset))
+    if (limit !== undefined) params.set('limit', String(limit))
+    const qs = params.toString()
+    return fetchAPI<Job[]>(`/api/jobs${qs ? '?' + qs : ''}`)
   },
 
   // Packs

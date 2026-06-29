@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 
 from server.routes.pack_resources import get_pack_detail, read_pack_text_file
+from server.routes.resources import serve_pack_file
 
 
 def make_pack(tmp_path: Path) -> Path:
@@ -70,3 +71,42 @@ def test_read_pack_text_file_reads_allowed_file(tmp_path):
 
     assert result["ok"] is True
     assert "Dear ExampleCo" in result["content"]
+
+
+def test_serve_pack_file_returns_file_from_specified_pack_dir(tmp_path, monkeypatch):
+    """serve_pack_file must only look inside the requested pack directory."""
+    import server.routes.resources as rmod
+
+    packs_root = tmp_path / "packs"
+    job_a = packs_root / "job_A_testco"
+    job_b = packs_root / "job_B_otherco"
+    job_a.mkdir(parents=True)
+    job_b.mkdir(parents=True)
+    (job_a / "cover_letter.pdf").write_text("letter A")
+    (job_b / "fit_report.pdf").write_text("report B")
+
+    monkeypatch.setattr(rmod, "PACKS_DIR", str(packs_root))
+
+    # File exists in job_A — should find it
+    result_a = serve_pack_file("job_A_testco", "cover_letter.pdf")
+    assert result_a == str(job_a / "cover_letter.pdf")
+
+    # File does NOT exist in job_B — should return None (not fall back to job_A)
+    result_b_missing = serve_pack_file("job_B_otherco", "cover_letter.pdf")
+    assert result_b_missing is None
+
+    # File exists in job_B — should find it
+    result_b = serve_pack_file("job_B_otherco", "fit_report.pdf")
+    assert result_b == str(job_b / "fit_report.pdf")
+
+
+def test_serve_pack_file_rejects_nonexistent_directory(tmp_path, monkeypatch):
+    """serve_pack_file returns None when the pack directory doesn't exist."""
+    import server.routes.resources as rmod
+
+    packs_root = tmp_path / "packs"
+    packs_root.mkdir()
+    monkeypatch.setattr(rmod, "PACKS_DIR", str(packs_root))
+
+    result = serve_pack_file("nonexistent_pack", "file.pdf")
+    assert result is None

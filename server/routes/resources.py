@@ -9,7 +9,6 @@ from haxjobs_config import (
     HAXJOBS_HOME as PIPELINE_DIR,
     PACKS_DIR,
     PROFILE_DIR,
-    DISCOVERY_DIR,
     STATE_DIR,
     PROFILE_PATH,
 )
@@ -41,15 +40,18 @@ def list_packs():
     return packs
 
 
-def serve_pack_file(job_id, filename):
-    """Serve a specific pack file for download."""
-    import glob as _glob
-    # Find the pack directory by searching for the job ID pattern
-    pack_dirs = [d for d in _glob.glob(os.path.join(PACKS_DIR, "*")) if os.path.isdir(d)]
-    for d in pack_dirs:
-        filepath = os.path.join(d, filename)
-        if os.path.isfile(filepath):
-            return filepath
+def serve_pack_file(pack_dir_name, filename):
+    """Serve a specific pack file for download.
+
+    Looks only inside the named pack directory under PACKS_DIR.
+    Returns the full file path or None.
+    """
+    target_dir = os.path.join(PACKS_DIR, pack_dir_name)
+    if not os.path.isdir(target_dir):
+        return None
+    filepath = os.path.join(target_dir, filename)
+    if os.path.isfile(filepath):
+        return filepath
     return None
 
 
@@ -133,22 +135,14 @@ def save_profile(body):
 # ── Discovery ──
 
 def get_discovery():
-    companies_txt = os.path.join(DISCOVERY_DIR, "companies.txt")
-    ashby_txt = os.path.join(DISCOVERY_DIR, "ashby_companies.txt")
-    lever_count = 0
-    ashby_count = 0
-    if os.path.exists(companies_txt):
-        with open(companies_txt) as f:
-            lever_count = len([l for l in f if l.strip() and not l.startswith("#")])
-    if os.path.exists(ashby_txt):
-        with open(ashby_txt) as f:
-            ashby_count = len([l for l in f if l.strip() and not l.startswith("#")])
+    """ponytail: discovery scrapers deleted, return DB stats."""
+    from db.stats import get_stats
+    s = get_stats()
     return {
-        "total_companies": "95+",
-        "lever_count": lever_count or 19,
-        "ashby_count": ashby_count or 60,
-        "greenhouse_count": 16,
-        "cron_jobs": 9,
+        "total_jobs": s["total_jobs"],
+        "pending": s["pending"],
+        "evaluated": s["evaluated"],
+        "skipped": s["skipped"],
         "last_pipeline_run": _get_last_log_time(),
     }
 

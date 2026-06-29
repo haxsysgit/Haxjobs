@@ -5,13 +5,15 @@ from db import jobs as db_jobs, evaluations as db_evals, favorites as db_favs, s
 from db.pack_review import review_pack
 
 
-def list_jobs():
-    """Return all jobs with evaluations, hydrated with favorites and auto-apply state.
+def list_jobs(status_filter=None, offset=0, limit=None):
+    """Return jobs with evaluations, hydrated with favorites and auto-apply state.
 
-    Uses batch lookups so the dashboard poll scales as O(1) DB round-trips
-    regardless of how many jobs are in the system.
+    Accepts optional status_filter, offset, and limit for pagination.
+    When limit is None (default), returns all jobs (backward compat).
     """
-    raw = db_evals.get_jobs_with_evaluations()
+    raw = db_evals.get_jobs_with_evaluations(
+        status_filter=status_filter, offset=offset, limit=limit
+    )
 
     # Batch: gather all job IDs once
     job_ids = [r["id"] for r in raw]
