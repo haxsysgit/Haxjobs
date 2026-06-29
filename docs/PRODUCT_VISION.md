@@ -1,110 +1,70 @@
 # HaxJobs Product Vision
 
-## What HaxJobs is now
+## What HaxJobs is
 
-HaxJobs is a job-search workspace powered by Hermes.
+HaxJobs is an autonomous job discovery and application pipeline. It finds jobs, classifies them against Arinze's profile, evaluates fit with configurable agents, generates application packs from reusable templates, and produces cycle reports — all with minimal human intervention.
 
-It gives users a place to monitor applications, save jobs, review generated application packs, manage recruiter outreach, and build a truthful profile that improves over time.
-
-Hermes can already operate across messy workflows: browsing job boards, extracting job descriptions, tailoring documents, helping fill forms, and drafting messages. HaxJobs exists so that work does not disappear into chat history.
+The user sets up their profile once in `haxjobs.toml`. The pipeline runs. The user reviews the output report. That's the loop.
 
 ## Why this exists
 
-Job searching is not one isolated action. It is a loop:
+Job searching is repetitive: find roles → judge fit → tailor materials → track everything. Most of this is mechanical enough to automate. HaxJobs automates the mechanical parts so Arinze can spend time on the parts that need human judgment: reviewing strong-fit packs, making final application decisions, and doing actual interviews.
 
-- find roles
-- judge fit
-- adapt the CV
-- answer application questions
-- submit forms
-- follow up with the right people
-- track responses
-- learn what kinds of roles work
-- reuse what worked next time
+## The pipeline
 
-Most tools only handle one slice. HaxJobs should be the place where the whole loop is visible.
+```
+DISCOVERY → CLASSIFICATION → EVALUATION → PACK GENERATION → REPORT
+```
 
-## First user outcome
+1. **Discovery** — scrapers find jobs. Hooks dedup, blacklist, and filter. All raw jobs stored.
+2. **Classification** — profile-driven from `haxjobs.toml`. No hardcoded taxonomy.
+3. **Evaluation** — pluggable agents score fit and assign levels (L1-L4).
+4. **Pack Generation** — L1/L2 auto-fill role templates. L3/L4 go to report for manual review.
+5. **Report** — markdown digest of every evaluated job with links, scores, pack paths. Delivered via configured channels.
 
-A user should be able to open HaxJobs and immediately answer:
-
-- What jobs have I saved?
-- Which ones are worth applying to?
-- Which applications are in progress?
-- Which packs were generated?
-- What do I need to review next?
-- Who should I message, if anyone?
-- What has Hermes already done?
+Manual job submissions (paste a JD link) go through the same pipeline — dedup, classify, evaluate, report.
 
 ## Product principles
 
-### 1. Human-approved automation
+### 1. Autonomous by default
 
-The system should reduce repetitive effort, not remove user control.
+The pipeline should run without human prompts. Discovery, classification, evaluation, and L1/L2 pack generation happen automatically. The user's job is to review output, not drive the process.
 
-The user must approve final submits and real outreach.
+### 2. Profile-driven, not hardcoded
 
-### 2. Truthful profile over fake optimization
+Every pipeline decision comes from the user's profile in `haxjobs.toml` — role preferences, work modes, target levels, blacklisted companies, evaluation agent choice. Nothing is hardcoded in Python.
 
-HaxJobs should build a genuine evidence-backed profile, not a keyword-stuffed persona.
+### 3. Truthful over optimized
 
-### 3. Reuse without laziness
+Packs use real profile evidence. The gap-note system admits what Arinze doesn't know instead of fabricating experience. The 3-agent simulation loop (future) stress-tests packs against real recruiter-style questioning.
 
-Prior packs, answers, and messages should be reusable, but every new role still needs a fresh fit check.
+### 4. DB is the source of truth
 
-### 4. Job search memory beats one-off chat
+Jobs, evaluations, pack paths, and report content live in SQLite. No scattered JSON files. No dual-write split-brain.
 
-Every job, pack, answer, status update, and contact should become durable state.
+### 5. Simple output, not a dashboard cockpit
 
-### 5. Beautiful but simple UI
-
-The UI should feel like a clear command center, not enterprise ATS software.
+The end product is a markdown report: evaluated jobs, links, scores, pack paths. The user reads it, decides what to act on. The dashboard is for browsing and manual review — not the primary interface.
 
 ## What HaxJobs is not
 
-HaxJobs is not:
+- Not a spam bot or auto-applier
+- Not a fake-experience generator
+- Not a generic resume builder
+- Not a heavy CRM
+- Not a replacement for Hermes — Hermes is one evaluation agent option
+- Not a platform that submits applications without user review
 
-- a spam bot
-- a mass auto-apply tool
-- a fake-experience generator
-- a generic resume builder
-- a replacement for Hermes
-- a heavy CRM
-- a platform that submits sensitive declarations without review
+## Future: 3-Agent Simulation Loop (v0.3)
 
-## Product shape
+After packs are generated, a coaching simulation stress-tests them:
 
-The main areas are:
+- **Recruiter Agent** — plays hiring manager, asks real questions about the application
+- **Applicant Agent** — answers as Arinze, using only profile evidence
+- **Evaluator Agent** — judges whether the application improved, separates safe edits from fabrication
 
-1. Dashboard
-2. Job Inbox
-3. Application Pipeline
-4. Job Detail
-5. Application Pack Library
-6. User Profile
-7. Saved Answers
-8. Outreach
-9. Hermes Task Queue
-10. Browser Extension
-
-## Default workflow
-
-```text
-Job enters HaxJobs
-→ status: Saved
-→ Hermes analyzes fit
-→ status: Analyzed
-→ user approves pack generation
-→ Hermes generates pack
-→ status: Pack Generated
-→ user approves application attempt
-→ Hermes assists application
-→ status: Applied or Needs User Input
-→ Hermes optionally finds contact
-→ user reviews message
-→ outreach status updates
-```
+This is coaching: it helps Arinze prepare, not fake feedback. Output: simulation.json per job pack.
 
 ## Core success metric
 
-HaxJobs succeeds if repeated applications become faster, clearer, and more truthful because the workspace remembers what has already been learned.
+HaxJobs succeeds if Arinze can run one command (or cron fires) and get a report that tells him: what was discovered, how it fits, where the packs are, and what's worth acting on today.

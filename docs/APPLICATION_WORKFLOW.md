@@ -2,144 +2,74 @@
 
 ## Goal
 
-HaxJobs should make real job applications faster without becoming unsafe or spammy.
+HaxJobs automates the mechanical parts of job applications so Arinze can focus on the parts that need human judgment.
 
-## End-to-end workflow
+## End-to-end pipeline
 
-```text
-1. Job enters system
-2. Hermes analyzes fit
-3. User decides whether to pursue
-4. Hermes generates application pack
-5. User reviews pack
-6. Hermes assists with application where possible
-7. Hermes stops on uncertain/sensitive fields
-8. User approves final submission
-9. HaxJobs records outcome
-10. Hermes optionally finds contacts and drafts outreach
-11. User approves any message
+```
+1. Scrapers discover jobs → raw job stored in discovered_jobs
+2. Pre-discovery hooks run: dedup, blacklist, profile filter
+3. Accepted jobs promote to jobs table
+4. Classifier assigns role_family and cv_variant from haxjobs.toml profile
+5. Evaluation agent scores fit (0-100), assigns level (L1-L4), identifies gaps
+6. L1/L2: auto-fill role pack template → regenerate PDF/cover letter
+7. L3/L4: no pack, flagged for report review
+8. Cycle report generated: all evaluated jobs with links, scores, pack paths
+9. Report saved to DB and delivered via configured channels
 ```
 
-## Application statuses
+Manual job submissions (paste JD link) enter at step 1 — same normalization, same hooks, same pipeline.
 
-Use these statuses by default:
+## Evaluation levels and automation
 
-```text
-Saved
-Analyzing
-Analyzed
-Pack Generated
-Ready to Apply
-Applying
-Needs User Input
-Applied
-Contact Found
-Message Drafted
-Message Approved
-Message Sent
-Interview
-Rejected
-Offer
-Archived
+| Level | Score | Automation |
+|-------|-------|------------|
+| L1 (Standard) | 75+ | Auto-pack: full template fill + PDF/cover letter |
+| L2 (Quick Apply) | 50-74 | Auto-pack: template fill + cover letter |
+| L3 (Lite) | 30-49 | Report only — appears in cycle report for manual review |
+| L4 (Skip) | <30 | Report only — skip reason recorded |
+
+## Pack generation
+
+Packs are template-fill, not generated from scratch. Each role has a pre-built template in `application_templates/` with slots: `{company}`, `{hiring_manager_or_team}`, `{role_title}`, `{jd_match_points}`, `{company_reason}`, `{evidence_story}`, `{gap_note}`.
+
+The agent fills slots with job-specific data. The filled HTML is regenerated into PDF/cover letter. No new CV per job — packs reference one of 7 reusable CV variants.
+
+## Report output
+
+Each pipeline cycle produces `reports/<cycle>.md`:
+
+```
+# HaxJobs Cycle Report — 2026-06-28
+
+## Summary
+- Discovered: 45 jobs
+- Evaluated: 42 jobs
+- L1 (auto-pack): 8
+- L2 (auto-pack): 15
+- L3 (manual review): 12
+- L4 (skipped): 7
+
+## L1/L2 — Packs Generated
+| Job | Company | Score | Pack Path |
+|-----|---------|-------|-----------|
+
+## L3 — Manual Review Needed
+| Job | Company | Score | Gap Summary |
+|-----|---------|-------|-------------|
+
+## L4 — Skipped
+| Job | Company | Reason |
+|-----|---------|--------|
 ```
 
-## Fit and sponsorship review
+## Safety boundaries
 
-Every serious job should get:
+- **Never** auto-submit applications. Packs are preparation material only.
+- **Never** auto-send outreach. Drafts may be generated; sending requires approval.
+- **Never** fabricate experience. Template slots fill from real profile data. The gap-note system admits what's missing.
+- **Never** generate per-job CVs. Seven reusable variants only.
 
-- fit score
-- strongest matching evidence
-- major gaps
-- sponsorship risk
-- recommendation
-- next action
+## Future: 3-Agent Simulation Loop (v0.3)
 
-Sponsorship risk should be explicit because it heavily affects Arinze's current job search.
-
-## Application pack rules
-
-A pack usually includes:
-
-- tailored CV
-- cover letter
-- likely application questions/answers
-- optional fit/interview notes
-- combined PDF if useful
-
-The submitted CV must not include internal notes, fit scores, gap warnings, or claim-safety comments.
-
-## Apply-assist boundaries
-
-Hermes may:
-
-- open the job page
-- log in when explicitly approved
-- fill known fields
-- upload the tailored CV
-- answer already-confirmed standard fields
-- summarize blockers
-
-Hermes must stop before:
-
-- final submit
-- sensitive legal declarations
-- demographic/disability disclosures
-- salary expectations not already confirmed
-- anything uncertain
-
-## Outreach workflow
-
-Contacting people should be selective and human.
-
-Good reasons to find/draft outreach:
-
-- strong fit
-- role has a visible poster
-- recruiter is clearly responsible
-- company/team has a relevant engineering manager
-- application could benefit from context
-
-Bad reasons:
-
-- mass messaging everyone at a company
-- generic copy-paste outreach
-- weak fit where outreach would look desperate
-
-## Outreach statuses
-
-```text
-Not Needed
-Contact Search Needed
-Contact Found
-Message Drafted
-Message Approved
-Message Sent
-Replied
-No Response
-Skipped
-```
-
-## Message style
-
-Messages should be:
-
-- short
-- natural
-- specific to the role/company
-- honest about the user's angle
-- not over-polished
-- not spammy
-
-## Audit trail
-
-Every meaningful action should become a timeline event:
-
-- job saved
-- job analyzed
-- pack generated
-- application started
-- user input requested
-- application submitted
-- contact found
-- message drafted
-- message sent
+After packs are generated, an optional coaching simulation stress-tests them against recruiter-style questioning. See ARCHITECTURE.md for details.

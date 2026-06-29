@@ -1,154 +1,121 @@
 # HaxJobs Architecture
 
-## Architecture summary
+HaxJobs is an autonomous pipeline, not a web-app workspace. Jobs flow through five stages. The dashboard and API are secondary — the primary interface is the cycle report.
 
-HaxJobs is a stateful web application and workflow coordinator sitting above Hermes.
+## Pipeline architecture
 
-```text
-Browser extension / manual input / Hermes search
-        ↓
-     HaxJobs API
-        ↓
-Database: jobs, applications, profile, packs, contacts, tasks
-        ↓
-HaxJobs UI: dashboard, pipeline, profile, inbox, outreach
-        ↓
-Hermes task queue integration
-        ↓
-Hermes performs analysis, generation, browser automation, and contact lookup
+```
+                             ┌─────────────────┐
+                             │   haxjobs.toml   │
+                             │  (user profile,  │
+                             │   job prefs,     │
+                             │   agent config,  │
+                             │   delivery)      │
+                             └────────┬────────┘
+                                      │ drives everything
+                                      ▼
+┌──────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────┐
+│ DISCOVERY│───▶│CLASSIFICATION│───▶│  EVALUATION  │───▶│ PACK GENERATION│───▶│  REPORT  │
+└──────────┘    └──────────────┘    └──────────────┘    └──────────────┘    └──────────┘
+     │                 │                   │                   │                  │
+     ▼                 ▼                   ▼                   ▼                  ▼
+┌──────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────┐
+│discovered │    │    jobs      │    │ evaluations  │    │   packs/     │    │ reports/ │
+│  _jobs    │    │  (accepted)  │    │ (fit data)   │    │ (templates   │    │ (markdown│
+│  (raw)    │    │              │    │              │    │  filled)     │    │  digest) │
+└──────────┘    └──────────────┘    └──────────────┘    └──────────────┘    └──────────┘
 ```
 
-## Main boundaries
+### Stage 1: Discovery
 
-### UI layer
+Automatic scrapers find jobs. Pre-discovery hooks run:
+- Dedup: check source_url against existing jobs
+- Blacklist: check company against configured blacklist
+- Filter: leniently remove non-tech or profile-irrelevant roles
 
-Shows the user what is happening:
+Accepted jobs promote from `discovered_jobs` to `jobs` table. Manual submissions (paste JD link) go through the same normalization and hooks.
 
-- saved jobs
-- application statuses
-- generated documents
-- next actions
-- user profile
-- saved answers
-- contact/message drafts
-- Hermes task state
+### Stage 2: Classification
 
-### API layer
+Profile-driven from `haxjobs.toml` `[[roles]]` config. Each configured role has keywords, cv_variant, priority. The classifier matches job title/JD against configured roles. Output: role_family, cv_variant, confidence. No hardcoded taxonomy.
 
-Owns CRUD and workflow transitions:
+### Stage 3: Evaluation
 
-- create saved job
-- normalize job snapshot
-- update application status
-- attach documents
-- create Hermes task
-- record Hermes result
-- manage profile facts
-- manage saved answers
+Pluggable agent system (`evaluate/` package). Agent choice from `haxjobs.toml` `[evaluation].agent`. Each agent adapter implements: `call_agent(prompt, timeout_seconds) -> str`. Results written to `evaluations` table with agent name, fit score (0-100), level (1-4), gaps, summary.
 
-### Data layer
+Levels:
+- L1 (75+): Standard — auto-pack
+- L2 (50-74): Quick Apply — auto-pack
+- L3 (30-49): Lite — report only, no pack
+- L4 (<30): Skip — report only
 
-Stores durable job-search memory.
+### Stage 4: Pack Generation
 
-Start simple with SQLite locally. Use Postgres later if deployment needs it.
+Pre-built role templates live in `application_templates/`. Seven roles, each with cover letter template and pack template. Slots: `{company}`, `{hiring_manager_or_team}`, `{role_title}`, `{jd_match_points}`, `{company_reason}`, `{evidence_story}`, `{gap_note}`.
 
-### Hermes integration layer
+L1/L2: auto-fill template slots → regenerate PDF/cover letter from HTML.
+L3/L4: no pack generation. Appear in cycle report for manual review.
 
-Coordinates work that needs agent reasoning or browser automation.
+### Stage 5: Report
 
-HaxJobs should create tasks. Hermes should complete them and write back structured results.
+End-of-cycle markdown report: all evaluated jobs with links, scores, levels, pack paths, fit summaries. Saved to DB (`evaluations.report_markdown`). Delivered via configured channels (email, Telegram).
 
-## Recommended MVP stack
+## DB layout
 
-Current repo already has a web app direction. Keep that unless there is a strong reason to reset.
+Single SQLite database (`state/pipeline.db`):
 
-- Backend: Python stdlib HTTP (current active) / FastAPI (possible future migration)
-- Frontend: React + TypeScript + Vite (current active) / Vue 3 (historical)
-- Local database: SQLite
-- Future production database: PostgreSQL
-- Browser extension: Manifest V3
-- Document storage: local filesystem first
-- Agent integration: Hermes task queue first, MCP/API later
-
-## Core modules
-
-### Jobs
-
-Represents an opportunity, not an application attempt.
-
-A job can come from:
-
-- Hermes search
-- browser extension save
-- manual URL paste
-- imported list
-
-### Applications
-
-Represents the user's attempt to pursue a job.
-
-Tracks status, fit score, sponsorship risk, notes, and next actions.
-
-### Profile
-
-Stores the user's career truth and reusable application answers.
-
-### Application Packs
-
-Stores generated documents and their relationship to jobs/applications.
-
-### Contacts and Outreach
-
-Stores relevant people and approved/drafted/sent messages.
-
-### Hermes Tasks
-
-Stores work requests and results.
-
-Examples:
-
-- `analyze_job`
-- `generate_pack`
-- `apply_assist`
-- `find_contacts`
-- `draft_outreach`
-- `refresh_status`
-
-## Hermes task lifecycle
-
-```text
-pending → running → needs_user_input → completed
-                  ↘ failed
-                  ↘ cancelled
+```
+discovered_jobs     — raw scraped/manual jobs before hooks
+jobs                — accepted jobs promoted from discovery
+evaluations         — fit evaluation results (agent, score, level, report, pack path)
+favorites           — user-starred jobs
+saved_jobs          — user-saved jobs
+decisions           — approval/rejection decisions
+outreach_drafts     — generated outreach messages
+activity_log        — pipeline event log
+evaluation_history  — historical scores on re-evaluation
+profile_snapshots   — profile state at evaluation time
+whitelist           — company/role whitelist entries
 ```
 
-Tasks should include:
+## Config architecture
 
-- type
-- target entity
-- prompt/instructions
-- input payload
-- result payload
-- status
-- created_at
-- updated_at
-- error if failed
+`haxjobs.toml` is the canonical config. `haxjobs_config.py` parses it with `tomllib` and applies env var overrides. Every script imports config — no hardcoded paths or agent names.
 
-## Design choice: task queue over direct control
+Sections: `[paths]`, `[user]`, `[job_search]`, `[[roles]]`, `[evaluation]`, `[delivery]`, `[email]`, `[telegram]`.
 
-For MVP, prefer HaxJobs storing pending tasks and Hermes polling/processing them.
+## Directory map
 
-This is simpler than trying to keep a live browser session or realtime agent connection inside the web app.
+```
+haxjobs-private-dev/
+├── haxjobs.toml              ← canonical config
+├── haxjobs_config.py         ← thin parser
+├── AGENTS.md                 ← agent guide (this vision)
+├── cron/run_pipeline.sh      ← pipeline entry point
+├── pipeline_db.py            ← CLI: seed, classify, status
+├── db/                       ← SQLite layer (schema, jobs, evaluations, etc.)
+├── evaluate/                 ← evaluation agents (common + agent adapters)
+├── packs_builder/            ← pack generation (template fill)
+├── reports/                  ← cycle report generation
+├── server/                   ← API server + routes
+├── dashboard/                ← React + TypeScript dashboard
+├── cv_variants/              ← 7 reusable CV variants
+├── application_templates/    ← role templates with fillable slots
+├── profile/                  ← user profile data
+├── state/                    ← runtime artifacts (DB, logs)
+├── packs/                    ← generated pack directories
+├── reports/                  ← generated cycle reports
+├── tests/                    ← test suite
+└── plans/                    ← implementation plans
+```
 
-## Safety boundary
+## Future: 3-Agent Simulation Loop (v0.3)
 
-HaxJobs should store approval checkpoints as first-class records.
+After pack generation, an optional coaching simulation stress-tests the pack:
 
-Examples:
+```
+RECRUITER (asks questions) → APPLICANT (answers from profile) → EVALUATOR (judges improvement)
+```
 
-- application final submit approval
-- outreach message approval
-- legal answer confirmation
-- salary answer confirmation
-
-If no approval exists, Hermes should stop and ask.
+Stops when: shortlisted, rejected with unfixable gaps, no material gain, or max 3 rounds.
+Output: `packs/<job>/simulation.json`.

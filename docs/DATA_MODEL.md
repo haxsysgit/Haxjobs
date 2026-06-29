@@ -1,319 +1,107 @@
 # HaxJobs Data Model
 
-This is the target conceptual data model. It can be implemented gradually.
+Single SQLite database (`state/pipeline.db`). All tables use integer primary keys, foreign keys with CASCADE where appropriate, and ISO-8601 timestamps.
 
-## Entity overview
+## Core tables
 
-```text
-UserProfile
-ProfileFact
-SavedAnswer
-Job
-JobSourceSnapshot
-Application
-ApplicationPack
-Document
-Contact
-OutreachMessage
-HermesTask
-ApprovalCheckpoint
-StatusEvent
+### discovered_jobs
+
+Raw scraped or manually submitted jobs before processing.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | INTEGER PK | |
+| source | TEXT | `manual`, `greenhouse`, `ashby`, `lever` |
+| source_url | TEXT | Unique job URL |
+| apply_url | TEXT | Direct apply link if different |
+| ats | TEXT | ATS platform if detected |
+| external_id | TEXT | Source-specific ID |
+| title | TEXT | |
+| company | TEXT | |
+| location | TEXT | |
+| jd_text | TEXT | Full job description |
+| raw_payload_json | TEXT | Original scraper output |
+| discovery_status | TEXT | `new`, `duplicate`, `blacklisted`, `filtered`, `accepted` |
+| filter_reason | TEXT | Why filtered/skipped |
+| created_at | TEXT | ISO-8601 |
+| updated_at | TEXT | ISO-8601 |
+
+### jobs
+
+Accepted jobs promoted from discovery.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | INTEGER PK | |
+| external_id | TEXT UNIQUE | Links back to discovered_jobs |
+| title | TEXT | |
+| company | TEXT | |
+| location | TEXT | |
+| jd_text | TEXT | |
+| source_url | TEXT | |
+| source | TEXT | |
+| status | TEXT | `pending`, `evaluated`, `skipped` |
+| role_family | TEXT | From classifier |
+| role_family_confidence | REAL | 0.0-1.0 |
+| recommended_cv_variant | TEXT | Which CV variant to use |
+| pack_status | TEXT | `none`, `generated`, `manual_review` |
+| pack_dir | TEXT | Path to pack directory |
+| pack_review_status | TEXT | For L3/L4 manual review |
+| outreach_status | TEXT | |
+| classified_at | TEXT | ISO-8601 |
+| discovered_at | TEXT | ISO-8601 |
+| updated_at | TEXT | ISO-8601 |
+
+### evaluations
+
+Fit evaluation results. One row per evaluated job.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | INTEGER PK | |
+| job_id | INTEGER FK | UNIQUE reference to jobs |
+| fit_score | INTEGER | 0-100 |
+| fit_verdict | TEXT | STRONG_FIT, GOOD_FIT, WEAK_FIT, SKIP |
+| level | INTEGER | 1-4 |
+| level_name | TEXT | Standard, Quick Apply, Lite, Skip |
+| strongest_matches | TEXT | JSON array |
+| major_gaps | TEXT | JSON array |
+| sponsorship_risk | TEXT | low, medium, high |
+| summary | TEXT | Fit summary |
+| decision | TEXT | completed, skipped |
+| skip_reason | TEXT | |
+| agent | TEXT | Which evaluation agent produced this |
+| profile_snapshot_json | TEXT | Profile state at eval time |
+| report_markdown | TEXT | Generated report section for this job |
+| pack_dir | TEXT | Path to generated pack |
+| pack_template_id | TEXT | Which role template was used |
+| report_cycle_id | TEXT | Which cycle report this belongs to |
+| evaluated_by | TEXT | Agent name |
+| evaluated_at | TEXT | ISO-8601 |
+
+### Supporting tables
+
+- **favorites** — user-starred jobs (job_id UNIQUE FK)
+- **saved_jobs** — user-saved jobs with notes (job_id UNIQUE FK)
+- **decisions** — approval/rejection/skip decisions per job
+- **outreach_drafts** — generated outreach messages (linked to jobs and contacts)
+- **outreach_contacts** — discovered recruiter/hiring manager contacts
+- **activity_log** — pipeline event log
+- **evaluation_history** — historical scores when jobs are re-evaluated
+- **profile_snapshots** — profile state captured at evaluation time
+- **whitelist** — company/role whitelist patterns for evaluation
+
+## Key relationships
+
+```
+discovered_jobs --(promoted)--> jobs
+jobs --(evaluated)--> evaluations
+jobs --(starred)--> favorites
+evaluations --(historical)--> evaluation_history
+jobs --(decided)--> decisions
+jobs --(outreach)--> outreach_drafts --> outreach_contacts
 ```
 
-## UserProfile
+## Config-driven, not schema-driven
 
-Stores top-level user identity and job-search preferences.
-
-Fields:
-
-```text
-id
-name
-email
-phone
-location
-linkedin_url
-github_url
-portfolio_url
-requires_sponsorship
-work_authorization_summary
-salary_preference
-availability
-preferred_locations
-preferred_work_modes
-preferred_roles
-created_at
-updated_at
-```
-
-## ProfileFact
-
-Stores evidence-backed career truth.
-
-Fields:
-
-```text
-id
-profile_id
-category          # skill, project, education, work, preference, constraint
-claim
-safe_wording
-avoid_wording
-evidence_source
-confidence        # confirmed, inferred, weak, needs_confirmation
-last_confirmed_at
-created_at
-updated_at
-```
-
-## SavedAnswer
-
-Reusable application answers.
-
-Fields:
-
-```text
-id
-profile_id
-question_key
-question_text
-answer
-sensitivity       # normal, review_before_use, legal_sensitive, never_auto_answer
-last_confirmed_at
-created_at
-updated_at
-```
-
-Sensitive answers include visa/work authorization, salary numbers, demographic/disability disclosures, criminal/legal declarations, and anything with a certification checkbox.
-
-## Job
-
-Represents an opportunity.
-
-Fields:
-
-```text
-id
-company
-title
-location
-source_platform   # linkedin, indeed, reed, company_site, workday, greenhouse, lever, ashby, manual, other
-source_url
-job_description
-salary_text
-work_mode
-seniority
-employment_type
-sponsorship_signal
-status            # saved, analyzing, analyzed, archived
-created_at
-updated_at
-```
-
-## JobSourceSnapshot
-
-Raw saved page data, especially from the browser extension.
-
-Fields:
-
-```text
-id
-job_id nullable
-url
-title
-source_platform
-visible_text
-selected_text
-html_snapshot_path optional
-screenshot_path optional
-user_note
-captured_at
-processed_at
-```
-
-The extension should create snapshots first. Hermes can normalize them into Jobs later.
-
-## Application
-
-Represents the user's pursuit of a Job.
-
-Fields:
-
-```text
-id
-job_id
-status
-fit_score
-sponsorship_risk
-recommendation
-next_action
-applied_at
-external_application_id optional
-notes
-created_at
-updated_at
-```
-
-Preferred statuses:
-
-```text
-Saved
-Analyzing
-Analyzed
-Pack Generated
-Ready to Apply
-Applying
-Needs User Input
-Applied
-Contact Found
-Message Drafted
-Message Approved
-Message Sent
-Interview
-Rejected
-Offer
-Archived
-```
-
-## ApplicationPack
-
-Generated materials for a job/application.
-
-Fields:
-
-```text
-id
-application_id
-company
-role_title
-based_on_pack_id nullable
-generation_mode
-fit_summary
-created_at
-updated_at
-```
-
-## Document
-
-Files attached to a pack or application.
-
-Fields:
-
-```text
-id
-application_pack_id
-document_type      # tailored_cv, cover_letter, application_questions, combined_pack, fit_report, notes
-format             # pdf, md, html, json, docx
-path
-version
-is_submitted_version
-created_at
-```
-
-## Contact
-
-Potential recruiter/hiring-manager/contact.
-
-Fields:
-
-```text
-id
-job_id
-name
-title
-company
-platform          # linkedin, email, website, other
-profile_url
-email nullable
-relevance_reason
-confidence
-created_at
-updated_at
-```
-
-## OutreachMessage
-
-Drafted or sent outreach.
-
-Fields:
-
-```text
-id
-contact_id
-application_id
-channel
-message_text
-status            # drafted, approved, sent, replied, no_response, skipped
-approved_at
-sent_at
-created_at
-updated_at
-```
-
-## HermesTask
-
-Work request for Hermes.
-
-Fields:
-
-```text
-id
-task_type
-target_type
-target_id
-status
-instructions
-input_payload_json
-result_payload_json
-error
-created_at
-started_at
-completed_at
-```
-
-Task types:
-
-```text
-analyze_job
-generate_pack
-apply_assist
-find_contacts
-draft_outreach
-rank_saved_jobs
-refresh_application_status
-```
-
-## ApprovalCheckpoint
-
-Records user approval before high-stakes actions.
-
-Fields:
-
-```text
-id
-target_type
-target_id
-action_type        # submit_application, send_message, use_sensitive_answer
-summary
-approved_by
-approved_at
-expires_at optional
-```
-
-## StatusEvent
-
-Append-only timeline event.
-
-Fields:
-
-```text
-id
-entity_type
-entity_id
-event_type
-message
-metadata_json
-created_at
-```
-
-This makes the job-search history auditable without overcomplicating the current status fields.
+Role families, CV variants, evaluation agent choice, and delivery channels are configured in `haxjobs.toml`, not in the database schema. The DB stores data; the config drives behavior.
