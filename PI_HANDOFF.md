@@ -1,6 +1,6 @@
 # HaxJobs — Pi Handoff
 
-Yo Pi. Here is everything you need to know about HaxJobs. Next up: plan 018.
+Yo Pi. Here is everything you need to know about HaxJobs. Current status: Plans 001-022 complete (204 tests). Next: 3-Agent Simulation Loop or deferred audit fixes.
 
 ## What HaxJobs is
 
