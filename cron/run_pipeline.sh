@@ -7,7 +7,7 @@ set -euo pipefail
 
 # --- auto-detect HAXJOBS_HOME ---
 if [ -z "${HAXJOBS_HOME:-}" ]; then
-  HAXJOBS_HOME="$(cd "$(dirname "$0")" && pwd)"
+  HAXJOBS_HOME="$(cd "$(dirname "$0")/.." && pwd)"
 fi
 export HAXJOBS_HOME
 # --- end auto-detect ---
@@ -28,16 +28,11 @@ print(db.get_stats()['pending'])
 if [ "$PENDING" -eq 0 ]; then
     log "No pending jobs. Running maintenance syncs only."
     python3 pipeline_db.py classify-roles 2>&1 | tee -a "$LOG_FILE"
-    python3 "$HAXJOBS_HOME/cron/sync_db_to_intake.py
     log "Pipeline done."
     exit 0
 fi
 
 log "Pipeline starting — $PENDING pending jobs. Processing 1 job..."
-
-# ── Job Classifier: build cluster index + check pack reuse ──
-log "Building job classification index..."
-python3 discovery/job_classifier.py classify 2>&1 | tee -a "$LOG_FILE"
 
 # ── Process exactly ONE job using evaluate_with_hermes.py ──
 python3 evaluate_with_hermes.py --batch 1 2>&1 | tee -a "$LOG_FILE"
@@ -76,5 +71,4 @@ print(db.get_stats()['pending'])
 fi
 
 python3 pipeline_db.py classify-roles 2>&1 | tee -a "$LOG_FILE"
-python3 "$HAXJOBS_HOME/cron/sync_db_to_intake.py
 log "Pipeline done."

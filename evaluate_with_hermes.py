@@ -13,7 +13,7 @@ Usage:
 import json, os, sys, glob, re, subprocess
 from datetime import datetime, timezone
 
-from haxjobs_config import HAXJOBS_HOME as BASE_DIR, INTAKE_DIR, PROFILE_PATH
+from haxjobs_config import HAXJOBS_HOME as BASE_DIR, PROFILE_PATH
 HERMES_BIN = "hermes"
 
 # Import pipeline_db
@@ -252,7 +252,7 @@ def call_hermes(prompt, retries=2):
     for attempt in range(retries + 1):
         try:
             result = subprocess.run(
-                [HERMES_BIN, "chat", "--yolo", "-q", prompt],
+                [HERMES_BIN, "chat", "--yolo", "-Q", "-q", prompt],
                 capture_output=True, text=True, timeout=180,
                 env={**os.environ, "HOME": os.path.expanduser("~")}
             )
@@ -325,111 +325,15 @@ def evaluate_from_db():
     db.save_evaluation(job_id, result)
     print(f"  → {result['fit_verdict']} (score={result['fit_score']}, level={result['level']})")
 
-    # Also update the intake JSON file if it exists
-    ext_id = job.get("external_id")
-    if ext_id:
-        fpath = os.path.join(INTAKE_DIR, ext_id)
-        if os.path.exists(fpath):
-            try:
-                intake = json.load(open(fpath))
-                intake["status"] = "evaluated" if result["decision"] == "completed" else "skipped"
-                intake["fit_report"] = {
-                    "fit_score": result["fit_score"],
-                    "fit_verdict": result["fit_verdict"],
-                    "strongest_matches": result.get("strongest_matches", []),
-                    "major_gaps": result.get("major_gaps", []),
-                    "sponsorship_risk": result.get("sponsorship_risk", "medium"),
-                    "summary": result.get("summary", ""),
-                }
-                intake["level"] = result["level"]
-                intake["level_name"] = result["level_name"]
-                intake["evaluated_by"] = "hermes"
-                intake["evaluated_at"] = datetime.now(timezone.utc).isoformat()
-                if result.get("skip_reason"):
-                    intake["skip_reason"] = result["skip_reason"]
-                with open(fpath, "w") as f:
-                    json.dump(intake, f, indent=2)
-            except Exception as e:
-                print(f"  WARNING: Could not update intake JSON: {e}")
+
 
     return True
 
 
-def evaluate_intake_file(fpath):
-    """Evaluate a single intake JSON file. Legacy path — prefer DB path."""
-    try:
-        job = load_json(fpath)
-    except Exception:
-        print(f"  ERROR: Cannot read {fpath}")
-        return False
-
-    if job.get("status") not in ("pending",):
-        print(f"  SKIP: Already {job.get('status')} — {os.path.basename(fpath)}")
-        return False
-
-    # Ensure job exists in DB
-    fname = os.path.basename(fpath)
-    db_job = db.get_job(db.insert_job(
-        title=job.get("title", "Unknown"),
-        company=job.get("company", "Unknown"),
-        location=job.get("location", ""),
-        jd_text=job.get("jd_text", ""),
-        source_url=job.get("source_url", ""),
-        source=job.get("source", "unknown"),
-        external_id=fname,
-    ))
-
-    if not db_job:
-        print(f"  WARNING: Could not sync to DB, evaluating from file only")
-
-    result = evaluate_one_job(job)
-    if not result:
-        return False
-
-    # Save to DB if possible
-    db_jobs = db.get_pending_jobs(1)
-    if db_jobs:
-        result["evaluated_by"] = "hermes"
-        db.save_evaluation(db_jobs[0]["id"], result)
-
-    # Write back to intake file
-    job["fit_report"] = {
-        "fit_score": result["fit_score"],
-        "fit_verdict": result["fit_verdict"],
-        "strongest_matches": result.get("strongest_matches", []),
-        "major_gaps": result.get("major_gaps", []),
-        "sponsorship_risk": result.get("sponsorship_risk", "medium"),
-        "summary": result.get("summary", ""),
-    }
-    job["status"] = "evaluated" if result["decision"] == "completed" else "skipped"
-    job["level"] = result["level"]
-    job["level_name"] = result["level_name"]
-    if result.get("skip_reason"):
-        job["skip_reason"] = result["skip_reason"]
-    job["evaluated_at"] = datetime.now(timezone.utc).isoformat()
-    job["evaluated_by"] = "hermes"
-
-    with open(fpath, "w") as f:
-        json.dump(job, f, indent=2)
-
-    print(f"  → {result['fit_verdict']} (score={result['fit_score']}, level={result['level']})")
-    return True
 
 
-def get_pending_from_intake(limit=None):
-    """Get pending intake files, oldest first."""
-    files = sorted(glob.glob(os.path.join(INTAKE_DIR, "*.json")))
-    pending = []
-    for f in files:
-        try:
-            d = load_json(f)
-            if d.get("status") == "pending":
-                pending.append(f)
-        except Exception:
-            pass
-    if limit:
-        pending = pending[:limit]
-    return pending
+
+
 
 
 if __name__ == "__main__":
@@ -461,45 +365,12 @@ if __name__ == "__main__":
                     result["evaluated_by"] = "hermes"
                     db.save_evaluation(job["id"], result)
                     print(f"  → {result['fit_verdict']} (score={result['fit_score']}, level={result['level']})")
-                    # Also update the intake JSON file if it exists
-                    ext_id = job.get("external_id")
-                    if ext_id:
-                        fpath = os.path.join(INTAKE_DIR, ext_id)
-                        if os.path.exists(fpath):
-                            try:
-                                intake = json.load(open(fpath))
-                                intake["status"] = "evaluated" if result["decision"] == "completed" else "skipped"
-                                intake["fit_report"] = {
-                                    "fit_score": result["fit_score"],
-                                    "fit_verdict": result["fit_verdict"],
-                                    "strongest_matches": result.get("strongest_matches", []),
-                                    "major_gaps": result.get("major_gaps", []),
-                                    "sponsorship_risk": result.get("sponsorship_risk", "medium"),
-                                    "summary": result.get("summary", ""),
-                                }
-                                intake["level"] = result["level"]
-                                intake["level_name"] = result["level_name"]
-                                intake["evaluated_by"] = "hermes"
-                                intake["evaluated_at"] = datetime.now(timezone.utc).isoformat()
-                                if result.get("skip_reason"):
-                                    intake["skip_reason"] = result["skip_reason"]
-                                with open(fpath, "w") as f:
-                                    json.dump(intake, f, indent=2)
-                            except Exception as e:
-                                print(f"  WARNING: Could not update intake JSON: {e}")
+
                 else:
                     print(f"  FAILED for job #{job['id']}")
         else:
-            # Fall back to intake files
-            files = get_pending_from_intake(limit)
-            if not files:
-                print("No pending jobs.")
-                sys.exit(0)
-            ok = 0
-            for fpath in files:
-                if evaluate_intake_file(fpath):
-                    ok += 1
-            print(f"\nDone. {ok}/{len(files)} evaluated.")
+            print("No pending jobs.")
+            sys.exit(0)
 
     elif arg == "--all-pending":
         # Process all, one at a time
@@ -521,6 +392,9 @@ if __name__ == "__main__":
         print(f"\nDone. {total} jobs evaluated.")
 
     else:
-        # Assume it's a file path
-        ok = evaluate_intake_file(arg)
-        sys.exit(0 if ok else 1)
+        print(f"Unknown argument: {arg}")
+        print("Usage:")
+        print("  evaluate_with_hermes.py --next           # Next pending job from DB")
+        print("  evaluate_with_hermes.py --batch 1        # Process 1 pending")
+        print("  evaluate_with_hermes.py --all-pending    # Process all (one at a time)")
+        sys.exit(1)
