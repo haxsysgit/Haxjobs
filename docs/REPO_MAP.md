@@ -1,24 +1,26 @@
 # HaxJobs Repo Map
 
-Last updated: 2026-06-28. Reflects post-cleanup state.
+Last updated: 2026-06-29. Post-Plans-015-025 state.
 
 ```
 haxjobs-private-dev/
-├── haxjobs.toml                 # Canonical config (paths, user profile, job search, agent, delivery)
+├── haxjobs.toml                 # Canonical config (paths, user, job_search, roles, evaluation, delivery, discovery, cron)
 ├── haxjobs_config.py            # Thin TOML parser with env overrides
 ├── AGENTS.md                    # Agent guide — full pipeline vision
 ├── README.md                    # Project overview
 │
 ├── cron/
-│   └── run_pipeline.sh          # Pipeline entry point (discovery → classify → evaluate → report)
+│   ├── run_pipeline.sh          # Pipeline entry point (discovery → classify → evaluate → report)
+│   └── generate_cycle_report.py # Cycle report generator (markdown digest)
 │
-├── pipeline_db.py               # CLI: seed, classify-roles, status, discover-manual, etc.
+├── pipeline_db.py               # CLI: seed, classify-roles, status, discover-manual, discover-run, scrape-greenhouse
 ├── api_server.py                # HTTP API server (jobs, packs, profile, outreach endpoints)
 │
 ├── db/                          # SQLite layer
 │   ├── schema.py                # Table definitions + migrations
 │   ├── jobs.py                  # Job CRUD
-│   ├── evaluations.py           # Evaluation save/read
+│   ├── discovered_jobs.py       # Pre-promotion discovered job CRUD (dedup, promote)
+│   ├── evaluations.py           # Evaluation save/read (agent, score, level, pack, report)
 │   ├── activity.py              # Activity logging
 │   ├── pack_review.py           # Pack review operations
 │   ├── role_classification.py   # Classify jobs by role family
@@ -26,18 +28,24 @@ haxjobs-private-dev/
 │   ├── decisions.py             # Decision recording
 │   └── seed.py                  # DB seeding from files
 │
-├── evaluate/                    # Pluggable evaluation agents (future)
+├── discovery/                   # Job discovery ingestion spine
+│   ├── normalize.py             # Field mapping (scraper → CANONICAL_KEYS)
+│   ├── hooks.py                 # Blacklist, non-tech filter, location preference filter
+│   └── scrapers/
+│       └── greenhouse.py        # Greenhouse ATS scraper (config-driven)
+│
+├── evaluate/                    # Pluggable evaluation agents
 │   ├── common.py                # JSON extraction, validation, prompt building
 │   ├── agents/
 │   │   └── hermes.py            # Hermes CLI adapter
-│   └── run.py                   # Agent selection + evaluation flow
+│   └── run.py                   # Agent selection + evaluation flow + auto-pack
 │
-├── evaluate_with_hermes.py      # Compatibility shim → evaluate/
+├── evaluate_with_hermes.py      # Backward-compat shim → evaluate/
 │
 ├── packs_builder/
 │   └── job_pack.py              # Template-fill pack generation
 │
-├── generate_ready_packs.py      # Pack generation trigger (L1/L2 auto, L3/L4 manual)
+├── generate_ready_packs.py      # Standalone pack generation (level-aware via AUTO_PACK_LEVELS)
 │
 ├── server/
 │   └── routes/
@@ -74,8 +82,7 @@ haxjobs-private-dev/
 │   └── COVER_LETTER_GOVERNANCE.md
 │
 ├── profile/                     # User profile data
-│   ├── arinze_profile.local.json
-│   └── role_taxonomy.json       # Legacy — superseded by haxjobs.toml [[roles]]
+│   └── arinze_profile.local.json
 │
 ├── state/                       # Runtime artifacts (gitignored)
 │   ├── haxjobs.db               # SQLite database
@@ -83,16 +90,17 @@ haxjobs-private-dev/
 │
 ├── packs/                       # Generated pack directories (gitignored)
 ├── reports/                     # Generated cycle reports (gitignored)
-├── intake/                      # Legacy intake JSON (gitignored, deprecated)
 │
 ├── tests/                       # Test suite
-│   └── test_*.py                # Per-module tests
+│   ├── conftest.py              # Shared test_db fixture
+│   └── test_*.py                # 18 per-module test files
 │
 ├── plans/                       # Implementation plans
 │   ├── README.md                # Plan index with execution order
-│   ├── 001-014                  # DONE: cleanup wave
-│   ├── 015-019                  # TODO: discovery → report pipeline
-│   └── 020-022                  # TODO: docs cleanup, test cleanup, dead file sweep
+│   ├── 001-022                  # DONE: full pipeline + cleanup
+│   ├── 023                      # DONE: Greenhouse scraper
+│   ├── 024                      # IN PROGRESS: remaining scrapers
+│   └── 025-026                  # TODO: architecture polish
 │
 ├── docs/                        # Architecture and design docs
 │   ├── PRODUCT_VISION.md        # Autonomous pipeline vision
@@ -101,21 +109,29 @@ haxjobs-private-dev/
 │   ├── DATA_MODEL.md            # Database schema
 │   ├── HAXJOBS_PRODUCT_SPEC.md  # Product specification
 │   ├── HERMES_INTEGRATION.md    # Hermes as one evaluation agent
-│   └── ...                      # Additional supporting docs
+│   ├── ROADMAP.md               # Current roadmap
+│   └── REPO_MAP.md              # This file
 │
-├── scripts/                     # Manual utility scripts
-│   ├── check_dashboard.py       # Dashboard integrity checker
-│   ├── cv_generate.py           # CV-FRAME pipeline orchestrator
-│   └── cv_validator.py          # CV-FRAME validator
-│
-└── skills/                      # Hermes skill files
-    └── fit_evaluator.md         # Fit evaluator prompt
+└── scripts/                     # Manual utility scripts (not pipeline code)
+    ├── archilles-webui          # Archilles VPS web UI management
+    ├── dash-tunnel              # SSH tunnel for dashboard access
+    ├── debug_job_pipeline.py    # Debug tool for pipeline stage inspection
+    ├── generate-pack            # Manual pack generation helper
+    ├── haxjobs-update           # Archilles VPS update script
+    ├── pull-cv-variants         # Pull CV variant files
+    ├── render-cv-variant        # Render a CV variant to PDF
+    ├── review-pack              # Review a generated pack
+    ├── seed-cv-variants-from-packs  # Seed CV variants from existing packs
+    └── update-archilles-private # Update Archilles private repo
 ```
 
-## Deleted during cleanup (Stages 1-2)
+## Deleted files
 
-- `discovery/` — 23 scraper/filter/company-list files (dead code, zero refs)
-- `cron/email_intake.py` — dead email intake (zero refs)
-- `cron/post_process.py` — dead post-processing (zero refs)
-- `cron/sync_db_to_intake.py` — dead DB→intake sync (zero consumers)
-- `post_process.py` — dead root script
+- `discovery/` (23 scraper/filter files) — cleanup wave 1, replaced by `discovery/normalize.py`, `hooks.py`, `scrapers/`
+- `cv_generate.py`, `cv_validator.py`, `pack_builder.sh` — Plan 025, superseded by `packs_builder/job_pack.py`
+- `build-dash.sh`, `dev-watch.sh` — Plan 025, Vite handles both natively
+- `CV_FRAME_GOVERNANCE.md` — Plan 025, concept preserved as Plan 027
+- `docs/BROWSER_EXTENSION.md` — Plan 025, never built
+- `skills/fit_evaluator.md` — Plan 025, superseded by `evaluate/common.py`
+- `profile/role_taxonomy.json` — Plan 025, superseded by `haxjobs.toml` `[[roles]]`
+- `intake/` — deprecated legacy JSON intake

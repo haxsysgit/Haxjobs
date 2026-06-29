@@ -8,12 +8,18 @@ from cv_variants.registry import load_cv_variant_registry, resolve_cv_variant, b
 
 ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_PATH = ROOT / "cv_variants" / "registry.json"
-TAXONOMY_PATH = ROOT / "profile" / "role_taxonomy.json"
+
+
+def _load_role_families():
+    """Get role family data from haxjobs_config (TOML-driven)."""
+    from haxjobs_config import ROLE_PROFILES
+    # ROLE_PROFILES is a list; convert to dict keyed by id for consistency
+    return {rp["id"]: rp for rp in ROLE_PROFILES}
 
 
 def test_registry_covers_all_taxonomy_cv_variants():
     registry = load_cv_variant_registry(REGISTRY_PATH)
-    taxonomy = json.loads(TAXONOMY_PATH.read_text())
+    taxonomy = _load_role_families()
 
     expected_variants = {family["cv_variant"] for family in taxonomy.values()}
     assert expected_variants == set(registry["variants"])

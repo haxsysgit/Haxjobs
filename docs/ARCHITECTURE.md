@@ -1,5 +1,7 @@
 # HaxJobs Architecture
 
+> **Migration note (2026-06-29, Plan 017)**: Role classification is now config-driven via `haxjobs.toml` `[[roles]]` sections. See `evaluation/role_family.py:load_role_profiles()`. The old `profile/role_taxonomy.json` is deleted.
+
 HaxJobs is an autonomous pipeline, not a web-app workspace. Jobs flow through five stages. The dashboard and API are secondary — the primary interface is the cycle report.
 
 ## Pipeline architecture

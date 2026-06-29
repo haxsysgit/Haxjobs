@@ -63,13 +63,22 @@ def test_load_role_profiles_from_config():
     assert "python" in taxonomy["backend_python"]["positive_keywords"]
 
 
-def test_load_role_profiles_falls_back_to_json():
-    """When no roles are provided AND config is empty, falls back to JSON taxonomy."""
+def test_load_role_profiles_uses_explicit_roles():
+    """When roles are provided explicitly, they're used directly."""
+    import copy
     from evaluation.role_family import load_role_profiles
 
-    # Pass empty list explicitly to trigger fallback
-    taxonomy = load_role_profiles([])
-    assert len(taxonomy) >= 7  # at minimum the 7 families from the JSON file
+    # No more JSON fallback — role_taxonomy.json is deleted.
+    # Instead verify explicit roles work.
+    explicit = [
+        {"id": "test_role", "cv_variant": "test_variant", "priority": 1,
+         "titles": ["Test Engineer"], "positive_keywords": ["testing"],
+         "negative_keywords": []},
+    ]
+    taxonomy = load_role_profiles(explicit)
+    assert len(taxonomy) == 1
+    assert "test_role" in taxonomy
+    assert taxonomy["test_role"]["cv_variant"] == "test_variant"
 
 
 def test_classify_backend_role():
@@ -184,16 +193,29 @@ def test_junior_software_role():
     assert result["cv_variant"] == "junior_software"
 
 
-def test_backward_compat_taxonomy_path():
+def test_backward_compat_taxonomy_path(tmp_path):
     """The taxonomy_path parameter still works for backward compat."""
+    import json
     from evaluation.role_family import classify_role_family
-    from pathlib import Path
 
-    taxonomy_path = Path(__file__).resolve().parents[1] / "profile" / "role_taxonomy.json"
+    # Write a minimal taxonomy to a temp file (no more role_taxonomy.json on disk)
+    tax = {
+        "backend_python": {
+            "label": "Python Backend",
+            "cv_variant": "backend_python",
+            "priority": 1,
+            "titles": ["Python Backend Engineer", "Backend Developer"],
+            "positive_keywords": ["python", "fastapi", "postgresql"],
+            "negative_keywords": [],
+        },
+    }
+    tax_path = tmp_path / "test_taxonomy.json"
+    tax_path.write_text(json.dumps(tax))
+
     result = classify_role_family(
         title="Python Backend Engineer",
         description="Build APIs with FastAPI and PostgreSQL.",
-        taxonomy_path=str(taxonomy_path),
+        taxonomy_path=str(tax_path),
     )
     assert result["role_family"] == "backend_python"
     assert result["cv_variant"] == "backend_python"

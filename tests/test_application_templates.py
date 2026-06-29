@@ -4,8 +4,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE_ROOT = ROOT / "application_templates"
-ROLE_TAXONOMY = ROOT / "profile" / "role_taxonomy.json"
 CV_REGISTRY = ROOT / "cv_variants" / "registry.json"
+
+
+def _load_taxonomy() -> dict:
+    """Load role taxonomy from haxjobs_config (TOML-driven)."""
+    from haxjobs_config import ROLE_PROFILES
+    return {rp["id"]: rp for rp in ROLE_PROFILES}
 FORBIDDEN_PHRASES = (
     "I am writing to express",
     "It is with great enthusiasm",
@@ -31,7 +36,7 @@ def load_json(path: Path) -> dict:
 
 
 def test_every_role_family_has_a_reusable_application_template():
-    taxonomy = load_json(ROLE_TAXONOMY)
+    taxonomy = _load_taxonomy()
     cv_registry = load_json(CV_REGISTRY)["variants"]
     template_registry = load_json(TEMPLATE_ROOT / "registry.json")
 

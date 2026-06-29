@@ -19,6 +19,8 @@ from typing import Any
 # Backward-compat: load from JSON taxonomy if no config roles are available.
 # This keeps tests that pass an explicit taxonomy_path working.
 _FALLBACK_TAXONOMY_PATH = Path(__file__).resolve().parents[1] / "profile" / "role_taxonomy.json"
+# ponytail: legacy fallback for backward-compat taxonomy_path= parameter in tests.
+# Remove when all callers use haxjobs_config.ROLE_PROFILES directly.
 
 
 def load_role_profiles(roles: list[dict] | None = None) -> dict[str, dict[str, Any]]:

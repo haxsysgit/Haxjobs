@@ -28,26 +28,21 @@ The repo root has 5 stale files from the pre-pipeline era. Docs claim plans are 
 
 | File | Evidence |
 |------|----------|
-| `cv_generate.py` (10KB) | `rg -l cv_generate` returns only itself. Never imported, never called by any script. Superseded by `packs_builder/job_pack.py`. |
-| `cv_validator.py` (14KB) | Not imported anywhere. Only called by `pack_builder.sh` (also orphaned). |
-| `pack_builder.sh` (3.6KB) | Not called by cron, not called by any script. Manual PDF export superseded by `_auto_pack()` in `evaluate/run.py`. |
-| `build-dash.sh` (302B) | 3 lines: `cd dashboard`, `npm run build`, `echo done`. `dashctl.sh deploy` does the same + asset check + restart. `rg -l build-dash` returns nothing. |
-| `dev-watch.sh` (802B) | Orphaned. Vite dev server (`npm run dev`) does HMR natively. |
+| `cv_generate.py` (10KB) | Not imported, not called. Superseded by `packs_builder/job_pack.py`. Delete. |
+| `cv_validator.py` (14KB) | Not imported, not called. References `cv_profile.typed.json` which doesn't exist. The *concept* (validating CV output against typed profile to prevent LLM hallucination) is important — captured as Plan 027. Delete the dead file. |
+| `pack_builder.sh` (3.6KB) | Not called by cron or any script. Manual PDF export superseded by `_auto_pack()` in `evaluate/run.py`. Delete. |
+| `build-dash.sh` (302B) | 3-line duplicate of `dashctl.sh deploy`. Zero callers. Delete. |
+| `dev-watch.sh` (802B) | Orphaned. Vite dev server (`npm run dev`) handles HMR natively. Delete. |
 
-**2 files to move to scripts/** (manual tools, not pipeline code):
+**2 files to move to scripts/** (manual tools, not pipeline code)
 
-| File | Why |
-|------|-----|
-| `cv_validator.py` → `scripts/cv_validator.py` | Validation tool, useful for manual CV checks |
-| `pack_builder.sh` → `scripts/rebuild-pack.sh` | Manual PDF export, might be wanted later |
-
-Wait — `cv_validator.py` and `pack_builder.sh` have zero callers. Moving orphaned files to scripts/ doesn't make them less orphaned. **Just delete them** unless the user confirms they're needed. Check: does `cv_validator.py` import anything useful? If yes, salvage the importable functions into `packs_builder/`. If no, delete.
+None — `cv_validator.py` and `pack_builder.sh` have zero callers and reference files that don't exist.
 
 **5 stale docs to update/delete:**
 
 | File | Action |
 |------|--------|
-| `CV_FRAME_GOVERNANCE.md` (25KB) | Delete. References `cv_constants.py` (doesn't exist). Specs abandoned architecture. |
+| `CV_FRAME_GOVERNANCE.md` (25KB) | Delete. Specifies abandoned architecture — references `cv_constants.py` (doesn't exist). The concept (typed CV validation to prevent LLM hallucination) is preserved and captured as Plan 027. |
 | `docs/ROADMAP.md` | Update: mark waves 015-019 DONE, add 023-024, note Plan 010 rejected. |
 | `docs/REPO_MAP.md` | Update: mark plans 015-022 DONE, add discovery scrapers tree. |
 | `docs/BROWSER_EXTENSION.md` | Delete. Never built, no code exists. |
