@@ -19,7 +19,7 @@ from packs_builder.job_pack import build_job_pack
 
 ROOT = Path(__file__).resolve().parent
 DEFAULT_REGISTRY_PATH = ROOT / "cv_variants" / "registry.json"
-from haxjobs_config import PROFILE_PATH as DEFAULT_PROFILE_PATH
+from haxjobs_config import AUTO_PACK_LEVELS, PROFILE_PATH as DEFAULT_PROFILE_PATH
 DEFAULT_OUTPUT_ROOT = ROOT / "packs"
 DEFAULT_THRESHOLD = 50
 
@@ -126,13 +126,21 @@ def generate_pack_for_job(
 
 
 def _should_generate(job: dict[str, Any], threshold: int) -> str | None:
-    """Return a skip reason, or None when a pack can be generated."""
+    """Return a skip reason, or None when a pack can be generated.
+
+    Checks config-driven AUTO_PACK_LEVELS and falls back to threshold.
+    """
     if job.get("pack_status") not in (None, "", "none"):
         return "pack already exists or is in progress"
 
     fit_score = job.get("fit_score")
     if fit_score is None:
         return "job has no evaluation score"
+
+    level = job.get("level")
+    if level is not None and level not in AUTO_PACK_LEVELS:
+        return f"level {level} not in auto-pack levels {AUTO_PACK_LEVELS}"
+
     if int(fit_score) < threshold:
         return f"fit score below {threshold}"
 
