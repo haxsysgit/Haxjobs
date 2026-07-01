@@ -5,23 +5,34 @@
 
 ## Why this matters
 
-Discovery currently runs via CLI (`pipeline_db.py discover-run`). The user should trigger discovery from the dashboard and see results stream in. This plan wraps existing scrapers in FastAPI endpoints.
+Discovery runs via CLI (`pipeline_db.py discover-run`). Should be triggerable from dashboard and show results streaming. This plan fills `features/discovery/` — wraps existing scraper code in API endpoints.
 
 ## Steps
 
-1. Create `src/haxjobs/server/routes/discovery.py` with:
-   - `POST /api/discovery/run` — triggers all scrapers (Greenhouse, Ashby, Lever), returns job count
-   - `GET /api/discovery/status` — returns current run status (running/done/error + count so far)
-   - `GET /api/discovery/jobs/new` — returns newly discovered jobs since last check
-2. Background task runner for discovery (don't block the request — fire and poll)
-3. Wire existing `discovery/scrapers/orchestrator.py` into the endpoint
-4. Add "Discover Jobs" button to frontend dashboard page
+### Backend: features/discovery/
 
-**Ponytail note**: Keep using existing scraper code from `discovery/scrapers/`. Only change is the trigger mechanism (CLI → API endpoint).
+1. **schemas.py**: `DiscoveryRunResponse`, `DiscoveryStatusResponse`, `DiscoveredJobResponse`
+2. **service.py**:
+   - `run_discovery() -> str` — calls `discovery.scrapers.orchestrator.run_all()`, returns run_id
+   - `get_status() -> dict` — returns {running: bool, found: int, errors: list}
+   - `get_new_jobs(since: str) -> list` — returns jobs discovered since timestamp
+3. **routes.py**:
+   - `POST /api/discovery/run` — triggers scrapers, returns run_id
+   - `GET /api/discovery/status` — returns current run status
+   - `GET /api/discovery/jobs/new` — new jobs since last check
+
+### Frontend
+
+4. Add "Discover Jobs" button to DashboardPage. Calls `POST /api/discovery/run`, polls status, shows new job count on completion.
 
 ## Done criteria
 
-- [ ] `POST /api/discovery/run` returns `{"status": "started", "job": "running"}`
-- [ ] `GET /api/discovery/status` returns `{"running": true, "found": 47}`
-- [ ] New jobs appear in DB after discovery completes
-- [ ] Frontend dashboard has "Discover Jobs" button that calls the API
+- [ ] `POST /api/discovery/run` returns run_id
+- [ ] `GET /api/discovery/status` shows running state + found count
+- [ ] New jobs appear in DB after discovery
+- [ ] Dashboard has discover button
+
+## STOP conditions
+
+- Scrapers fail with auth errors — the configured companies may have changed their API. Test with one scraping company first.
+- Long-running scrape blocks the request — use background task (threading.Thread or asyncio.create_task)

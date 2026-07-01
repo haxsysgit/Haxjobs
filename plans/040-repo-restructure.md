@@ -1,4 +1,4 @@
-# Plan 040: Restructure repo into installable Python package
+# Plan 040: Restructure repo into installable Python package (uv + hatchling)
 
 > **Executor instructions**: Follow this plan step by step. Run every verification command and confirm the expected result before moving to the next step. If anything in the "STOP conditions" section occurs, stop and report — do not improvise. When done, update the status row for this plan in `plans/README.md`.
 >
@@ -16,30 +16,23 @@
 
 ## Why this matters
 
-The repo is a flat directory of Python modules at root. `pip install haxjobs` requires a `pyproject.toml` and code under `src/haxjobs/`. This plan is the foundation — nothing else can ship until the package structure exists. Without it, HaxJobs requires cloning a repo and setting PYTHONPATH manually. With it, `pip install haxjobs && haxjobs start` works.
+The repo is a flat directory of Python modules at root. `uv tool install haxjobs` requires a `pyproject.toml` with a build system and code under `src/haxjobs/`. This plan is the foundation — nothing else can ship until the package structure exists. The user's package manager is **uv** (not pip), so `pyproject.toml` uses `hatchling` as the build backend and `uv add` for dependency management. The CLI entry point uses `argparse` (stdlib, zero deps).
 
 ## Current state
 
 All Python code lives at repo root:
 ```
 haxjobs-private-dev/
-├── api_server.py
-├── pipeline_db.py
-├── haxjobs_config.py
-├── haxjobs.toml
-├── db/
-├── discovery/
-├── evaluate/
-├── evaluation/
-├── packs_builder/
-├── server/
-├── profile/
-├── scripts/
-├── tests/
-├── dashboard/         # React frontend (old)
-├── cron/
-├── plans/
-└── docs/
+├── db/ discovery/ evaluate/ evaluation/ packs_builder/ server/ profile/
+├── application_templates/ cv_variants/ scripts/
+├── api_server.py  pipeline_db.py  haxjobs_config.py  haxjobs.toml
+├── generate_ready_packs.py  check_dashboard.py
+├── cv_profile.typed.json  cv_template.html
+├── tests/  dashboard/  docs/  plans/  cron/  research/  adapter_research/
+├── state/  packs/  reports/  (runtime dirs — .gitignored)
+├── README.md  AGENTS.md  PI_HANDOFF.md
+├── .gitignore  .env  .env.example
+├── dashctl.sh  dev-app.sh  (old scripts)
 ```
 
 Key constraints:
@@ -53,50 +46,82 @@ Repo conventions:
 - Python stdlib-focused, no ORM
 - Config is TOML-driven via `haxjobs_config.py`
 - SQLite via `db/schema.py` `get_db()`
-- Test runner: `PYTHONPATH=. python3 -m pytest -q tests/`
+- Test runner: `python3 -m pytest -q tests/`
+
+## What stays at root vs moves into package
+
+| Stay at root (project infra, not installed) | Move into `src/haxjobs/` (installed code) |
+|---|---|
+| `.git/`, `.gitignore`, `.claude/`, `.venv/` | `db/` → `src/haxjobs/db/` |
+| `plans/`, `docs/`, `research/`, `adapter_research/` | `discovery/` → `src/haxjobs/discovery/` |
+| `README.md`, `AGENTS.md`, `PI_HANDOFF.md` | `evaluate/` → `src/haxjobs/evaluate/` |
+| `tests/` (test suite, not installed) | `evaluation/` → `src/haxjobs/evaluation/` |
+| `dashboard/` (old frontend, deleted in plan 042) | `packs_builder/` → `src/haxjobs/packs_builder/` |
+| `cron/` (system scheduling, not package) | `server/` → `src/haxjobs/server/` |
+| `.env`, `.env.example` | `profile/` → `src/haxjobs/profile/` |
+| `state/`, `packs/`, `reports/` (runtime, .gitignored) | `scripts/` → `src/haxjobs/scripts/` |
+| | `application_templates/` → `src/haxjobs/application_templates/` |
+| | `cv_variants/` → `src/haxjobs/cv_variants/` |
+| | `haxjobs.toml` → `src/haxjobs/haxjobs.toml` |
+| | `haxjobs_config.py` → `src/haxjobs/config.py` |
+| | `api_server.py` → `src/haxjobs/api_server.py` |
+| | `pipeline_db.py` → `src/haxjobs/pipeline_db.py` |
+| | `generate_ready_packs.py` → `src/haxjobs/generate_ready_packs.py` |
+| | `check_dashboard.py` → `src/haxjobs/check_dashboard.py` |
+| | `cv_profile.typed.json` → `src/haxjobs/cv_profile.typed.json` |
+| | `cv_template.html` → `src/haxjobs/cv_template.html` |
+
+Delete during this plan (already stale):
+- `dashctl.sh`, `dev-app.sh` — old dev scripts, replaced by `haxjobs start` in 041
 
 ## Commands you will need
 
 | Purpose | Command | Expected on success |
 |---------|---------|---------------------|
-| Run tests | `PYTHONPATH=. python3 -m pytest -q tests/` | 255 passed |
-| Compile check | `python3 -m py_compile src/haxjobs/__init__.py` after creation | clean |
-| Verify package | `pip install -e . && haxjobs --help` | shows usage |
-| Verify imports | `python3 -c "from haxjobs.db import jobs; print('ok')"` | ok |
+| Run tests | `uv run pytest -q tests/` | 255 passed |
+| Build package | `uv build` | creates dist/*.whl + dist/*.tar.gz |
+| Verify CLI | `uv run haxjobs --help` | shows usage |
+| Verify imports | `uv run python -c "from haxjobs.db import jobs; print('ok')"` | ok |
 
 ## Scope
 
 **In scope**:
-- Create `pyproject.toml` at root
+- Create `pyproject.toml` at root (hatchling build backend)
 - Create `src/haxjobs/` package structure
-- Move all Python modules into `src/haxjobs/`
-- Update internal imports from `from db.x import y` to `from haxjobs.db.x import y`
-- Update `haxjobs_config.py` to find `haxjobs.toml` relative to package
-- Create `haxjobs` CLI entry point
-- Update test imports
+- Move only the files listed under "Move into src/haxjobs/" above
+- Update ALL internal imports from `from db.x import y` to `from haxjobs.db.x import y`
+- Rename `haxjobs_config.py` → `config.py` inside the package
+- Update `config.py` to find `haxjobs.toml`: CWD first, then package dir
+- Create `src/haxjobs/cli.py` with argparse: `haxjobs start` subcommand
+- Update test imports to match new package paths
+- Delete `dashctl.sh`, `dev-app.sh`
 
-**Out of scope**:
-- `dashboard/` — React frontend (handled in plan 042)
-- `docs/`, `plans/`, `cron/` — move but don't modify
-- `haxjobs.toml` — move to package data, don't change content
+**Out of scope** (do NOT touch):
+- `tests/` stays at root — move nothing in, only update imports
+- `plans/`, `docs/`, `research/`, `adapter_research/` — stay at root
+- `cron/` — stays at root
+- `dashboard/` — stays at root (deleted in plan 042)
+- `.gitignore` content — don't change
+- Behavior of any module — pure find-and-replace on imports, no logic changes
 
 ## Git workflow
 
 - Branch from `main`, work directly
-- Commit: `git commit -m "restructure repo into installable Python package"`
+- Commit per logical unit (steps 1-3 = one commit, steps 4-5 = one commit, step 6+ = one commit)
+- Commit message: `"restructure repo into installable Python package under src/haxjobs/"`
 - Do NOT push or open PR
 
 ## Steps
 
 ### Step 1: Create pyproject.toml
 
-Create `pyproject.toml` at repo root:
+```bash
+uv init --package --build-backend hatchling
+```
+
+This creates a basic pyproject.toml. Then edit it to match:
 
 ```toml
-[build-system]
-requires = ["setuptools>=75", "wheel"]
-build-backend = "setuptools.backends._legacy:_Backend"
-
 [project]
 name = "haxjobs"
 version = "1.0.0.dev0"
@@ -108,36 +133,30 @@ readme = "README.md"
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.34",
-    "tomli>=2; python_version < '3.11'",
     "requests>=2.32",
-]
-
-[project.optional-dependencies]
-dev = [
-    "pytest>=8",
 ]
 
 [project.scripts]
 haxjobs = "haxjobs.cli:main"
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.setuptools.package-data]
-haxjobs = ["haxjobs.toml", "py.typed"]
+[tool.hatch.build.targets.wheel]
+packages = ["src/haxjobs"]
 
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = ["src"]
-addopts = "-q"
-
-[tool.setuptools.data-files]
-"share/haxjobs" = ["haxjobs.toml"]
+[tool.hatch.build.targets.wheel.force-include]
+"src/haxjobs/haxjobs.toml" = "haxjobs/haxjobs.toml"
+"src/haxjobs/cv_profile.typed.json" = "haxjobs/cv_profile.typed.json"
+"src/haxjobs/cv_template.html" = "haxjobs/cv_template.html"
+"src/haxjobs/application_templates" = "haxjobs/application_templates"
+"src/haxjobs/cv_variants" = "haxjobs/cv_variants"
 ```
 
-**Verify**: `python3 -m py_compile pyproject.toml` is a TOML-parse check — skip (tomllib validates on install). Instead: `python3 -c "import tomllib; tomllib.load(open('pyproject.toml','rb'))"` → exit 0
+**Verify**: `uv build` → creates `dist/haxjobs-1.0.0.dev0-py3-none-any.whl` and `.tar.gz`
 
-### Step 2: Create src/haxjobs/ package structure
+### Step 2: Create src/haxjobs/ package and move files
 
 ```bash
 mkdir -p src/haxjobs
@@ -149,11 +168,7 @@ Create `src/haxjobs/__init__.py`:
 __version__ = "1.0.0.dev0"
 ```
 
-**Verify**: `python3 -c "import sys; sys.path.insert(0,'src'); from haxjobs import __version__; print(__version__)"` → prints `1.0.0.dev0`
-
-### Step 3: Move all Python modules into src/haxjobs/
-
-Move these directories wholesale:
+Move code directories:
 ```bash
 git mv db src/haxjobs/db
 git mv discovery src/haxjobs/discovery
@@ -163,37 +178,39 @@ git mv packs_builder src/haxjobs/packs_builder
 git mv server src/haxjobs/server
 git mv profile src/haxjobs/profile
 git mv scripts src/haxjobs/scripts
-```
-
-Move individual root Python files:
-```bash
-git mv api_server.py src/haxjobs/api_server.py
-git mv pipeline_db.py src/haxjobs/pipeline_db.py
-git mv haxjobs_config.py src/haxjobs/haxjobs_config.py
-git mv generate_ready_packs.py src/haxjobs/generate_ready_packs.py
-git mv check_dashboard.py src/haxjobs/check_dashboard.py
-```
-
-Move config:
-```bash
-git mv haxjobs.toml src/haxjobs/haxjobs.toml
-```
-
-Move non-Python dirs:
-```bash
 git mv application_templates src/haxjobs/application_templates
 git mv cv_variants src/haxjobs/cv_variants
 ```
 
-**Verify**: `ls src/haxjobs/db src/haxjobs/discovery src/haxjobs/evaluate` → all three exist
-
-### Step 4: Update internal imports
-
-All imports that were `from db.x import y` must become `from haxjobs.db.x import y`. Same for discovery, evaluate, evaluation, packs_builder, server, profile.
-
-Run this find-replace across ALL `.py` files under `src/haxjobs/`:
+Move individual files:
 ```bash
-# Update all absolute imports
+git mv haxjobs.toml src/haxjobs/haxjobs.toml
+git mv haxjobs_config.py src/haxjobs/config.py
+git mv api_server.py src/haxjobs/api_server.py
+git mv pipeline_db.py src/haxjobs/pipeline_db.py
+git mv generate_ready_packs.py src/haxjobs/generate_ready_packs.py
+git mv check_dashboard.py src/haxjobs/check_dashboard.py
+git mv cv_profile.typed.json src/haxjobs/cv_profile.typed.json
+git mv cv_template.html src/haxjobs/cv_template.html
+```
+
+Delete stale scripts:
+```bash
+git rm dashctl.sh dev-app.sh
+```
+
+DO NOT move: `tests/`, `plans/`, `docs/`, `research/`, `adapter_research/`, `cron/`, `dashboard/`
+
+**Verify**: `ls src/haxjobs/db src/haxjobs/discovery src/haxjobs/evaluate` → all three exist. `ls dashctl.sh 2>/dev/null` → file not found.
+
+### Step 3: Update all imports
+
+All imports like `from db.x import y` become `from haxjobs.db.x import y`. Same for discovery, evaluate, evaluation, packs_builder, server, profile.
+
+Also: `import haxjobs_config` or `from haxjobs_config import X` → `from haxjobs.config import X`.
+
+```bash
+# Update absolute imports in src/haxjobs/
 find src/haxjobs -name "*.py" -exec sed -i \
   -e 's/from db\./from haxjobs.db./g' \
   -e 's/from discovery\./from haxjobs.discovery./g' \
@@ -202,59 +219,17 @@ find src/haxjobs -name "*.py" -exec sed -i \
   -e 's/from packs_builder\./from haxjobs.packs_builder./g' \
   -e 's/from server\./from haxjobs.server./g' \
   -e 's/from profile\./from haxjobs.profile./g' \
-  -e 's/import haxjobs_config/import haxjobs.haxjobs_config/g' \
-  -e 's/from haxjobs_config/from haxjobs.haxjobs_config/g' \
+  -e 's/import haxjobs_config/import haxjobs.config/g' \
+  -e 's/from haxjobs_config/from haxjobs.config/g' \
+  -e 's/from scripts\./from haxjobs.scripts./g' \
   {} +
-```
 
-Also update `__init__.py` files that do relative imports:
-```bash
+# Update __init__.py relative imports
 find src/haxjobs -name "__init__.py" -exec sed -i \
   -e 's/from \.\([a-z]\)/from haxjobs.\1/g' \
   {} +
-```
 
-**Verify**: `grep -rn "from db\." src/haxjobs/` → no matches. `grep -rn "from haxjobs.db" src/haxjobs/` → positive matches.
-
-### Step 5: Update haxjobs_config.py to find haxjobs.toml
-
-Edit `src/haxjobs/haxjobs_config.py`. Find where `haxjobs.toml` is loaded (likely `Path("haxjobs.toml")` or `"haxjobs.toml"`). Change to use package resources:
-
-```python
-from pathlib import Path
-
-# Find haxjobs.toml: look in current dir first, then package dir
-_TOML_PATH = Path("haxjobs.toml")
-if not _TOML_PATH.exists():
-    _TOML_PATH = Path(__file__).parent / "haxjobs.toml"
-```
-
-**Verify**: `grep "haxjobs.toml" src/haxjobs/haxjobs_config.py` → shows the new path resolution
-
-### Step 6: Create CLI entry point
-
-Create `src/haxjobs/cli.py`:
-
-```python
-"""HaxJobs CLI entry point."""
-import sys
-
-def main():
-    print("HaxJobs v1.0.0 — coming soon")
-    # ponytail: placeholder until FastAPI is wired in plan 041
-    sys.exit(0)
-
-if __name__ == "__main__":
-    main()
-```
-
-**Verify**: `python3 -c "from haxjobs.cli import main; main()"` → prints message, exit 0
-
-### Step 7: Update tests
-
-Tests live at `tests/` (not under `src/`). Update their imports to use the new package paths:
-
-```bash
+# Update imports in tests/
 find tests -name "*.py" -exec sed -i \
   -e 's/from db\./from haxjobs.db./g' \
   -e 's/from discovery\./from haxjobs.discovery./g' \
@@ -263,47 +238,81 @@ find tests -name "*.py" -exec sed -i \
   -e 's/from packs_builder\./from haxjobs.packs_builder./g' \
   -e 's/from server\./from haxjobs.server./g' \
   -e 's/from profile\./from haxjobs.profile./g' \
-  -e 's/import haxjobs_config/import haxjobs.haxjobs_config/g' \
-  -e 's/from haxjobs_config/from haxjobs.haxjobs_config/g' \
+  -e 's/import haxjobs_config/import haxjobs.config/g' \
+  -e 's/from haxjobs_config/from haxjobs.config/g' \
   {} +
 ```
 
-Update `tests/conftest.py` — the monkeypatch target changes:
+**Verify**: `grep -rn "from db\." src/haxjobs/ tests/` → no matches. `grep -rn "from haxjobs.db" src/haxjobs/` → positive matches.
+
+### Step 4: Update config.py path resolution
+
+Edit `src/haxjobs/config.py`. Find where `haxjobs.toml` is loaded — likely at module level with something like `_TOML = tomllib.load(open("haxjobs.toml", "rb"))`. Change to:
+
 ```python
-# Old: monkeypatch.setattr(schema_mod, "DB_PATH", db_path)
-# New: unchanged — still monkeypatch haxjobs.db.schema.DB_PATH
-# But the import line changes to:
-import haxjobs.db.schema as schema_mod
+import tomllib
+from pathlib import Path
+
+_TOML_PATH = Path("haxjobs.toml")
+if not _TOML_PATH.exists():
+    _TOML_PATH = Path(__file__).parent / "haxjobs.toml"
+if not _TOML_PATH.exists():
+    _TOML_PATH = Path.home() / ".haxjobs" / "haxjobs.toml"
+
+def _load_toml():
+    if _TOML_PATH.exists():
+        with open(_TOML_PATH, "rb") as f:
+            return tomllib.load(f)
+    return {}
 ```
 
-**Verify**: `grep -rn "from db\." tests/` → no matches
+**Verify**: `grep "_TOML_PATH" src/haxjobs/config.py` → shows the 3-location resolution
 
-### Step 8: Run tests with new PYTHONPATH
+### Step 5: Create CLI with argparse
 
-The test command changes — no more PYTHONPATH shuffle:
+Create `src/haxjobs/cli.py`:
+
+```python
+"""HaxJobs CLI."""
+import argparse
+import sys
+
+def cmd_start(args):
+    """Start the HaxJobs server."""
+    from haxjobs.server.main import run
+    print("Starting HaxJobs on http://localhost:8241")
+    run(host=args.host, port=args.port)
+
+def main():
+    parser = argparse.ArgumentParser(prog="haxjobs", description="Self-hosted job search platform")
+    sub = parser.add_subparsers(dest="command")
+
+    start = sub.add_parser("start", help="Start the server")
+    start.add_argument("--host", default="127.0.0.1")
+    start.add_argument("--port", type=int, default=8241)
+    start.set_defaults(func=cmd_start)
+
+    args = parser.parse_args()
+    if not args.command:
+        parser.print_help()
+        sys.exit(0)
+    args.func(args)
+
+if __name__ == "__main__":
+    main()
+```
+
+**Verify**: `uv run haxjobs --help` → shows usage. `uv run haxjobs start --help` → shows --host and --port flags.
+
+### Step 6: Run tests
 
 ```bash
-# Old: PYTHONPATH=. python3 -m pytest -q tests/
-# New: pip install -e . && python3 -m pytest -q tests/
-pip install -e . 2>&1 | tail -3
+uv run pytest -q tests/
 ```
 
-Then:
-```bash
-python3 -m pytest -q tests/
-```
+**Verify**: 255 passed. If any fail, the import sed missed something — check the failing test for stale import paths.
 
-**Verify**: 255 passed (same as before)
-
-### Step 9: Test CLI entry point
-
-```bash
-pip install -e . && haxjobs
-```
-
-**Verify**: prints version message, exit 0
-
-### Step 10: Commit
+### Step 7: Commit
 
 ```bash
 git add -A
@@ -314,27 +323,32 @@ git commit -m "restructure repo into installable Python package under src/haxjob
 
 ## Test plan
 
-No new tests. The existing 255-test suite verifies that imports and logic survived the restructure. The critical coverage: `python3 -m pytest -q tests/` returns 255 passed with the new import paths.
+No new tests. The existing 255-test suite verifies that imports and logic survived the restructure. Critical: `uv run pytest -q tests/` returns 255 passed.
 
 ## Done criteria
 
-- [ ] `pyproject.toml` exists at repo root
-- [ ] All Python code under `src/haxjobs/`
-- [ ] `pip install -e .` succeeds
-- [ ] `haxjobs` command prints usage
-- [ ] `python3 -m pytest -q tests/` → 255 passed
-- [ ] No bare `from db.` imports remaining in src/ or tests/
-- [ ] `haxjobs.toml` findable by `haxjobs_config.py` from any working directory
+- [ ] `pyproject.toml` exists at root with hatchling build backend
+- [ ] All application code under `src/haxjobs/`
+- [ ] `uv build` succeeds, creates wheel + sdist in `dist/`
+- [ ] `uv run haxjobs --help` shows usage with `start` subcommand
+- [ ] `uv run pytest -q tests/` → 255 passed
+- [ ] No bare `from db.` imports remaining anywhere
+- [ ] `haxjobs.toml` findable from CWD, package dir, or `~/.haxjobs/`
+- [ ] `dashctl.sh` and `dev-app.sh` deleted
+- [ ] `plans/`, `docs/`, `tests/`, `cron/` still at root
 
 ## STOP conditions
 
 Stop and report if:
 
 - Test count drops below 255 after import changes
-- Any module raises ImportError at install time
-- `pip install -e .` fails with setuptools version errors on the user's system
-- sed corrupts a file with mixed quote styles — check `git diff` after step 4
+- `uv build` fails — check pyproject.toml syntax with `uv run python -c "import tomllib; tomllib.load(open('pyproject.toml','rb'))"`
+- sed corrupts a file — check `git diff --stat` after step 3, look for mangled lines
+- Any of `plans/`, `docs/`, `tests/`, `cron/` got moved — revert
+- `uv init` doesn't exist — old uv version, upgrade: `uv self update`
 
 ## Maintenance notes
 
-The `pyproject.toml` version is `1.0.0.dev0` — bump to `1.0.0` in the final release plan (054). Dependencies are intentionally minimal: FastAPI + uvicorn for the server, requests for scrapers. Add more as needed in later plans, not upfront.
+- `haxjobs_config.py` was renamed to `config.py` inside the package. Any old import of `haxjobs_config` is now `haxjobs.config`.
+- The `haxjobs.toml` config file is searched in CWD → package dir → `~/.haxjobs/`. This means a user can copy the default from the package, edit it, and it takes precedence.
+- Version is `1.0.0.dev0` — bump via `uv version 1.0.0` in plan 054.

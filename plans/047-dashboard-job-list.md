@@ -5,38 +5,39 @@
 
 ## Why this matters
 
-The dashboard is the main screen — where users see all discovered jobs ranked by fit. This is the core UX. After onboarding, this is where users spend 90% of their time.
+The dashboard is the main screen. After onboarding, users spend 90% of their time here — browsing jobs ranked by fit, filtering, and clicking into details.
 
 ## Steps
 
-### Backend (FastAPI routes)
+### Backend: features/jobs/
 
-1. `GET /api/jobs` — returns paginated job list with evaluations. Query params: `status`, `level`, `role_family`, `search`, `offset`, `limit`
-2. `GET /api/jobs/:id` — returns single job with full evaluation detail
-3. Wire existing `db/jobs.py` and `db/evaluations.py` into FastAPI routes (already have function logic)
+1. **service.py**: wire existing `db/jobs.py` + `db/evaluations.py` functions
+   - `list_jobs(status, level, role_family, search, offset, limit)` — paginated, filtered, sorted by fit_score DESC
+   - `get_job_detail(job_id)` — job + evaluation + pack status
+2. **routes.py**:
+   - `GET /api/jobs` — query params: status, level, role_family, search, offset, limit
+   - `GET /api/jobs/{id}` — full detail
+3. **schemas.py**: `JobListParams`, `JobListResponse`, `JobDetailResponse`
 
-### Frontend (React + shadcn/ui)
+### Frontend: JobsPage
 
-4. Replace `JobsPage.tsx` placeholder with real job list using shadcn DataTable
-5. Each row: company, title, location, fit score badge (green L1, yellow L2, gray L3), source, discovered date
+4. Replace placeholder with shadcn DataTable
+5. Columns: company, title, location, fit badge (green L1, yellow L2, gray L3), source, date
 6. Sort by fit score (default), date, company
-7. Filter by status (pending, evaluated, applied, skipped), level, role family
-8. Search by title, company, or keyword in JD text
-9. Click row → navigate to job detail (plan 048)
-10. "Evaluate All Pending" button — triggers evaluation for all unevaluated jobs
-11. Show counts: "47 jobs found, 23 evaluated, 5 applied"
+7. Faceted filters: status, level, role_family
+8. Search input — filters by title or company (client-side from loaded data, or server-side query param)
+9. "Evaluate All Pending" button → `POST /api/evaluation/run`
+10. Click row → navigate to `/jobs/{id}`
+11. Show counts: "47 jobs, 23 evaluated, 5 applied"
 
-### Components to use
-
-- shadcn DataTable with column sorting, faceted filters, pagination
-- Badge component for fit scores
-- shadcn Command (cmd+k style search)
+**shadcn components**: DataTable (column-header, pagination, toolbar, faceted-filter, view-options), Badge, Button, Input
 
 ## Done criteria
 
 - [ ] Job list shows real data from API
 - [ ] Fit badges color-coded by level
 - [ ] Filters work: status, level, role_family
-- [ ] Search finds jobs by title/company
-- [ ] Click row → navigates to detail
+- [ ] Search finds by title/company
+- [ ] Click row → navigate to detail
 - [ ] Evaluate button triggers evaluation
+- [ ] `npx tsc -b --noEmit` passes

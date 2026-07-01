@@ -5,40 +5,36 @@
 
 ## Why this matters
 
-After onboarding, users need to update their profile: new skills, changed preferences, updated work authorization. The profile is the backbone of evaluation — stale profile = bad job matches. This plan makes the profile editable through the UI, not by hunting for a JSON file.
+After onboarding, users need to update their profile. Stale profile = bad job matches. This plan fills `features/profile/` — view and edit via the UI.
 
 ## Steps
 
-### Backend
+### Backend: features/profile/
 
-1. `GET /api/profile` — returns the full profile JSON
-2. `PUT /api/profile` — saves updated profile
-3. `PATCH /api/profile` — merges partial updates
-4. Validate against profile schema on save (basic: required fields present, types correct)
+1. **service.py**:
+   - `get_profile() -> dict` — loads from `~/.haxjobs/profile.json`
+   - `update_profile(data: dict) -> dict` — merges + validates + saves
+2. **routes.py**:
+   - `GET /api/profile` — full profile
+   - `PUT /api/profile` — full replace
+   - `PATCH /api/profile` — partial update
+3. **schemas.py**: `ProfileResponse`, `ProfileUpdate`
 
-### Frontend
+### Frontend: ProfilePage
 
-5. Replace `ProfilePage.tsx` placeholder with editable form:
-   - **Basic info**: name, email, phone, location, work authorization (read-only from extraction, but editable)
-   - **Skills**: tag input — add/remove skills with autocomplete
-   - **Work experience**: list of roles with inline edit (title, company, dates, bullets)
-   - **Education**: list with inline edit
-   - **Projects**: list with inline edit
-   - **Preferences**: role types (checkboxes), preferred locations (multi-select), salary range, work modes, excluded companies
-6. Save button → PUT to API
-7. Confirmation toast on success
+Replace placeholder with form:
+- **Basic info**: name, email, phone, location, work authorization (editable)
+- **Skills**: tag input — add/remove with autocomplete (use state array + badges with X)
+- **Work experience**: list of cards with inline edit
+- **Education**: list with inline edit
+- **Projects**: list with inline edit
+- **Preferences**: checkboxes for role types, multi-select for locations, inputs for salary/work modes/exclusions
 
-### Components
-
-- shadcn Form + Input for text fields
-- shadcn Select for dropdowns
-- shadcn Checkbox group for role types
-- shadcn Badge with X for tag-style skill list
-- shadcn Toast for save confirmation
+**shadcn components**: Form (react-hook-form), Input, Select, Checkbox, Badge, Button, Card, Separator, Toast (sonner)
 
 ## Done criteria
 
 - [ ] Profile loads from API and displays
-- [ ] All fields editable
+- [ ] All sections editable
 - [ ] Save persists to `~/.haxjobs/profile.json`
-- [ ] Validation rejects invalid data (e.g., empty name)
+- [ ] Validation rejects empty name / invalid email

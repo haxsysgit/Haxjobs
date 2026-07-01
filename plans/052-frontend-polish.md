@@ -5,22 +5,27 @@
 
 ## Why this matters
 
-All the pages are built but the app doesn't feel like a product yet. This plan adds: dark mode, responsive layout for mobile, smooth page transitions, loading skeletons, empty states with helpful messaging, error boundaries, and consistent spacing/typography.
+All pages are built but the app doesn't feel like a product. This plan adds dark mode, responsive layout, loading skeletons, empty states with CTAs, error handling, and navigation polish.
 
 ## Steps
 
-1. **Dark mode**: wire shadcn theme provider, add toggle in header. Persist preference to localStorage.
-2. **Responsive**: test all pages at 375px (mobile), 768px (tablet), 1440px (desktop). Fix layout breaks — sidebar collapsible on mobile, tables scroll horizontally, modals fullscreen on mobile.
-3. **Loading states**: add shadcn Skeleton components to job list, detail, and profile pages while data loads.
-4. **Empty states**: when no jobs discovered → "No jobs yet. Start a discovery run to find jobs matching your profile." with CTA button. When no evaluations → "Run evaluation on pending jobs to see fit scores."
-5. **Error states**: API error toast on fetch failure, retry button.
-6. **Navigation progress bar**: show loading indicator on route changes.
-7. **Favicon + page title**: update from default Vite.
+1. **Dark mode**: wire shadcn ThemeProvider (already in shadcn init), add toggle in Header. Persist to localStorage.
+2. **Responsive**: test at 375px (mobile), 768px (tablet), 1440px (desktop). Sidebar collapses to hamburger on mobile. Tables scroll horizontally. Modals go fullscreen.
+3. **Loading states**: shadcn Skeleton on job list, detail, and profile pages while data fetches.
+4. **Empty states**:
+   - No jobs: "No jobs yet. Start a discovery run." with CTA button
+   - No evaluations: "Run evaluation on pending jobs."
+   - No applied jobs: "Mark jobs as applied after submitting applications."
+5. **Error states**: sonner toast on fetch failure, retry button.
+6. **Navigation progress bar**: thin loading bar on route changes (simple component, no extra dep — use a CSS animation triggered by router events).
+7. **Favicon + title**: replace Vite defaults with HaxJobs branding.
+8. **TypeScript check**: `cd frontend && npx tsc -b --noEmit` → clean
 
 ## Done criteria
 
 - [ ] Dark mode toggle works
-- [ ] Mobile layout doesn't break (sidebar collapses, tables scroll)
-- [ ] Loading skeletons show while data loads
+- [ ] Mobile: sidebar collapses, tables scroll, no horizontal overflow
+- [ ] Loading skeletons show during data fetches
 - [ ] Empty states show helpful CTAs
 - [ ] API errors show toast with retry
+- [ ] `npx tsc -b --noEmit` → 0 errors

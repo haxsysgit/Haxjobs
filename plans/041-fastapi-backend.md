@@ -1,79 +1,133 @@
-# Plan 041: FastAPI backend — replace api_server.py, serve frontend
+# Plan 041: FastAPI backend — feature-based structure, serve frontend
 
 > **Executor instructions**: Follow this plan step by step. Run every verification command and confirm the expected result before moving to the next step. If anything in the "STOP conditions" section occurs, stop and report — do not improvise. When done, update the status row for this plan in `plans/README.md`.
 >
-> **Drift check (run first)**: `git diff --stat bf83142..HEAD -- src/haxjobs/api_server.py src/haxjobs/server/`
-> If `src/haxjobs/` doesn't exist yet, plan 040 must be executed first. STOP.
+> **Drift check (run first)**: `git diff --stat bf83142..HEAD -- src/haxjobs/server/ src/haxjobs/api_server.py pyproject.toml`
+> If `src/haxjobs/` doesn't exist, plan 040 must be executed first. STOP.
 
 ## Status
 
 - **Priority**: P1
 - **Effort**: M
-- **Risk**: LOW (adds FastAPI alongside old api_server.py, old code stays until frontend is ready)
+- **Risk**: LOW (adds FastAPI, old api_server.py stays as reference)
 - **Depends on**: 040
 - **Category**: migration
 - **Planned at**: commit `bf83142`, 2026-06-30
 
 ## Why this matters
 
-`api_server.py` is a 400-line stdlib `http.server` with manual route matching via `if path == "/api/jobs":`. Every endpoint is a hand-written if/elif block. FastAPI gives us auto-generated OpenAPI docs at `/docs`, Pydantic validation, async support, and proper route organization. The FastAPI app also serves the React frontend build from `frontend/dist/` — single process, single port. The old `api_server.py` stays (not deleted) until the frontend migration is complete in later plans — it can still run for testing.
+`api_server.py` is a 400-line stdlib `http.server` with manual route matching. FastAPI gives auto-generated OpenAPI docs at `/docs`, Pydantic validation, async support, and proper route organization.
+
+The backend uses a **feature-based structure**: every business domain gets its own directory with `routes.py`, `service.py`, and `schemas.py`. Shared infrastructure (`db/`, `discovery/scrapers/`, `evaluate/`, `packs_builder/`) stays flat outside features. This keeps API code close to the domain it serves instead of scattered across `server/routes/`.
 
 ## Current state
 
-- `src/haxjobs/api_server.py` — stdlib HTTP server, ~400 lines, manual route matching
-- `src/haxjobs/server/routes/` — route handler modules (jobs.py, outreach.py, pack_resources.py, resources.py)
-- DB modules import via `from haxjobs.db import ...`
-- No request validation, no API docs, no CORS headers
+- `src/haxjobs/api_server.py` — old stdlib HTTP server (stays, not deleted)
+- `src/haxjobs/server/routes/` — old route handler modules
+- DB modules at `src/haxjobs/db/`
+- No FastAPI, no Pydantic models for request/response
 
-Example current pattern (api_server.py:240):
-```python
-if path == "/api/jobs":
-    from haxjobs.server.routes.jobs import list_jobs
-    data = list_jobs()
-    self.send_response(200)
-    self.send_header("Content-Type", "application/json")
-    self.end_headers()
-    self.wfile.write(json.dumps(data).encode())
+## Target structure
+
+```
+src/haxjobs/
+  app.py                          # FastAPI app + route mounting + static files
+  cli.py                          # argparse CLI (already from plan 040)
+  config.py                       # TOML config parser
+  db/                             # shared data layer (flat, no ORM)
+    schema.py, jobs.py, discovered_jobs.py, evaluations.py, decisions.py
+  discovery/                      # scraper engines (infrastructure, not API)
+    scrapers/ (greenhouse.py, ashby.py, lever.py, orchestrator.py)
+    normalize.py, hooks.py, profile_search.py
+  evaluate/                       # evaluation engine (infrastructure)
+    common.py, run.py, api.py     # (api.py = direct LLM, added in plan 046)
+  packs_builder/                  # pack generation (infrastructure)
+    job_pack.py, ...
+  features/                       # ← NEW: API layer, one dir per domain
+    jobs/
+      routes.py                   # FastAPI routes: GET /api/jobs, GET /api/jobs/:id
+      schemas.py                  # Pydantic models: JobResponse, JobListParams
+      service.py                  # Business logic: calls db/jobs.py, db/evaluations.py
+    onboarding/
+      routes.py                   # POST /api/onboarding/upload, /wizard, /complete
+      schemas.py
+      service.py                  # CV extraction, wizard question generation
+    discovery/
+      routes.py                   # POST /api/discovery/run, GET /status, GET /jobs/new
+      schemas.py
+      service.py                  # calls discovery/scrapers/orchestrator.py
+    evaluation/
+      routes.py                   # POST /api/evaluation/run, GET /status
+      schemas.py
+      service.py                  # calls evaluate/run.py
+    decisions/
+      routes.py                   # POST /api/jobs/:id/decision, GET /decisions
+      schemas.py
+      service.py                  # calls db/decisions.py
+    packs/
+      routes.py                   # POST /api/jobs/:id/pack, GET /pack/files
+      schemas.py
+      service.py                  # calls packs_builder/job_pack.py
+    profile/
+      routes.py                   # GET /api/profile, PUT /api/profile
+      schemas.py
+      service.py                  # reads/writes ~/.haxjobs/profile.json
+  server/
+    main.py                       # uvicorn runner
 ```
 
 ## Commands you will need
 
 | Purpose | Command | Expected on success |
 |---------|---------|---------------------|
-| Run tests | `python3 -m pytest -q tests/` | 255 passed |
-| Start server | `python3 -m haxjobs.server.app` | "Uvicorn running on http://localhost:8241" |
-| Check API docs | `curl -s http://localhost:8241/docs | head -c 100` | HTML response |
-| Verify 404 | `curl -s -o /dev/null -w "%{http_code}" http://localhost:8241/api/nonexistent` | 404 |
+| Add deps | `uv add fastapi "uvicorn[standard]"` | exit 0 |
+| Run tests | `uv run pytest -q tests/` | 255 passed |
+| Start server | `uv run haxjobs start` | "Uvicorn running on http://127.0.0.1:8241" |
+| Health check | `curl -s http://localhost:8241/api/health` | `{"status":"ok"}` |
+| API docs | `curl -s -o /dev/null -w "%{http_code}" http://localhost:8241/docs` | 200 |
+| Verify routes | `curl -s http://localhost:8241/openapi.json \| uv run python -c "import json,sys; d=json.load(sys.stdin); print(len(d['paths']))"` | > 1 |
 
 ## Scope
 
 **In scope**:
-- Create `src/haxjobs/server/app.py` — FastAPI app with route mounting
+- Create `src/haxjobs/app.py` — FastAPI app with CORS, static file serving, route mounting
 - Create `src/haxjobs/server/main.py` — uvicorn runner
-- Wire existing route handlers into FastAPI routes
-- Add CORS middleware for dev mode
-- Add static file serving for `frontend/dist/`
-- Wire `haxjobs start` CLI command to launch the server
-- Add `fastapi` and `uvicorn` to `pyproject.toml` deps (already there from plan 040)
+- Create `src/haxjobs/features/` directory with all 7 feature modules
+- Each feature gets: `routes.py` (FastAPI router), `schemas.py` (Pydantic models), `service.py` (business logic)
+- Health endpoint at `/api/health`
+- Wire `haxjobs start` to launch uvicorn and open browser
+- Serve React frontend from `../frontend/dist/` (when built by plan 042)
 
 **Out of scope**:
-- `api_server.py` — do NOT delete, it stays as reference
-- `server/routes/` — do NOT change handler internals, only mount them
-- Frontend build — that's plan 042
+- Full implementation of every route handler — just the skeleton + health endpoint. Full logic in plans 043-051.
+- Deleting `api_server.py` — it stays as reference
+- Deleting `server/routes/` — old route files stay until their logic migrates to features/
+- `features/onboarding/` full logic — plan 043
+- `features/discovery/` full logic — plan 045
+- `features/evaluation/` full logic — plan 046
+- `features/jobs/` full logic — plan 047
 
 ## Git workflow
 
-- Commit: `git commit -m "add FastAPI backend, keep old api_server for now"`
+- Commit: `git commit -m "add FastAPI backend with feature-based structure"`
 - Do NOT push
 
 ## Steps
 
-### Step 1: Create FastAPI app
+### Step 1: Add FastAPI dependency
 
-Create `src/haxjobs/server/app.py`:
+```bash
+uv add fastapi "uvicorn[standard]"
+```
+
+**Verify**: `grep fastapi pyproject.toml` → shows dependency. `uv run python -c "import fastapi; print(fastapi.__version__)"` → prints version.
+
+### Step 2: Create FastAPI app
+
+Create `src/haxjobs/app.py`:
 
 ```python
-"""FastAPI application — replaces the old stdlib api_server.py."""
+"""FastAPI application."""
 from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -81,7 +135,7 @@ from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(title="HaxJobs", version="1.0.0")
 
-# CORS for dev (Vite dev server on :5173)
+# CORS for Vite dev server
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://localhost:8241"],
@@ -89,147 +143,221 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Import and mount route handlers
-# ponytail: import inside function so module loads even if a route module is broken
-def _mount_routes():
-    from haxjobs.server.routes.jobs import router as jobs_router
-    from haxjobs.server.routes.outreach import router as outreach_router
-    from haxjobs.server.routes.pack_resources import router as pack_router
-    from haxjobs.server.routes.resources import router as resources_router
-    app.include_router(jobs_router, prefix="/api")
-    app.include_router(outreach_router, prefix="/api")
-    app.include_router(pack_router, prefix="/api")
-    app.include_router(resources_router, prefix="/api")
-
-_mount_routes()
-
-# Serve React frontend (if built)
-_FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
-if _FRONTEND_DIR.exists():
-    app.mount("/", StaticFiles(directory=str(_FRONTEND_DIR), html=True), name="frontend")
-
 
 @app.get("/api/health")
 def health():
     return {"status": "ok", "version": "1.0.0"}
+
+
+def mount_features():
+    """Mount all feature routers. Called at startup so import errors are isolated."""
+    from haxjobs.features.jobs.routes import router as jobs_router
+    from haxjobs.features.onboarding.routes import router as onboarding_router
+    from haxjobs.features.discovery.routes import router as discovery_router
+    from haxjobs.features.evaluation.routes import router as evaluation_router
+    from haxjobs.features.decisions.routes import router as decisions_router
+    from haxjobs.features.packs.routes import router as packs_router
+    from haxjobs.features.profile.routes import router as profile_router
+
+    app.include_router(jobs_router, prefix="/api")
+    app.include_router(onboarding_router, prefix="/api")
+    app.include_router(discovery_router, prefix="/api")
+    app.include_router(evaluation_router, prefix="/api")
+    app.include_router(decisions_router, prefix="/api")
+    app.include_router(packs_router, prefix="/api")
+    app.include_router(profile_router, prefix="/api")
+
+
+mount_features()
+
+# Serve React frontend if built
+_FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
+if _FRONTEND_DIR.exists():
+    app.mount("/", StaticFiles(directory=str(_FRONTEND_DIR), html=True), name="frontend")
 ```
 
-**Verify**: `python3 -c "from haxjobs.server.app import app; print(app.title)"` → `HaxJobs`
+**Verify**: `uv run python -c "from haxjobs.app import app; print(app.title)"` → `HaxJobs`
 
-### Step 2: Create route modules with FastAPI routers
+### Step 3: Create feature directory skeleton
 
-The old `server/routes/jobs.py` uses `list_jobs()` as a plain function. We need to wrap it in a FastAPI router. Create router wrappers — minimal, don't change existing logic.
+Create each feature with minimal skeleton:
 
-Create `src/haxjobs/server/routes/jobs.py` with both old and new:
+```
+src/haxjobs/features/
+  __init__.py   (empty)
+  jobs/
+    __init__.py (empty)
+    routes.py   (see below)
+    schemas.py  (see below)
+    service.py  (see below)
+  onboarding/  __init__.py, routes.py, schemas.py, service.py
+  discovery/   __init__.py, routes.py, schemas.py, service.py
+  evaluation/  __init__.py, routes.py, schemas.py, service.py
+  decisions/   __init__.py, routes.py, schemas.py, service.py
+  packs/       __init__.py, routes.py, schemas.py, service.py
+  profile/     __init__.py, routes.py, schemas.py, service.py
+```
+
+Template for each `routes.py`:
+```python
+"""<Feature> API routes."""
+from fastapi import APIRouter
+
+router = APIRouter(tags=["<feature>"])
+
+
+@router.get("/<resource>")
+def list_<resource>():
+    return {"message": "not implemented", "feature": "<feature>"}
+```
+
+Template for each `schemas.py`:
+```python
+"""<Feature> request/response schemas."""
+from pydantic import BaseModel
+
+
+class <Resource>Response(BaseModel):
+    id: int
+    name: str
+```
+
+Template for each `service.py`:
+```python
+"""<Feature> business logic.
+
+ponytail: thin wrappers over db/ modules and infrastructure.
+Replaced with real logic in later plans.
+"""
+
+def list_<resource>():
+    return []  # placeholder
+```
+
+For `features/jobs/` specifically, wire the existing DB functions since they already work:
 
 ```python
-"""Job routes."""
+# features/jobs/service.py
+from haxjobs.db.jobs import list_jobs as db_list_jobs
+from haxjobs.db.evaluations import get_evaluation_for_job
+
+def list_jobs(status_filter: str | None = None, offset: int = 0, limit: int | None = None):
+    return db_list_jobs(status_filter=status_filter, offset=offset, limit=limit)
+```
+
+```python
+# features/jobs/routes.py
 from fastapi import APIRouter, Query
-from typing import Optional
+from .service import list_jobs
+from .schemas import JobListResponse
 
 router = APIRouter(tags=["jobs"])
-
-# Import the existing list_jobs logic
-from haxjobs.server.routes._jobs import list_jobs as _list_jobs
-
 
 @router.get("/jobs")
 def get_jobs(
-    status_filter: Optional[str] = Query(None, alias="status"),
+    status: str | None = Query(None),
     offset: int = Query(0, ge=0),
-    limit: Optional[int] = Query(None, ge=1, le=100),
+    limit: int | None = Query(None, ge=1, le=100),
 ):
-    """List jobs with evaluations, paginated."""
-    return _list_jobs(status_filter=status_filter, offset=offset, limit=limit)
+    rows = list_jobs(status_filter=status, offset=offset, limit=limit)
+    return {"jobs": rows, "total": len(rows)}
 ```
 
-But wait — the old `list_jobs` function is in the same file. Better approach: rename the old file to `_jobs_impl.py` and have the new `jobs.py` import from it.
-
-Actually, the ponytail approach: just add `router` and `@router.get` decorators to the existing file. The old API server called `list_jobs()` directly. FastAPI routes call the function via the decorator. Both can coexist.
-
-**Ponytail approach**: Add FastAPI route decorators to the existing functions. Don't rename files, don't create wrappers.
-
-Edit `src/haxjobs/server/routes/jobs.py` — add at top:
 ```python
-from fastapi import APIRouter, Query
-router = APIRouter(tags=["jobs"])
+# features/jobs/schemas.py
+from pydantic import BaseModel
+
+
+class JobResponse(BaseModel):
+    id: int
+    title: str
+    company: str | None = None
+    location: str | None = None
+    status: str = "pending"
+    source: str | None = None
+    discovered_at: str | None = None
+    role_family: str | None = None
+    fit_score: int | None = None
+    fit_level: int | None = None
 ```
 
-Add `@router.get("/jobs")` decorator above `list_jobs()`. Add Query params for status_filter, offset, limit. The function body doesn't change.
+**Verify**: `find src/haxjobs/features -name "*.py" | wc -l` → at least 22 Python files (7 dirs × 3 + 1 init)
 
-**Verify**: `grep "router" src/haxjobs/server/routes/jobs.py` → shows router definition + @router.get
-
-Do the same for the other route files. Only if they exist and are simple. If a route file is complex, skip it — we'll add it later.
-
-Actually, to keep this plan minimal: **only create the FastAPI app shell and the /api/health endpoint**. Wire existing routes in a follow-up plan when we actually need them. The frontend development just needs the health check to confirm the server is running. Real API endpoints get wired when we build their UI.
-
-**Revised approach**:
-1. Create `app.py` with health endpoint
-2. Wire `haxjobs start` to launch uvicorn
-3. Leave old route mounting for plan 045 (discovery), 047 (dashboard), etc.
-
-### Step 3: Create uvicorn runner
+### Step 4: Create uvicorn runner
 
 Create `src/haxjobs/server/main.py`:
 
 ```python
 """Run the FastAPI server."""
+import webbrowser
+import threading
 import uvicorn
 
-def run(host: str = "127.0.0.1", port: int = 8241):
-    uvicorn.run("haxjobs.server.app:app", host=host, port=port, reload=False)
+def run(host: str = "127.0.0.1", port: int = 8241, open_browser: bool = True):
+    if open_browser:
+        threading.Timer(1.0, lambda: webbrowser.open(f"http://{host}:{port}")).start()
+    uvicorn.run("haxjobs.app:app", host=host, port=port, reload=False)
 
 if __name__ == "__main__":
     run()
 ```
 
-### Step 4: Wire CLI
-
-Edit `src/haxjobs/cli.py`:
+Update `cli.py` `cmd_start()` to accept `--no-browser`:
 
 ```python
-"""HaxJobs CLI."""
-import sys
-import webbrowser
+def cmd_start(args):
+    from haxjobs.server.main import run
+    run(host=args.host, port=args.port, open_browser=not args.no_browser)
 
-def main():
-    if len(sys.argv) > 1 and sys.argv[1] == "start":
-        print("Starting HaxJobs on http://localhost:8241")
-        # Open browser after a short delay
-        import threading
-        threading.Timer(1.0, lambda: webbrowser.open("http://localhost:8241")).start()
-        from haxjobs.server.main import run
-        run()
-    else:
-        print("HaxJobs v1.0.0")
-        print("  haxjobs start    Start the server")
-
-if __name__ == "__main__":
-    main()
+# In argparse setup:
+start.add_argument("--no-browser", action="store_true", help="Don't open browser")
 ```
 
-**Verify**: `haxjobs` → prints usage. `haxjobs start & sleep 2 && curl -s http://localhost:8241/api/health && kill %1` → `{"status":"ok","version":"1.0.0"}`
+**Verify**: `uv run haxjobs start --no-browser & sleep 2 && curl -s http://localhost:8241/api/health && kill %1` → `{"status":"ok","version":"1.0.0"}`
 
-### Step 5: Run tests
+### Step 5: Run tests and verify
 
 ```bash
-python3 -m pytest -q tests/
+uv run pytest -q tests/
 ```
 
-**Verify**: 255 passed. The FastAPI app doesn't break existing tests because tests don't import it.
+**Verify**: 255 passed. The FastAPI app shouldn't break existing tests since they don't import it.
+
+Manual verification:
+```bash
+# Start server in background
+uv run haxjobs start --no-browser &
+sleep 2
+
+# Health
+curl -s http://localhost:8241/api/health
+
+# API docs
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8241/docs
+
+# Jobs endpoint (should work since it's wired)
+curl -s http://localhost:8241/api/jobs | head -c 200
+
+kill %1
+```
+
+**Verify**: health returns ok, docs returns 200, jobs returns JSON
 
 ### Step 6: Commit
 
 ```bash
-git add -A && git commit -m "add FastAPI backend with health endpoint and haxjobs start CLI"
+git add -A && git commit -m "add FastAPI backend with feature-based structure"
 ```
 
 ## Done criteria
 
-- [ ] `python3 -m haxjobs.server.main` starts server on :8241
-- [ ] `curl http://localhost:8241/api/health` returns `{"status":"ok","version":"1.0.0"}`
-- [ ] `haxjobs start` starts server
-- [ ] FastAPI auto-docs at http://localhost:8241/docs load
+- [ ] `fastapi` and `uvicorn` in pyproject.toml deps
+- [ ] `uv run haxjobs start` starts server on :8241
+- [ ] `curl http://localhost:8241/api/health` → `{"status":"ok","version":"1.0.0"}`
+- [ ] `curl http://localhost:8241/docs` → 200
+- [ ] `curl http://localhost:8241/api/jobs` → JSON response
+- [ ] `features/` directory has 7 feature modules, each with routes/schemas/service
+- [ ] `app.py` mounts all 7 routers
 - [ ] 255 tests pass
 - [ ] Old `api_server.py` still exists (not deleted)
 
@@ -237,12 +365,14 @@ git add -A && git commit -m "add FastAPI backend with health endpoint and haxjob
 
 Stop if:
 
-- fastapi or uvicorn import fails — check pyproject.toml deps
-- Port 8241 is already in use — configure a different port or kill the process
-- Old server/routes/ files break from the FastAPI imports — remove the import, keep files as-is
+- `uv add fastapi` fails — check pyproject.toml from plan 040 exists
+- Port 8241 already in use — `lsof -i :8241`, kill the process
+- Any feature router import causes a crash — it's likely an old `server/routes/` file with stale imports. Fix the import or stub the router.
+- `uvicorn` can't find `haxjobs.app:app` — make sure `PYTHONPATH` includes `src/`. uv run should handle this.
 
 ## Maintenance notes
 
-- The old `api_server.py` stays until all frontend API calls are migrated to FastAPI routes. Then delete it.
-- Route files that got `from fastapi import ...` added at top may need that import removed if they cause circular imports. The ponytail escape hatch: revert the import, keep the old function, wire the route later.
-- `haxjobs start` will grow flags: `--port`, `--no-browser`, `--dev` for Vite hot-reload mode. Not now.
+- `features/jobs/` is the only feature with real DB calls in this plan. All others have placeholder returns. Real logic in plans 043-051.
+- The old `server/routes/` directory stays until all its logic is migrated to features. Delete it in a cleanup plan after all features are built.
+- `mount_features()` is called at import time. If any feature module has broken imports, it will crash the app. During development, consider wrapping each import in try/except.
+- CORS allows `localhost:5173` (Vite dev server) and `localhost:8241` (production). Add more origins as needed.
