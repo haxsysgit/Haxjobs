@@ -7,10 +7,12 @@ Each executor: read the plan fully, honor STOP conditions, update status row.
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |------|-------|----------|--------|------------|--------|
-| 040 | Restructure repo into installable package (uv + hatchling) | P1 | M | — | TODO |
+| 038 | Pre-restructure — signal repo is under construction | P1 | S | — | TODO |
+| 039 | Bare-minimum native agent — core run loop, structured output | P1 | S | 040, 042 | TODO |
+| 040 | Restructure repo into installable package (uv + hatchling) | P1 | M | 038 | TODO |
 | 041 | FastAPI backend — feature-based structure, serve frontend | P1 | M | 040 | TODO |
 | 042 | Provider setup — first-run API key + model config | P1 | S | 040, 041 | TODO |
-| 043 | HaxJobs native agent — agent loop, tool registry, tool API | P1 | M | 040, 041, 042 | TODO |
+| 043 | Full native agent — tool registry, built-in tools, multi-turn | P1 | M | 039, 040, 041, 042 | TODO |
 | 044 | Frontend shell — React + Vite + shadcn/ui (minimal deps) | P1 | M | 040, 041 | TODO |
 | 045 | Onboarding backend — CV upload, agent extraction, wizard API | P1 | M | 041, 043 | TODO |
 | 046 | Onboarding frontend — multi-step wizard UI | P1 | M | 044, 045 | TODO |
@@ -30,18 +32,20 @@ Each executor: read the plan fully, honor STOP conditions, update status row.
 - **uv** for package management (`uv add`, `uv build`, `uv publish`)
 - **hatchling** build backend
 - **argparse** for CLI (stdlib, zero deps)
-- **DeepSeek** as default LLM provider (via `openai` package as HTTP client — DeepSeek API is OpenAI-compatible)
-- **Provider setup** before onboarding: user picks provider, enters API key → saved to `~/.haxjobs/config.toml`
-- **Native agent** (`haxjobs.agent`) — all LLM calls route through it: evaluation, CV extraction, wizard questions, discovery tools
+- **DeepSeek** as default LLM provider (via `openai` package as HTTP client)
+- **Provider setup** before onboarding: user picks provider, enters API key
+- **Bare-minimum agent** (039) then full agent (043) — staged approach
 - **Feature-based backend**: `features/{jobs,onboarding,setup,discovery,evaluation,decisions,packs,profile}/`
-- **shadcn/ui directly** — no template fork, 10 runtime deps (stripped Clerk, recharts, date-fns, cmdk, zustand, axios, input-otp, react-day-picker, react-top-loading-bar)
+- **shadcn/ui directly** — no template fork, 10 runtime deps
 
 ### Dependency graph
 
 ```
-040 ──┬── 041 ──┬── 042 ── 043 ──┬── 045 ── 046
-      │         │                ├── 048
-      │         │                └── (future: discovery tools)
+038 (README signal)
+ │
+040 ──┬── 041 ──┬── 042 ──┬── 039 (bare agent)
+      │         │         └── 043 (full agent) ──┬── 045 ── 046
+      │         │                               ├── 048
       │         ├── 044 ──┬── 046
       │         │         ├── 049 ── 050 ──┬── 051
       │         │         │                └── 052
@@ -53,19 +57,17 @@ Each executor: read the plan fully, honor STOP conditions, update status row.
 056 (runs after 055)
 ```
 
-### Parallelism after 040+041+042+043+044 foundation
+### Execution order
 
-These can run in parallel:
-- 045 (onboarding backend) + 047 (discovery API) + 048 (evaluation rewrite)
-- 046 needs 044+045 (frontend shell + onboarding backend)
-- 053 can run anytime after 045 (profile page)
-- 049 needs 041+044+047+048 (all backend features wired)
-
-## Plans changed in this revision (d6ce038 → current)
-
-Inserted plans 042 (provider setup) and 043 (native agent). Renumbered 042-054 → 044-056.
-Rewrote 045 (onboarding) and 048 (evaluation) to use native agent instead of direct API calls.
-Purged all "OpenAI" branding — default provider is DeepSeek. `openai` package stays as HTTP client only.
+1. **038** — pre-signal (independent, runs first)
+2. **040** — restructure package
+3. **041** — FastAPI backend
+4. **042** — provider setup
+5. **039** — bare agent (can run after 040+042, before 043)
+6. **043** — full agent (extends 039)
+7. **044** — frontend shell
+8-14. **045-054** — feature plans, docs
+15. **056** — ship
 
 ## Completed waves (historical)
 

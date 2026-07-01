@@ -10,22 +10,20 @@
 - **Priority**: P1
 - **Effort**: M
 - **Risk**: MED (foundational — every LLM interaction flows through this)
-- **Depends on**: 040, 041, 042
+- **Depends on**: 039, 040, 041, 042
 - **Category**: direction
 - **Planned at**: commit `bf83142`, 2026-06-30
 
 ## Why this matters
 
-A single `chat.completions.create()` call can't do multi-turn reasoning, can't use tools, can't scrape sites agentically, can't hold a conversation. The old `evaluate/agents/` directory tried to solve this by spawning agent CLIs as subprocess — wrong direction.
+Plan 039 delivered the bare-minimum agent: `Agent.run()` and `Agent.run_structured()` — single-turn, no tools. This plan adds what makes it a real agent: multi-turn conversation, tool calling, and a tool registry. The old `evaluate/agents/` directory tried to solve this by spawning agent CLIs as subprocess — wrong direction.
 
-The native agent is a minimal Python module (~150 lines) that:
-1. Reads provider config from `~/.haxjobs/config.toml` (plan 042)
-2. Runs a conversation loop with tool calling
-3. Exposes a tool registry where any module can register a tool via decorator
-4. Handles context window management (trim old messages when approaching limit)
-5. Returns structured final output
+This plan extends `src/haxjobs/agent/agent.py` with:
+1. Multi-turn loop with tool calling (adds to the `run()` method from 039)
+2. Tool registry (`registry.py`) — decorator-based, any module can register tools
+3. Built-in tools (`tools.py`) — `web_search`, `fetch_page`
 
-Every LLM interaction in HaxJobs routes through this agent — evaluation, CV extraction, discovery scraping, wizard question generation.
+Nothing from plan 039 gets deleted. This plan extends the Agent class with new methods and adds new modules alongside the existing one.
 
 ## Design
 
@@ -252,19 +250,21 @@ result = agent.run(
 
 ## Steps
 
-### Step 1: Create src/haxjobs/agent/ package
+### Step 1: Extend Agent class with multi-turn tool loop
 
-```bash
-mkdir -p src/haxjobs/agent
-```
+Add to the existing `src/haxjobs/agent/agent.py` from plan 039. The `__init__`, `run()`, `run_structured()`, and `_load_provider_config()` already exist. Add the tool-calling variant:
 
-Create `__init__.py`, `agent.py`, `registry.py`, `tools.py` as shown above.
+New method `run_with_tools()` added to the Agent class. The existing `run()` and `run_structured()` methods stay unchanged for simple single-turn use.
 
-**Verify**: `uv run python -c "from haxjobs.agent import Agent; print('ok')"` → ok
+**Verify**: `uv run python -c "from haxjobs.agent import Agent; a = Agent(); print(hasattr(a, 'run_with_tools'))"` → True
 
-### Step 2: Wire provider config loading
+### Step 2: Create registry.py and tools.py
 
-Add to `src/haxjobs/agent/agent.py`:
+Create `src/haxjobs/agent/registry.py` and `src/haxjobs/agent/tools.py` as shown in the Design section above. Update `__init__.py` to export the new symbols.
+
+### Step 3: Wire provider config loading reference
+
+Ensure the config loading in agent.py matches plan 039's `_load_provider_config()`:
 
 ```python
 def load_provider_config() -> dict:
@@ -291,14 +291,6 @@ def load_provider_config() -> dict:
         }
     raise RuntimeError("No provider configured. Run haxjobs start and visit /setup.")
 ```
-
-### Step 3: Add openai to pyproject.toml
-
-```bash
-uv add openai  # HTTP client for DeepSeek/OpenAI-compatible APIs
-```
-
-**Verify**: `uv run python -c "from openai import OpenAI; print('ok')"` → ok
 
 ### Step 4: Write tests
 
@@ -330,7 +322,7 @@ git commit -m "add HaxJobs native agent: loop, tool registry, built-in tools"
 - [ ] Provider config loaded from `~/.haxjobs/config.toml`
 - [ ] Falls back to `DEEPSEEK_API_KEY` env var
 - [ ] 5+ tests pass
-- [ ] `openai` in pyproject.toml deps
+- [ ] `openai` already in deps from plan 039
 
 ## STOP conditions
 
