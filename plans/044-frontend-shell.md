@@ -1,4 +1,4 @@
-# Plan 042: Frontend shell — React + Vite + shadcn/ui (minimal deps)
+# Plan 044: Frontend shell — React + Vite + shadcn/ui (minimal deps)
 
 > **Executor instructions**: Follow this plan step by step. Run every verification command and confirm the expected result before moving to the next step. If anything in the "STOP conditions" section occurs, stop and report — do not improvise. When done, update the status row for this plan in `plans/README.md`.
 >
@@ -56,12 +56,13 @@ Radix UI primitives come via shadcn/ui components, not direct deps. Only add the
 - Add ONLY these shadcn components: button, card, input, label, badge, table, dialog, tabs, dropdown-menu, separator, skeleton, sidebar, select, checkbox, textarea, toast (sonner)
 - Add: react-hook-form, @hookform/resolvers, @tanstack/react-query, @tanstack/react-router, @tanstack/react-table
 - Create layout shell: sidebar nav, header, main content area with Outlet
-- Create placeholder pages: Dashboard, Jobs, Profile
+- Create placeholder pages: Dashboard, Jobs, Profile, Setup
 - Build and verify FastAPI serves it at `/`
 
 **Out of scope**:
 - Forking shadcn-admin template — we build our own layout
 - Clerk, recharts, date-fns, cmdk, zustand, react-top-loading-bar, react-day-picker, axios — none added
+- SetupPage full implementation — that's plan 042 (runs first)
 - Real data in any page — "Coming soon" placeholders
 - Onboarding wizard UI — plan 044
 - Job list/detail components — plans 047/048
@@ -223,7 +224,7 @@ No automated tests for frontend in this plan. Manual:
 - `uv run haxjobs start` serves frontend at `/`
 - API docs at `/docs` still work
 - `/api/health` still returns `{"status":"ok"}`
-- Sidebar has 3 nav items: Dashboard, Jobs, Profile
+- Sidebar has 3 nav items: Dashboard, Jobs, Profile. Setup page shown on first visit if no provider configured.
 
 ## Done criteria
 

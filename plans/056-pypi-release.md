@@ -1,6 +1,6 @@
-# Plan 054: PyPI release — publish v1.0.0
+# Plan 056: PyPI release — publish v1.0.0
 
-> **Depends on**: 053 | **Priority**: P1 | **Effort**: S | **Risk**: LOW
+> **Depends on**: 055 | **Priority**: P1 | **Effort**: S | **Risk**: LOW
 > **Planned at**: commit `bf83142`, 2026-06-30
 
 ## Why this matters

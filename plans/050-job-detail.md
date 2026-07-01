@@ -1,6 +1,6 @@
-# Plan 048: Job detail — JD viewer, evaluation breakdown, pack preview
+# Plan 050: Job detail — JD viewer, evaluation breakdown, pack preview
 
-> **Depends on**: 047 | **Priority**: P1 | **Effort**: M | **Risk**: LOW
+> **Depends on**: 055 | **Priority**: P1 | **Effort**: M | **Risk**: LOW
 > **Planned at**: commit `bf83142`, 2026-06-30
 
 ## Why this matters
@@ -19,7 +19,7 @@ When a user clicks a job, they need full context: job description, evaluation (w
    - **Description tab**: full JD, company, location, source link, role family badge
    - **Evaluation tab**: fit score gauge, level badge, strongest matches (green cards), major gaps (amber cards), sponsorship risk, summary paragraph
    - **Pack tab**: file list (cover letter, CV, answers), "Download All" button, "Regenerate" button
-3. Header: title, company, location badges, "Mark Applied" button (→ plan 049), "Skip" button
+3. Header: title, company, location badges, "Mark Applied" button (→ plan 055), "Skip" button
 
 **shadcn components**: Tabs, Card, Badge, Button, Separator, Skeleton (loading state)
 

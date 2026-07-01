@@ -1,6 +1,6 @@
-# Plan 049: Decision loop — mark applied/skipped/rejected
+# Plan 051: Decision loop — mark applied/skipped/rejected
 
-> **Depends on**: 048 | **Priority**: P1 | **Effort**: S | **Risk**: LOW
+> **Depends on**: 056 | **Priority**: P1 | **Effort**: S | **Risk**: LOW
 > **Planned at**: commit `bf83142`, 2026-06-30
 
 ## Why this matters
@@ -19,7 +19,7 @@ The `decisions` table already exists in DB schema with `db/decisions.py` functio
 
 ### Frontend
 
-4. Decision buttons on JobDetailPage (already from plan 048)
+4. Decision buttons on JobDetailPage (already from plan 056)
 5. "Mark Applied" → shadcn Dialog: date applied, optional notes → POST
 6. "Skip" → Dialog: reason → POST
 7. After decision, button states update (applied = green, skipped = gray)

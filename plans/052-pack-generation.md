@@ -1,6 +1,6 @@
-# Plan 050: Pack generation — template fill, preview, download
+# Plan 052: Pack generation — template fill, preview, download
 
-> **Depends on**: 048 | **Priority**: P2 | **Effort**: M | **Risk**: LOW
+> **Depends on**: 056 | **Priority**: P2 | **Effort**: M | **Risk**: LOW
 > **Planned at**: commit `bf83142`, 2026-06-30
 
 ## Why this matters

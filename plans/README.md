@@ -9,57 +9,63 @@ Each executor: read the plan fully, honor STOP conditions, update status row.
 |------|-------|----------|--------|------------|--------|
 | 040 | Restructure repo into installable package (uv + hatchling) | P1 | M | — | TODO |
 | 041 | FastAPI backend — feature-based structure, serve frontend | P1 | M | 040 | TODO |
-| 042 | Frontend shell — React + Vite + shadcn/ui (minimal deps) | P1 | M | 040, 041 | TODO |
-| 043 | Onboarding backend — CV upload, LLM extraction, profile.json | P1 | M | 041 | TODO |
-| 044 | Onboarding frontend — multi-step wizard UI | P1 | M | 042, 043 | TODO |
-| 045 | Discovery API — scraper endpoints, run from UI | P1 | M | 041 | TODO |
-| 046 | Direct LLM evaluation — delete agent subprocess adapters | P1 | M | 041 | TODO |
-| 047 | Dashboard — job list with fit badges, filters, search | P1 | L | 041, 042, 045, 046 | TODO |
-| 048 | Job detail — JD viewer, evaluation breakdown, pack preview | P1 | M | 047 | TODO |
-| 049 | Decision loop — mark applied/skipped/rejected | P1 | S | 048 | TODO |
-| 050 | Pack generation — template fill, preview, download | P2 | M | 048 | TODO |
-| 051 | Profile settings — view and edit profile | P2 | M | 043 | TODO |
-| 052 | Frontend polish — theme, responsive, navigation, empty states | P2 | M | 042, 047 | TODO |
-| 053 | Documentation — README, quickstart, screenshots | P1 | M | 042-052 | TODO |
-| 054 | PyPI release — publish v1.0.0 | P1 | S | 053 | TODO |
+| 042 | Provider setup — first-run API key + model config | P1 | S | 040, 041 | TODO |
+| 043 | HaxJobs native agent — agent loop, tool registry, tool API | P1 | M | 040, 041, 042 | TODO |
+| 044 | Frontend shell — React + Vite + shadcn/ui (minimal deps) | P1 | M | 040, 041 | TODO |
+| 045 | Onboarding backend — CV upload, agent extraction, wizard API | P1 | M | 041, 043 | TODO |
+| 046 | Onboarding frontend — multi-step wizard UI | P1 | M | 044, 045 | TODO |
+| 047 | Discovery API — scraper endpoints, run from UI | P1 | M | 041 | TODO |
+| 048 | Agent-based evaluation — delete subprocess adapters, use native agent | P1 | M | 041, 043 | TODO |
+| 049 | Dashboard — job list with fit badges, filters, search | P1 | L | 041, 044, 047, 048 | TODO |
+| 050 | Job detail — JD viewer, evaluation breakdown, pack preview | P1 | M | 049 | TODO |
+| 051 | Decision loop — mark applied/skipped/rejected | P1 | S | 050 | TODO |
+| 052 | Pack generation — template fill, preview, download | P2 | M | 050 | TODO |
+| 053 | Profile settings — view and edit profile | P2 | M | 045 | TODO |
+| 054 | Frontend polish — theme, responsive, navigation, empty states | P2 | M | 044, 049 | TODO |
+| 055 | Documentation — README, quickstart, screenshots | P1 | M | 044-054 | TODO |
+| 056 | PyPI release — publish v1.0.0 | P1 | S | 055 | TODO |
 
 ### Key technology decisions
 
-- **uv** for package management (`uv add`, `uv build`, `uv publish`), not pip/setuptools
-- **hatchling** build backend (uv's recommended default)
-- **argparse** for CLI (stdlib, zero deps, fast)
-- **feature-based backend**: `features/{jobs,onboarding,discovery,evaluation,decisions,packs,profile}/` each with routes.py, service.py, schemas.py
-- **shadcn/ui directly** — no template fork. Only 10 runtime deps (stripped Clerk, recharts, date-fns, cmdk, zustand, axios, input-otp, react-day-picker, react-top-loading-bar)
-- **Direct LLM API** calls replace agent subprocess adapters
+- **uv** for package management (`uv add`, `uv build`, `uv publish`)
+- **hatchling** build backend
+- **argparse** for CLI (stdlib, zero deps)
+- **DeepSeek** as default LLM provider (via `openai` package as HTTP client — DeepSeek API is OpenAI-compatible)
+- **Provider setup** before onboarding: user picks provider, enters API key → saved to `~/.haxjobs/config.toml`
+- **Native agent** (`haxjobs.agent`) — all LLM calls route through it: evaluation, CV extraction, wizard questions, discovery tools
+- **Feature-based backend**: `features/{jobs,onboarding,setup,discovery,evaluation,decisions,packs,profile}/`
+- **shadcn/ui directly** — no template fork, 10 runtime deps (stripped Clerk, recharts, date-fns, cmdk, zustand, axios, input-otp, react-day-picker, react-top-loading-bar)
 
 ### Dependency graph
 
 ```
-040 ──┬── 041 ──┬── 043 ── 044
-      │         ├── 045
-      │         └── 046
-      └── 042 ──┬── 044
-                ├── 047 ── 048 ──┬── 049
-                │                └── 050
-                └── 052
-051 (runs anytime after 043)
-053 (runs after everything visible)
-054 (runs after 053)
+040 ──┬── 041 ──┬── 042 ── 043 ──┬── 045 ── 046
+      │         │                ├── 048
+      │         │                └── (future: discovery tools)
+      │         ├── 044 ──┬── 046
+      │         │         ├── 049 ── 050 ──┬── 051
+      │         │         │                └── 052
+      │         │         └── 054
+      │         └── 047 ── 049
+      │
+053 (runs anytime after 045)
+055 (runs after everything visible)
+056 (runs after 055)
 ```
 
-### Parallelism
+### Parallelism after 040+041+042+043+044 foundation
 
-After 040+041+042, these can run in parallel:
-- 043 (onboarding backend) + 045 (discovery API) + 046 (evaluation rewrite)
-- 044 needs 042+043
-- 051 can run anytime after 043
-- 047 needs 041+042+045+046 (all backend features wired)
-- 052 can run after 047
+These can run in parallel:
+- 045 (onboarding backend) + 047 (discovery API) + 048 (evaluation rewrite)
+- 046 needs 044+045 (frontend shell + onboarding backend)
+- 053 can run anytime after 045 (profile page)
+- 049 needs 041+044+047+048 (all backend features wired)
 
-## Plans changed in this revision
+## Plans changed in this revision (d6ce038 → current)
 
-Plans 040-042 rewritten for: uv/hatchling, feature-based backend, stripped frontend deps.
-Plans 043-054 corrected for: `features/X/` paths, `uv add`/`uv run` commands, `uv publish` instead of twine.
+Inserted plans 042 (provider setup) and 043 (native agent). Renumbered 042-054 → 044-056.
+Rewrote 045 (onboarding) and 048 (evaluation) to use native agent instead of direct API calls.
+Purged all "OpenAI" branding — default provider is DeepSeek. `openai` package stays as HTTP client only.
 
 ## Completed waves (historical)
 

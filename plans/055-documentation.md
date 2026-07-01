@@ -1,6 +1,6 @@
-# Plan 053: Documentation — README, quickstart, screenshots
+# Plan 055: Documentation — README, quickstart, screenshots
 
-> **Depends on**: 042-052 | **Priority**: P1 | **Effort**: M | **Risk**: LOW
+> **Depends on**: 056-052 | **Priority**: P1 | **Effort**: M | **Risk**: LOW
 > **Planned at**: commit `bf83142`, 2026-06-30
 
 ## Why this matters

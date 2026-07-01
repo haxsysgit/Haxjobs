@@ -1,4 +1,4 @@
-# Plan 047: Dashboard — job list with fit badges, filters, search
+# Plan 049: Dashboard — job list with fit badges, filters, search
 
 > **Depends on**: 041, 042, 045, 046 | **Priority**: P1 | **Effort**: L | **Risk**: LOW
 > **Planned at**: commit `bf83142`, 2026-06-30
