@@ -60,7 +60,6 @@ def build_profile_blurb(company: str = "") -> str:
         f"Requires sponsorship: {up.get('requires_sponsorship', '')}",
         f"Availability: {up.get('availability', '')}",
         f"Salary: {up.get('salary_preference', '£35,000-£60,000')}",
-        f"Phone: {up.get('phone', '')}",
         f"Email: {up.get('email', '')}",
         f"LinkedIn: {up.get('linkedin_url', '')}",
         f"GitHub: {up.get('github_url', '')}",
