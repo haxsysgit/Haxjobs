@@ -1,38 +1,38 @@
 # HaxJobs — Agent Guide
 
-HaxJobs is Arinze's autonomous job discovery and application pipeline. Agents working in this repo must understand the pipeline design and respect its boundaries.
+HaxJobs is Arinze's self-hosted job search platform. It builds a structured profile from a CV upload, discovers jobs, evaluates fit, generates application packs, learns from user decisions, and helps with outreach — all through a web UI at `localhost:8241` with automation under the hood.
+
+Agents working in this repo must understand the full user journey, not just the pipeline.
 
 ## What HaxJobs does
 
-HaxJobs is a black-box pipeline: jobs enter from discovery scrapers, everything else is automatic until the final report. The user reviews the output — not each step.
-
-### Pipeline stages
+HaxJobs is a platform with six phases:
 
 ```
-DISCOVERY → CLASSIFICATION → EVALUATION → PACK GENERATION → REPORT
+ONBOARD → DISCOVER → CLASSIFY → EVALUATE → DECIDE → LEARN
 ```
 
-1. **Discovery** — automatic scrapers find jobs. Jobs are normalized, run through pre-discovery hooks (dedup against DB, blacklist companies, duplicate role check), then stored in `discovered_jobs` table. Post-discovery filters leniently remove non-tech or profile-irrelevant jobs. Manual job submissions (paste link/JD) go through the same path.
+**0. Onboarding** (one-time) — user uploads CV, LLM extracts structured profile, targeted questions fill gaps. Output: `profile/arinze_profile.local.json` — the backbone of everything. No hand-writing JSON.
 
-2. **Classification** — profile-driven from `haxjobs.toml`. Role preferences, work modes, target levels, blacklisted keywords all live in config. No hardcoded role taxonomy.
+**1. Discovery** — web search + ATS scrapers (Greenhouse, Ashby, Lever) find jobs matching the profile. Profile-aware pre-filtering at scraper level. Jobs normalized and stored in `discovered_jobs`, promoted to `jobs` after hooks (dedup, blacklist, location filter).
 
-3. **Evaluation** — pluggable agent system (`evaluate/` directory). Agent choice configured in `haxjobs.toml` (`evaluation.agent`). Results written to `evaluations` table with agent name, fit score, level, gaps.
+**2. Classification** — profile-driven from `haxjobs.toml` `[[roles]]`. Role preferences, work modes, target levels, blacklisted keywords all live in config. No hardcoded role taxonomy.
 
-4. **Pack Generation** — pre-built role templates exist (7 roles for Arinze). L1/L2 jobs auto-fill templates: slots like `{company}`, `{hiring_manager}`, `{jd_match_points}`, `{evidence_story}`, `{gap_note}`. Regenerate PDF/cover letter from filled HTML. L3/L4 jobs appear in the report for manual review — no auto-pack.
+**3. Evaluation** — direct LLM API calls (not agent subprocess) score fit 0-100 against the full profile. Returns fit_score, level (1-4), matches, gaps, sponsorship risk. Results written to `evaluations` table.
 
-5. **Report** — end-of-cycle markdown report of ALL evaluated jobs: links, pack paths, fit analysis, level breakdown. Saved to DB and delivered via configured channels (email, messaging).
+**4. Decision loop** — user reviews jobs in the dashboard, marks each as apply/skip/reject. `decisions` table records every action. Applied jobs are excluded from future discovery cycles.
 
-### Future: 3-Agent Simulation Loop (v0.3)
+**5. Learning** — system processes decisions to evolve profile preferences. Preferred companies pattern, salary trends, role refinements. Profile gets sharper over time.
 
-After the pipeline produces a pack, a coaching simulation stress-tests it:
+**Outreach** — find hiring managers/team leads via LinkedIn and company pages. Generate personalized messages from templates. Track status: drafted → sent → replied → interview. All requiring user approval before sending.
 
-- **Recruiter Agent** — plays the hiring manager. Asks questions, raises objections.
-- **Applicant Agent** — answers as Arinze on a good day, using only profile evidence.
-- **Evaluator Agent** — referee. Checks if the application improved. Separates safe edits from fabrication.
+### Pack generation
 
-Stops when: shortlisted, rejected with unfixable gaps, no material gain, or max 3 rounds.
+L1/L2 jobs (score 50+) auto-generate packs: role-specific CV review, cover letter from templates, per-job keyword injection. L3/L4 jobs appear in reports for manual review. CV variants live in `cv_variants/` — 7 reusable role-specific variants, never generate a new CV per job.
 
-Output: `packs/<job>/simulation.json`. This is coaching, not real hiring feedback.
+### Cycle reports
+
+End-of-cycle markdown report of all evaluated jobs: links, scores, levels, pack paths, user decisions. Saved to `reports/<cycle>.md` and delivered via configured channels.
 
 ## Repo layout
 
@@ -48,18 +48,22 @@ Workflow: develop on Jade → push to GitHub → Archilles pulls via update scri
 
 `haxjobs.toml` is the canonical config. `haxjobs_config.py` is a thin parser. Env vars override TOML values.
 
-Sections: `[paths]`, `[user]`, `[job_search]`, `[[roles]]`, `[evaluation]`, `[delivery]`, `[email]`, `[telegram]`.
+Sections: `[paths]`, `[user]`, `[job_search]`, `[[roles]]`, `[evaluation]`, `[delivery]`, `[cron]`, `[email]`, `[telegram]`.
 
 ## DB layout
 
 - `discovered_jobs` — raw scraped/manual jobs before hooks
 - `jobs` — accepted jobs promoted from discovery
-- `evaluations` — fit evaluation results per job (agent, score, level, report markdown, pack path)
-- `favorites`, `saved_jobs` — user curation
-- `decisions` — approval/rejection/skip decisions
-- `outreach_drafts` — generated outreach messages
+- `evaluations` — fit evaluation results per job (agent, score, level, report, pack path, cycle_id)
+- `decisions` — apply/skip/reject decisions per job (user feedback loop)
+- `outreach_drafts`, `outreach_contacts` — outreach messages and contact tracking
 - `activity_log` — pipeline events
-- `evaluation_history` — historical scores on re-evaluation
+- `whitelist` — company/role patterns that prevent auto-skip
+
+**Future** (per `PRODUCT_ARCHITECTURE.md`):
+- `cycle_state` — track each pipeline run cycle
+- `job_history` — permanent archive of applied/rejected/archived jobs
+- `learning_patterns` — learned preferences from user decisions
 
 ## Verification commands
 
@@ -98,28 +102,21 @@ cd dashboard && npx tsc -b --noEmit && npm run lint -- --quiet && npm run build
 
 ## Product rules
 
-- **SQLite** (`state/haxjobs.db`) is the source of truth for jobs, evaluations, packs, and outreach.
-- **`haxjobs.toml`** drives classification, evaluation agent choice, and level-based auto-pack decisions.
-- **Reusable CV variants** live in `cv_variants/`. Seven role variants exist. Packs reference a variant via metadata — never generate a new CV per job.
-- **Pack templates** live in `application_templates/`. Each role has a template with fillable slots. L1/L2 auto-fill; L3/L4 are report-only.
-- **Cycle reports** are generated at the end of each pipeline run: markdown with links, pack paths, fit analysis.
-- **Outreach drafts** are template-generated and require approval before any send action.
-
-## The 3-Agent Simulation Loop (v0.3, future)
-
-Designed but not yet implemented. The loop stress-tests an application pack:
-
-1. **Recruiter Agent** — reads the JD, CV variant, and pack. Outputs: shortlist/reject/continue/needs_clarification. Gives concrete objections.
-2. **Applicant Agent** — answers using only profile/CV/pack evidence. Flags claims needing human verification. Suggests edits without writing permanently.
-3. **Evaluator Agent** — judges: did the applicant improve? Separates safe edits (evidence-backed) from unsafe (fabrication). Decides: improve/stop_shortlisted/stop_rejected/stop_no_material_gain.
-
-One round: recruiter → applicant → evaluator → repeat or stop. Max 3 rounds. Output: `packs/<job>/simulation.json`.
+- **Profile JSON** (`profile/arinze_profile.local.json`) is the backbone — built by onboarding wizard, drives all pipeline stages
+- **Direct LLM API** for headless evaluation — faster and more reliable than agent subprocess
+- **SQLite** (`state/haxjobs.db`) is the source of truth for jobs, evaluations, packs, decisions, and outreach
+- **`haxjobs.toml`** drives classification, evaluation config, and level-based auto-pack decisions
+- **Decisions drive the feedback loop** — every apply/skip/reject teaches the system
+- **Reusable CV variants** live in `cv_variants/`. Seven role variants exist. Packs reference a variant via metadata — never generate a new CV per job
+- **Pack templates** live in `application_templates/`. Each role has a template with fillable slots. L1/L2 auto-fill; L3/L4 are report-only
+- **Cycle reports** are generated at the end of each pipeline run: markdown with links, pack paths, fit analysis
+- **Outreach drafts** are template-generated and require approval before any send action
 
 ## Coding style
 
 - Readable Python and TypeScript. No cryptic one-liners.
 - `ponytail:` comments mark deliberate simplifications with the upgrade path.
-- Tests use temporary SQLite DB monkeypatches.
+- Tests use temporary SQLite DB monkeypatches via `tests/conftest.py`.
 - Match existing naming: `list_jobs()`, `insert_job()`, camelCase for API fields.
 - Python stdlib HTTP server. React + TypeScript + Vite dashboard.
 - Config is TOML first: never hardcode paths, agent names, or profile preferences.
