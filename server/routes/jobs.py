@@ -1,12 +1,12 @@
 """Job-related API routes."""
 import json
 from generate_ready_packs import generate_pack_for_job
-from db import jobs as db_jobs, evaluations as db_evals, favorites as db_favs, saved as db_saved, decisions as db_decs, whitelist as db_wl
+from db import jobs as db_jobs, evaluations as db_evals, decisions as db_decs, whitelist as db_wl
 from db.pack_review import review_pack
 
 
 def list_jobs(status_filter=None, offset=0, limit=None):
-    """Return jobs with evaluations, hydrated with favorites and auto-apply state.
+    """Return jobs with evaluations, hydrated with auto-apply state.
 
     Accepts optional status_filter, offset, and limit for pagination.
     When limit is None (default), returns all jobs (backward compat).
@@ -17,8 +17,6 @@ def list_jobs(status_filter=None, offset=0, limit=None):
 
     # Batch: gather all job IDs once
     job_ids = [r["id"] for r in raw]
-    favorite_ids = set(db_favs.get_favorites())
-    saved_ids = {s["id"] for s in db_saved.get_saved_jobs()}
     auto_apply_states = db_decs.get_latest_auto_apply_states(job_ids)
 
     result = []
@@ -54,8 +52,6 @@ def list_jobs(status_filter=None, offset=0, limit=None):
             "skipReason": r.get("skip_reason", ""),
             "receivedAt": r.get("discovered_at", ""),
             "processedAt": r.get("evaluated_at", ""),
-            "isFavorite": jid in favorite_ids,
-            "isSaved": jid in saved_ids,
             "isAutoApply": auto_apply_states.get(jid, False),
         })
     return result

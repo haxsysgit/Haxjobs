@@ -251,23 +251,6 @@ class APIHandler(BaseHTTPRequestHandler):
             else:
                 self._json({"error": "invalid path"}, 400)
 
-        elif path == "/api/favorites":
-            fav_ids = db.get_favorites()
-            all_jobs = list_jobs()
-            fav_jobs = [j for j in all_jobs if int(j["id"]) in fav_ids]
-            self._json(fav_jobs)
-
-        elif path == "/api/saved-jobs":
-            saved = db.get_saved_jobs()
-            self._json([{
-                "id": s["id"],
-                "title": s["title"],
-                "company": s["company"],
-                "location": s.get("location", ""),
-                "notes": s.get("saved_notes", ""),
-                "savedAt": s.get("saved_at", ""),
-            } for s in saved])
-
         elif path == "/api/profile":
             self._json(get_profile())
 
@@ -371,40 +354,6 @@ class APIHandler(BaseHTTPRequestHandler):
         elif path == "/api/jobs/generate-pack":
             status, data = generate_job_pack(body)
             self._json(data, status)
-
-        # Favorites
-        elif path == "/api/favorites":
-            job_id = body.get("job_id")
-            if not job_id:
-                self._json({"error": "job_id required"}, 400)
-                return
-            ok = db.add_favorite(int(job_id))
-            self._json({"ok": ok, "job_id": job_id})
-
-        elif path == "/api/favorites/remove":
-            job_id = body.get("job_id")
-            if not job_id:
-                self._json({"error": "job_id required"}, 400)
-                return
-            db.remove_favorite(int(job_id))
-            self._json({"ok": True})
-
-        # Saved jobs
-        elif path == "/api/saved-jobs":
-            job_id = body.get("job_id")
-            if not job_id:
-                self._json({"error": "job_id required"}, 400)
-                return
-            ok = db.save_job(int(job_id), body.get("notes", ""))
-            self._json({"ok": ok})
-
-        elif path == "/api/saved-jobs/remove":
-            job_id = body.get("job_id")
-            if not job_id:
-                self._json({"error": "job_id required"}, 400)
-                return
-            db.unsave_job(int(job_id))
-            self._json({"ok": True})
 
         # Whitelist
         elif path == "/api/whitelist":

@@ -1,0 +1,19 @@
+{
+  "fit_score": 72,
+  "fit_verdict": "GOOD_FIT",
+  "level": 2,
+  "level_name": "Quick Apply",
+  "strongest_matches": [
+    "Deep agentic system design via FRAME, Haxaml, and Archilles agent infrastructure",
+    "Hands-on evals and model training with RAGAS, HuggingFace, PyTorch",
+    "Production backend engineering experience at Vigilis and Bucca Hut"
+  ],
+  "major_gaps": [
+    "Limited first-hand experience with large-scale LLM systems in production, including failure modes at $1bn+ scale",
+    "No explicit track record building end-to-end evals pipelines from scratch for business-critical AI"
+  ],
+  "sponsorship_risk": "low",
+  "summary": "AI Engineer at Sequence scores 72 - Arinze matches the agentic AI and backend foundation but needs to stress production reliability stories for LLM systems.",
+  "decision": "completed",
+  "skip_reason": ""
+}

@@ -68,21 +68,6 @@ def init():
             FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE
         );
 
-        CREATE TABLE IF NOT EXISTS favorites (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            job_id INTEGER NOT NULL UNIQUE,
-            created_at TEXT NOT NULL DEFAULT (datetime('now')),
-            FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE
-        );
-
-        CREATE TABLE IF NOT EXISTS saved_jobs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            job_id INTEGER NOT NULL UNIQUE,
-            notes TEXT DEFAULT '',
-            created_at TEXT NOT NULL DEFAULT (datetime('now')),
-            FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE
-        );
-
         CREATE TABLE IF NOT EXISTS decisions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             job_id INTEGER NOT NULL,
@@ -128,22 +113,6 @@ def init():
         CREATE INDEX IF NOT EXISTS idx_evaluations_verdict ON evaluations(fit_verdict);
         CREATE INDEX IF NOT EXISTS idx_activity_created ON activity_log(created_at);
         CREATE INDEX IF NOT EXISTS idx_decisions_job ON decisions(job_id);
-        CREATE INDEX IF NOT EXISTS idx_whitelist_active ON whitelist(active);
-        CREATE INDEX IF NOT EXISTS idx_whitelist_type ON whitelist(pattern_type);
-
-        -- Evaluation history (keeps old scores on re-evaluation)
-        CREATE TABLE IF NOT EXISTS evaluation_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            job_id INTEGER NOT NULL,
-            fit_score INTEGER NOT NULL,
-            fit_verdict TEXT NOT NULL,
-            level INTEGER NOT NULL,
-            level_name TEXT NOT NULL,
-            evaluated_by TEXT DEFAULT 'hermes',
-            evaluated_at TEXT NOT NULL DEFAULT (datetime('now')),
-            FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE
-        );
-        CREATE INDEX IF NOT EXISTS idx_eval_history_job ON evaluation_history(job_id);
 
         -- Outreach contacts and drafts
         CREATE TABLE IF NOT EXISTS outreach_contacts (

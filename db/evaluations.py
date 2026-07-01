@@ -8,14 +8,6 @@ from haxjobs_config import EVALUATION_AGENT
 def save_evaluation(job_id, result):
     conn = get_db()
 
-    # Archive old evaluation to history before overwriting
-    old = conn.execute("SELECT fit_score, fit_verdict, level, level_name, evaluated_by FROM evaluations WHERE job_id=?", (job_id,)).fetchone()
-    if old:
-        conn.execute("""
-            INSERT INTO evaluation_history (job_id, fit_score, fit_verdict, level, level_name, evaluated_by)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (job_id, old["fit_score"], old["fit_verdict"], old["level"], old["level_name"], old["evaluated_by"]))
-
     decision = result.get("decision", "completed")
     agent = result.get("agent") or result.get("evaluated_by") or EVALUATION_AGENT
     conn.execute("""

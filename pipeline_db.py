@@ -41,7 +41,6 @@ def action_status():
     print(f"Jobs: {s['total_jobs']} total ({s['pending']} pending, "
           f"{s['evaluated']} evaluated, {s['skipped']} skipped)")
     print(f"Fits: {s['strong_fit']} strong, {s['good_fit']} good")
-    print(f"User: {s['favorites']} favorites, {s['saved']} saved")
     print(f"Activity (24h): {s['activity_24h']}")
 
 
@@ -59,13 +58,6 @@ def action_pending():
     print(f"{len(jobs)} pending jobs:")
     for j in jobs[:20]:
         print(f"  [{j['id']}] {j['title'][:60]} at {j['company']} ({j['location']})")
-
-
-def action_favorites():
-    """List favorited jobs."""
-    from db.favorites import get_favorites
-    favs = get_favorites()
-    print(f"{len(favs)} favorites: {favs}")
 
 
 def action_reset():
@@ -245,8 +237,6 @@ if __name__ == "__main__":
         action_activity()
     elif action == "pending":
         action_pending()
-    elif action == "favorites":
-        action_favorites()
     elif action == "reset":
         action_reset()
     elif action == "discover-manual":
@@ -267,6 +257,6 @@ if __name__ == "__main__":
         action_run_full()
     else:
         print(f"Unknown action: {action}")
-        print("Usage: pipeline_db.py [seed|classify-roles|status|activity|pending|favorites|reset|")
+        print("Usage: pipeline_db.py [seed|classify-roles|status|activity|pending|reset|")
         print("       discover-manual|discover-run|scrape-greenhouse|scrape-ashby|scrape-lever|")
         print("       scrape-all|discover-full|run-full]")

@@ -22,6 +22,23 @@ Align all docs to the new product architecture in `docs/PRODUCT_ARCHITECTURE.md`
 - 033 runs after 031+032 because it references the rewritten AGENTS.md and ARCHITECTURE.md.
 - 034 runs last — it indexes everything, including itself.
 
+## Active plans — Wave 6 Cleanup: Dead Code Removal (2026-06-30)
+
+Remove old-architecture code that contradicts the new product vision in `docs/PRODUCT_ARCHITECTURE.md`.
+
+| Plan | Title | Priority | Effort | Depends on | Status |
+|------|-------|----------|--------|------------|--------|
+| 035 | Remove deprecated tables — favorites, saved_jobs, evaluation_history | P1 | M | — | TODO |
+| 036 | Remove Archilles and Telegram from production code and config | P1 | M | 035 | TODO |
+| 037 | Remove intake seeding and dead-architecture stragglers | P2 | S | 035, 036 | TODO |
+
+### Dependency notes (wave 6 cleanup)
+
+- 035 removes deprecated tables first — biggest blast radius, needs to land before 036 touches overlapping files (pipeline_db.py, api_server.py).
+- 036 removes Archilles + Telegram from all generated content, config, and code. Depends on 035 for clean file state.
+- 037 is the final sweep — intake seeding, any remaining stragglers. Depends on 035+036 for clean base.
+- Test suite should remain passing after each plan.
+
 ## Future waves (not yet planned)
 
 ### Wave 6B — Product Foundation

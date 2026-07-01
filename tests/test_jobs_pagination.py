@@ -52,19 +52,6 @@ def _fresh_conn():
             evaluated_at TEXT NOT NULL DEFAULT (datetime('now')),
             FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE
         );
-        CREATE TABLE IF NOT EXISTS favorites (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            job_id INTEGER NOT NULL UNIQUE,
-            created_at TEXT NOT NULL DEFAULT (datetime('now')),
-            FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE
-        );
-        CREATE TABLE IF NOT EXISTS saved_jobs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            job_id INTEGER NOT NULL UNIQUE,
-            notes TEXT DEFAULT '',
-            created_at TEXT NOT NULL DEFAULT (datetime('now')),
-            FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE
-        );
         CREATE TABLE IF NOT EXISTS decisions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             job_id INTEGER NOT NULL,

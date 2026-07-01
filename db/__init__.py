@@ -11,8 +11,6 @@ from .jobs import (
 from .evaluations import (
     save_evaluation, get_evaluation, get_jobs_with_evaluations,
 )
-from .favorites import add_favorite, remove_favorite, get_favorites, is_favorite
-from .saved import save_job, unsave_job, get_saved_jobs
 from .decisions import record_decision, get_decisions
 from .activity import get_recent_activity
 from .stats import get_stats
