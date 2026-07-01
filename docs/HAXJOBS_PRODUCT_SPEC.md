@@ -1,3 +1,5 @@
+> **Historical document** — written 2026-06-11. This spec predicted many features of the current product architecture (profile building, outreach, networking, automation ladder, decision tracking) before they were formally designed. The canonical vision is now `PRODUCT_ARCHITECTURE.md`. Keep this as a record of the original product thinking.
+
 # HaxJobs Product Spec
 
 Status: reset spec

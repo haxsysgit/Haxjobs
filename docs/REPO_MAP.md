@@ -1,6 +1,8 @@
 # HaxJobs Repo Map
 
-Last updated: 2026-06-29. Post-Plans-015-025 state.
+Last updated: 2026-06-30. Post-Wave-6 state.
+
+HaxJobs is a self-hosted job search platform. See `PRODUCT_ARCHITECTURE.md` for the full vision and `AGENTS.md` for the agent guide.
 
 ```
 haxjobs-private-dev/
@@ -31,16 +33,25 @@ haxjobs-private-dev/
 ├── discovery/                   # Job discovery ingestion spine
 │   ├── normalize.py             # Field mapping (scraper → CANONICAL_KEYS)
 │   ├── hooks.py                 # Blacklist, non-tech filter, location preference filter
+│   ├── profile_search.py        # Profile-aware pre-scrape filtering
 │   └── scrapers/
-│       └── greenhouse.py        # Greenhouse ATS scraper (config-driven)
+│       ├── greenhouse.py        # Greenhouse ATS scraper
+│       ├── ashby.py             # Ashby ATS scraper
+│       ├── lever.py             # Lever ATS scraper
+│       └── orchestrator.py      # Run all scrapers, summarize results
 │
 ├── evaluate/                    # Pluggable evaluation agents
 │   ├── common.py                # JSON extraction, validation, prompt building
-│   ├── agents/
-│   │   └── hermes.py            # Hermes CLI adapter
-│   └── run.py                   # Agent selection + evaluation flow + auto-pack
-│
-├── evaluate_with_hermes.py      # Backward-compat shim → evaluate/
+│   ├── chain.py                 # Config-driven agent fallback chain
+│   ├── run.py                   # Agent selection + evaluation flow + auto-pack
+│   ├── cv_review.py             # Per-job CV review generation
+│   └── agents/
+│       ├── base.py              # BaseAdapter interface
+│       ├── codex.py             # Codex CLI adapter (--output-schema)
+│       ├── hermes.py            # Hermes CLI adapter
+│       ├── pi.py                # Pi headless adapter
+│       ├── claude_code.py       # Claude Code adapter (session-native only)
+│       └── gemini.py            # Gemini adapter (stub — tier blocked)
 │
 ├── packs_builder/
 │   └── job_pack.py              # Template-fill pack generation
@@ -97,18 +108,14 @@ haxjobs-private-dev/
 │
 ├── plans/                       # Implementation plans
 │   ├── README.md                # Plan index with execution order
-│   ├── 001-022                  # DONE: full pipeline + cleanup
-│   ├── 023                      # DONE: Greenhouse scraper
-│   ├── 024                      # IN PROGRESS: remaining scrapers
-│   └── 025-026                  # TODO: architecture polish
+│   ├── 001-029                  # DONE: pipeline foundation + multi-agent research
+│   └── 030-034                  # IN PROGRESS: docs alignment for product pivot
 │
-├── docs/                        # Architecture and design docs
-│   ├── PRODUCT_VISION.md        # Autonomous pipeline vision
-│   ├── ARCHITECTURE.md          # Pipeline architecture diagram
-│   ├── APPLICATION_WORKFLOW.md  # End-to-end workflow
+├── docs/                        # Architecture and product docs
+│   ├── PRODUCT_ARCHITECTURE.md  # Canonical product architecture (NEW)
+│   ├── ARCHITECTURE.md          # Technical architecture
 │   ├── DATA_MODEL.md            # Database schema
-│   ├── HAXJOBS_PRODUCT_SPEC.md  # Product specification
-│   ├── HERMES_INTEGRATION.md    # Hermes as one evaluation agent
+│   ├── HAXJOBS_PRODUCT_SPEC.md  # Original 2026-06-11 product spec (historical)
 │   ├── ROADMAP.md               # Current roadmap
 │   └── REPO_MAP.md              # This file
 │
@@ -130,8 +137,7 @@ haxjobs-private-dev/
 - `discovery/` (23 scraper/filter files) — cleanup wave 1, replaced by `discovery/normalize.py`, `hooks.py`, `scrapers/`
 - `cv_generate.py`, `cv_validator.py`, `pack_builder.sh` — Plan 025, superseded by `packs_builder/job_pack.py`
 - `build-dash.sh`, `dev-watch.sh` — Plan 025, Vite handles both natively
-- `CV_FRAME_GOVERNANCE.md` — Plan 025, concept preserved as Plan 027
-- `docs/BROWSER_EXTENSION.md` — Plan 025, never built
-- `skills/fit_evaluator.md` — Plan 025, superseded by `evaluate/common.py`
+- `evaluate_with_hermes.py` — Plan 017, replaced by `evaluate/agents/hermes.py` and `evaluate/chain.py`
 - `profile/role_taxonomy.json` — Plan 025, superseded by `haxjobs.toml` `[[roles]]`
 - `intake/` — deprecated legacy JSON intake
+- `docs/PRODUCT_VISION.md`, `APPLICATION_WORKFLOW.md`, `HERMES_DIRECTION_BRIEF.md`, `HERMES_INTEGRATION.md`, `PRIVATE_ARCHILLES_UPDATE.md`, `PRIVATE_WORKFLOW_MAP.md`, `PROFILE_DATA_SETUP.md` — Plan 030, superseded by `PRODUCT_ARCHITECTURE.md`

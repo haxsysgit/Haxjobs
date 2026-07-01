@@ -1,34 +1,38 @@
 # HaxJobs Roadmap
 
-The authoritative roadmap is `plans/README.md` — it contains the execution order, dependencies, and status for all implementation plans.
+The current product architecture is documented in `PRODUCT_ARCHITECTURE.md`.
+Implementation plans are tracked in `plans/README.md`.
 
-## Pipeline wave (plans 015-019) — DONE
+## Completed (Waves 1-5)
 
-All five pipeline plans are implemented and live on main:
+All 29 plans from waves 1-5 are DONE. These built the pipeline infrastructure:
+discovery scrapers, config-driven classification, pluggable evaluation,
+auto-pack generation, cycle reports, and multi-agent adapter research.
 
-1. **015 — Discovery ingestion spine** — discovered_jobs table, normalize.py, hooks.py, CLI
-2. **016 — Config contract expansion** — haxjobs.toml sections, 10 config constants
-3. **017 — Config-driven classification + pluggable evaluation** — role_family.py reads TOML, evaluate/agents/ package
-4. **018 — Evaluation state split** — evaluations table with agent, pack, report columns
-5. **019 — Auto-pack L1/L2 + cycle report** — template fill, generate_cycle_report.py
+## Wave 6 — Docs Alignment (current)
 
-## Discovery scrapers (plans 023-024)
+Aligning all documentation to the new product architecture.
 
-- **023 — Greenhouse scraper** — DONE. Live, config-driven, filters through hooks.
-- **024 — Ashby, Lever, LinkedIn scrapers + orchestrator** — IN PROGRESS (Hermes).
+## Wave 6B — Product Foundation (next)
 
-## Architecture polish (plans 025-026)
+Make HaxJobs a usable product:
+- Direct LLM API evaluation (replace agent subprocess)
+- Onboarding wizard (CV upload → profile extraction → guided questions)
+- Profile evolution (fields that update based on usage)
+- Decision loop (apply/skip/reject from dashboard)
 
-- **025 — Root cleanup** — delete stale files, fix docs, rewrite .env.example
-- **026 — Unified automation** — refactor pipeline_db.py, add discover-full/run-full, wire cron
+See `plans/README.md` for specific plan numbers when created.
 
-## Future
+## Wave 7 — Learning & Outreach
 
-- **027 — Typed CV validation hook** — validate generated CV output against profile to prevent LLM hallucination (from CV_FRAME_GOVERNANCE concept)
-- **3-Agent Simulation Loop (v0.3)** — coaching simulation: Recruiter → Applicant → Evaluator
+Make HaxJobs smart:
+- Learning engine (processes decisions, evolves preferences)
+- Outreach engine (hiring manager discovery, message generation)
+- DB lifecycle (cycle tracking, job archiving, cleanup)
 
-Output: `packs/<job>/simulation.json`. Max 3 rounds.
+## Wave 8 — Polish & Ship
 
-## Completed
-
-Plans 001-014 (cleanup wave 1) — all DONE. See `plans/README.md` for details.
+Make HaxJobs a product anyone can use:
+- Product packaging (`pip install haxjobs`)
+- Web search discovery (beyond ATS scrapers)
+- Comprehensive testing
