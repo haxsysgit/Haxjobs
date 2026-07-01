@@ -6,6 +6,7 @@ import json
 import os
 import re
 from datetime import datetime, timezone
+from pathlib import Path
 
 from haxjobs_config import HAXJOBS_HOME, PROFILE_PATH
 
@@ -100,6 +101,22 @@ def build_profile_blurb(company: str = "") -> str:
     return "\n".join(lines)
 
 
+def _load_profile_json_for_prompt() -> str:
+    """Load the full profile JSON as a compact string for the evaluation prompt."""
+    try:
+        raw = Path(PROFILE_PATH).read_text() if os.path.exists(str(PROFILE_PATH)) else ""
+        if raw:
+            # Compact-print to save tokens — strip pretty-print whitespace
+            data = json.loads(raw)
+            # Keep confirmed_profile_facts and evaluation_context, drop platform_accounts (credentials)
+            data.pop("platform_accounts", None)
+            data.pop("saved_answers", None)
+            return json.dumps(data, indent=2, ensure_ascii=False)
+    except Exception:
+        pass
+    return "(profile JSON not found or unreadable)"
+
+
 def _build_whitelist_context(company: str, title: str) -> str:
     """Build whitelist context from DB for the evaluation prompt."""
     try:
@@ -121,12 +138,17 @@ def _build_whitelist_context(company: str, title: str) -> str:
 def build_prompt(title: str, company: str, location: str,
                  jd_text: str, source_url: str) -> str:
     """Build the evaluation prompt from job data."""
-    profile = build_profile_blurb(company)
+    profile_blurb = build_profile_blurb(company)
     whitelist_context = _build_whitelist_context(company, title)
+    profile_json_block = _load_profile_json_for_prompt()
+
     return f"""You are evaluating a job for Arinze Elenasulu. Your output must be ONLY valid JSON — no markdown, no commentary, no code fences.
 
 ## Arinze's Profile
-{profile}
+{profile_blurb}
+
+## Full Profile JSON (source of truth — use safe_wording, follow avoid_wording rules)
+{profile_json_block}
 
 ## Whitelist / Learning Context
 {whitelist_context}
