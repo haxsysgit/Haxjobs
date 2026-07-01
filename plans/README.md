@@ -8,12 +8,12 @@ Each executor: read the plan fully, honor STOP conditions, update status row.
 | Plan | Title | Priority | Effort | Depends on | Status |
 |------|-------|----------|--------|------------|--------|
 | 038 | Pre-restructure — signal repo is under construction | P1 | S | — | DONE |
-| 039 | Bare-minimum native agent — core run loop, structured output | P1 | S | 040, 042 | TODO |
+| 039 | Bare-minimum native agent — core run loop, structured output | P1 | S | 040, 044 | TODO |
 | 040 | Restructure repo into installable package (uv + hatchling) | P1 | M | 038 | DONE |
 | 041 | FastAPI backend — feature-based structure, serve frontend | P1 | M | 040 | ✅ DONE |
-| 042 | Provider setup — first-run API key + model config | P1 | S | 040, 041 | TODO ← NEXT |
-| 043 | Full native agent — tool registry, built-in tools, multi-turn | P1 | M | 039, 040, 041, 042 | TODO |
-| 044 | Frontend shell — React + Vite + shadcn/ui (minimal deps) | P1 | M | 040, 041 | TODO |
+| 042 | Frontend shell — React + Vite + shadcn/ui (minimal deps) | P1 | M | 040, 041 | TODO ← NEXT |
+| 043 | Full native agent — tool registry, built-in tools, multi-turn | P1 | M | 039, 040, 041, 044 | TODO |
+| 044 | Provider setup — first-run API key + model config | P1 | S | 040, 041, 042 | TODO |
 | 045 | Onboarding backend — CV upload, agent extraction, wizard API | P1 | M | 041, 043 | TODO |
 | 046 | Onboarding frontend — multi-step wizard UI | P1 | M | 044, 045 | TODO |
 | 047 | Discovery API — scraper endpoints, run from UI | P1 | M | 041 | TODO |
@@ -43,13 +43,13 @@ Each executor: read the plan fully, honor STOP conditions, update status row.
 ```
 038 (README signal)
  │
-040 ──┬── 041 ──┬── 042 ──┬── 039 (bare agent)
-      │         │         └── 043 (full agent) ──┬── 045 ── 046
-      │         │                               ├── 048
-      │         ├── 044 ──┬── 046
+040 ──┬── 041 ──┬── 042 ──┬── 046
       │         │         ├── 049 ── 050 ──┬── 051
       │         │         │                └── 052
       │         │         └── 054
+      │         ├── 044 ──┬── 039 (bare agent)
+      │         │         └── 043 (full agent) ──┬── 045 ── 046
+      │         │                               ├── 048
       │         └── 047 ── 049
       │
 053 (runs anytime after 045)
@@ -62,10 +62,10 @@ Each executor: read the plan fully, honor STOP conditions, update status row.
 1. **038** — pre-signal (independent, runs first)
 2. **040** — restructure package
 3. **041** — FastAPI backend
-4. **042** — provider setup
-5. **039** — bare agent (can run after 040+042, before 043)
-6. **043** — full agent (extends 039)
-7. **044** — frontend shell
+4. **042** — frontend shell
+5. **044** — provider setup
+6. **039** — bare agent (can run after 040+044, before 043)
+7. **043** — full agent (extends 039)
 8-14. **045-054** — feature plans, docs
 15. **056** — ship
 

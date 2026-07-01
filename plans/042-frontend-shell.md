@@ -1,4 +1,4 @@
-# Plan 044: Frontend shell — React + Vite + shadcn/ui (minimal deps)
+# Plan 042: Frontend shell — React + Vite + shadcn/ui (minimal deps)
 
 > **Executor instructions**: Follow this plan step by step. Run every verification command and confirm the expected result before moving to the next step. If anything in the "STOP conditions" section occurs, stop and report — do not improvise. When done, update the status row for this plan in `plans/README.md`.
 >
@@ -62,9 +62,9 @@ Radix UI primitives come via shadcn/ui components, not direct deps. Only add the
 **Out of scope**:
 - Forking shadcn-admin template — we build our own layout
 - Clerk, recharts, date-fns, cmdk, zustand, react-top-loading-bar, react-day-picker, axios — none added
-- SetupPage full implementation — that's plan 042 (runs first)
+- SetupPage full implementation — that's plan 044
 - Real data in any page — "Coming soon" placeholders
-- Onboarding wizard UI — plan 044
+- Onboarding wizard UI — plan 046
 - Job list/detail components — plans 047/048
 
 ## Git workflow
@@ -250,5 +250,5 @@ Stop if:
 
 - shadcn components are copied into `src/components/ui/`, not node_modules. They're ours to modify.
 - The `cn()` utility in `lib/utils.ts` is the standard shadcn pattern: `export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)) }`
-- Routing uses `@tanstack/react-router` file-based routing. Placeholder routes for now, real routes in plans 044-052.
+- Routing uses `@tanstack/react-router` file-based routing. Placeholder routes for now, real routes in plans 043-052.
 - When adding new shadcn components later, run `npx shadcn@latest add <name> --yes` from the frontend directory.

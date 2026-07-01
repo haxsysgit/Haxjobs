@@ -13,7 +13,7 @@
 - **Priority**: P1
 - **Effort**: M
 - **Risk**: MED (extends existing code, introduces new patterns)
-- **Depends on**: 039, 040, 041, 042
+- **Depends on**: 039, 040, 041, 044
 - **Category**: direction
 - **Planned at**: commit `07daac6`, 2026-06-30
 

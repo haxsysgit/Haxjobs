@@ -1,12 +1,15 @@
 # Handoff
 
-**Plans 038 and 040 are DONE.** Commit: `6d65912`.
+**Plans 038, 040, 041 are DONE.** Commits: `6d65912` (040), `6929976` (041), `8d3ecc5` (mark).
 
 - 038: README shows "Under construction — come back when v1.0.0 ships"
-- 040: Repo restructured as installable `uv` + `hatchling` package under `src/haxjobs/`. 255 tests pass. `uv build` creates wheel. `uv run haxjobs --help` works.
+- 040: Repo restructured as installable `uv` + `hatchling` package under `src/haxjobs/`
+- 041: FastAPI backend — `app.py` with lifespan DB init, feature-based structure under `features/` (7 modules), `server/main.py` uvicorn runner. 255 tests pass.
 
-**Next: Plan 041** — FastAPI backend with feature-based structure (`features/{jobs,onboarding,discovery,etc}/routes.py + schemas.py + service.py`), uvicorn runner, serves frontend at `/dist`.
+FastAPI endpoints all 200: `/api/health`, `/docs`, `/api/jobs` (live DB), `/api/jobs/:id` (404 for missing). 9 OpenAPI paths.
 
-**Working dir:** `/home/hax/haxjobs` (renamed from `haxjobs-private-dev` mid-session — that's why bash broke).
+**Note:** Plan 040's `force-include` section is NOT needed. Hatchling auto-includes all files under `src/haxjobs/`. Adding it causes duplicate-file build errors. Wheel builds clean without it.
 
-**Exit** `/exit` then `pi` to restart.
+**Next: Plan 042** — Provider setup (first-run API key + model config).
+
+**Working dir:** `/home/hax/haxjobs`

@@ -1,4 +1,4 @@
-# Plan 042: Provider setup — first-run API key + model config
+# Plan 044: Provider setup — first-run API key + model config
 
 > **Executor instructions**: Follow this plan step by step. Run every verification command and confirm the expected result before moving to the next step. If anything in the "STOP conditions" section occurs, stop and report — do not improvise. When done, update the status row for this plan in `plans/README.md`.
 >
@@ -10,7 +10,7 @@
 - **Priority**: P1
 - **Effort**: S
 - **Risk**: LOW (writes one config file to ~/.haxjobs/)
-- **Depends on**: 040, 041
+- **Depends on**: 040, 041, 042
 - **Category**: direction
 - **Planned at**: commit `bf83142`, 2026-06-30
 

@@ -11,7 +11,7 @@
 - **Priority**: P1
 - **Effort**: S
 - **Risk**: LOW
-- **Depends on**: 040, 042
+- **Depends on**: 040, 044
 - **Category**: direction
 - **Planned at**: commit `07daac6`, 2026-06-30
 
