@@ -15,16 +15,16 @@ Each executor: read the plan fully, honor STOP conditions, update status row.
 | 043 | Full native agent — job-search tools, prompt tiers, identity | P1 | M | 039, 040, 041, 044 | TODO ← NEXT |
 | 044 | Provider setup — first-run API key + model config | P1 | S | 040, 041, 042 | ✅ DONE |
 | 045 | Onboarding backend — CV upload, agent extraction, wizard API | P1 | M | 041, 043 | TODO |
-| 046 | Onboarding frontend — multi-step wizard UI | P1 | M | 044, 045 | TODO |
-| 047 | Discovery API — scraper endpoints, run from UI | P1 | M | 041, 044 | TODO |
+| 046 | Onboarding frontend — multi-step wizard UI | P1 | M | 042, 045 | TODO |
+| 047 | Discovery API — scraper endpoints, run from UI | P1 | M | 041 | TODO |
 | 048 | Agent-based evaluation — delete subprocess adapters, use native agent | P1 | M | 041, 043 | TODO |
 | 049 | Dashboard — job list with fit badges, filters, search | P1 | L | 041, 044, 047, 048 | TODO |
-| 050 | Job detail — JD viewer, evaluation breakdown, pack preview | P1 | M | 049 | TODO |
-| 051 | Decision loop — mark applied/skipped/rejected | P1 | S | 050 | TODO |
-| 052 | Pack generation — template fill, preview, download | P2 | M | 050 | TODO |
-| 053 | Profile settings — view and edit profile | P2 | M | 045 | TODO |
-| 054 | Frontend polish — theme, responsive, navigation, empty states | P2 | M | 044, 049 | TODO |
-| 055 | Documentation — README, quickstart, screenshots | P1 | M | 044-054 | TODO |
+| 050 | Job detail — JD viewer, evaluation breakdown, pack preview | P1 | M | 048, 049 | TODO |
+| 051 | Decision loop — mark applied/skipped/rejected | P1 | S | 048, 049, 050 | TODO |
+| 052 | Pack generation — template fill, preview, download | P2 | M | 048, 051 | TODO |
+| 053 | Profile settings — view and edit profile | P2 | M | 042, 045 | TODO |
+| 054 | Frontend polish — theme, responsive, navigation, empty states | P2 | M | 049, 050, 051, 052, 053 | TODO |
+| 055 | Documentation — README, quickstart, screenshots | P1 | M | 049-054 | TODO |
 | 056 | PyPI release — publish v1.0.0 | P1 | S | 055 | TODO |
 
 ### Key technology decisions
@@ -44,15 +44,16 @@ Each executor: read the plan fully, honor STOP conditions, update status row.
 038 (README signal)
  │
 040 ──┬── 041 ──┬── 042 ──┬── 046
-      │         │         ├── 049 ── 050 ──┬── 051
-      │         │         │                └── 052
-      │         │         └── 054
-      │         ├── 044 ──┬── 039 (bare agent)
-      │         │         └── 043 (full agent) ──┬── 045 ── 046
-      │         │                               ├── 048
-      │         └── 047 ── 049
+      │         │         │        └── 053
+      │         │         ├── 047 ─┐
+      │         │         └── 044 ─┬── 039 (bare agent)
+      │         │                  └── 043 (full agent) ──┬── 045 ──┬── 046
+      │         │                                        │         └── 053
+      │         │                                        └── 048 ──┬── 049 ── 050 ── 051 ── 052
+      │         │                                                  └──────────────┘
+      │         └──────────────────────────────────────────────────────────┘
       │
-053 (runs anytime after 045)
+054 (runs after 049-053)
 055 (runs after everything visible)
 056 (runs after 055)
 ```
@@ -66,7 +67,13 @@ Each executor: read the plan fully, honor STOP conditions, update status row.
 5. **044** — provider setup
 6. **039** — bare agent (DONE)
 7. **043** — full agent (extends 039; NEXT)
-8-14. **045-054** — feature plans, docs
+8. **045** — onboarding backend
+9. **046** — onboarding frontend
+10. **047** — discovery API
+11. **048** — native-agent evaluation
+12. **049-053** — dashboard/job/detail/decision/pack/profile features
+13. **054** — frontend polish
+14. **055** — docs
 15. **056** — ship
 
 ## Completed waves (historical)

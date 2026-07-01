@@ -1,6 +1,6 @@
 # Plan 049: Dashboard — job list with fit badges, filters, search
 
-> **Depends on**: 041, 042, 045, 046 | **Priority**: P1 | **Effort**: L | **Risk**: LOW
+> **Depends on**: 041, 042, 047, 048 | **Priority**: P1 | **Effort**: L | **Risk**: LOW
 > **Planned at**: commit `bf83142`, 2026-06-30
 
 ## Why this matters

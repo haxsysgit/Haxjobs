@@ -1,6 +1,6 @@
 # Plan 054: Frontend polish — theme, responsive, navigation, empty states
 
-> **Depends on**: 042, 047 | **Priority**: P2 | **Effort**: M | **Risk**: LOW
+> **Depends on**: 049, 050, 051, 052, 053 | **Priority**: P2 | **Effort**: M | **Risk**: LOW
 > **Planned at**: commit `bf83142`, 2026-06-30
 
 ## Why this matters
