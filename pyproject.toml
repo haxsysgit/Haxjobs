@@ -11,6 +11,7 @@ dependencies = [
     "uvicorn[standard]>=0.34",
     "requests>=2.32",
     "markdown>=3.10.2",
+    "openai>=2.44.0",
 ]
 
 [project.scripts]
