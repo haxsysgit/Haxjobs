@@ -49,7 +49,7 @@ def _forbidden_patterns() -> list[tuple[str, str]]:
     return [
         (r"\bphone\b", "phone number mention"),
         (r"\bTailored\b", "Tailored naming (per-job artifact)"),
-        (r"Claude Code", "Claude Code mention (use Archilles)"),
+        (r"Claude Code", "Claude Code mention (prefer generic terms)"),
         (r"\d+\+\s*(years|yrs).*experience", "inflated experience count"),
         (r"\d{2,}\s*%", "fake percentage metrics"),
         (r"Hiring Manager", "fake hiring manager"),

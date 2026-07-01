@@ -21,7 +21,6 @@ PACK_FILE_NAMES = (
     "cover_letter.md",
     "field_answers.md",
     "interview_questions.md",
-    "telegram_summary.md",
     "metadata.json",
 )
 
@@ -56,7 +55,6 @@ def build_job_pack(
         "cover_letter.md": _render_cover_letter(job, evaluation, profile, cv_variant),
         "field_answers.md": _render_field_answers(job, evaluation, profile, cv_variant),
         "interview_questions.md": _render_interview_questions(job, evaluation),
-        "telegram_summary.md": _render_telegram_summary(job, evaluation, cv_variant),
         "metadata.json": json.dumps(metadata, indent=2, sort_keys=True) + "\n",
     }
 
@@ -200,10 +198,10 @@ def _evidence_story(role_family: str) -> str:
         "backend_python": "I built backend workflows at Vigilis and Pharmax around inventory, sales, invoicing, reporting, API design, PostgreSQL, SQLAlchemy, and pytest",
         "fullstack_python_react": "I am backend-first, but HaxJobs gave me real product-surface work across FastAPI, React, TypeScript, dashboard flows, and API integration",
         "ai_engineer_llm": "I built Pharmax AI workflows, used RAGAS for evaluation, trained and fine-tuned transformer models, and built FRAME/Haxaml around AI agent governance",
-        "ai_automation_agents": "I use Archilles daily, built Haxaml for AI agent governance, and built HaxJobs as a working automation pipeline rather than a slide-deck idea",
+        "ai_automation_agents": "I use agent infrastructure daily, built Haxaml for AI agent governance, and built HaxJobs as a working automation pipeline rather than a slide-deck idea",
         "junior_software": "I have real engineering time from Vigilis and Aptech, plus a project portfolio that shows I can learn quickly and ship useful work",
         "data_python": "I built data-backed pharmacy workflows, reporting paths, and AI evaluation work with Python, SQL, and RAGAS",
-        "platform_backend": "I have worked with Docker, Linux, backend services, structured logging, and long-running agent infrastructure through Archilles and HaxJobs",
+        "platform_backend": "I have worked with Docker, Linux, backend services, structured logging, and long-running agent infrastructure through HaxJobs",
     }
     return stories.get(role_family, stories["backend_python"])
 
@@ -342,17 +340,6 @@ Company: {job.get('company', 'Unknown company')}
 - What does success look like in the first 90 days?
 - How is the backend split between new feature work, maintenance and incident work?
 - What does the team use for testing, reviews and deployment?
-"""
-
-
-def _render_telegram_summary(job: dict[str, Any], evaluation: dict[str, Any], cv_variant: dict[str, Any]) -> str:
-    return f"""{job.get('company', 'Unknown company')} - {_job_title(job)}
-Score: {evaluation.get('fit_score', 'unknown')}% ({evaluation.get('level_name', 'unclassified')})
-CV: {cv_variant['recommended_cv_variant']}
-Apply: {_apply_link(job)}
-Why: {_sentence_list(evaluation.get('strongest_matches', []), 'good backend overlap')}
-Gap: {_sentence_list(evaluation.get('major_gaps', []), 'check the JD carefully before applying')}
-Next: review pack, then apply manually or approve a safe assisted flow.
 """
 
 

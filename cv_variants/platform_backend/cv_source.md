@@ -9,7 +9,7 @@ London, UK · elenasuluarinze@gmail.com
 
 ## Professional Summary
 
-I am a Python backend engineer with a platform-minded streak: Docker, Linux, structured logging, deployment workflows, API reliability, and systems that need to keep working after the exciting demo is over. At Vigilis, I owned backend delivery from database design through deployment and bug fixes. With Archilles and HaxJobs, I work with long-running agent infrastructure, cron workflows, API services, and dashboard/API boundaries. I like the unglamorous bits: validation, logging, state, review gates, and the boring checks that save everyone later.
+I am a Python backend engineer with a platform-minded streak: Docker, Linux, structured logging, deployment workflows, API reliability, and systems that need to keep working after the exciting demo is over. At Vigilis, I owned backend delivery from database design through deployment and bug fixes. With HaxJobs, I work with long-running agent infrastructure, cron workflows, API services, and dashboard/API boundaries. I like the unglamorous bits: validation, logging, state, review gates, and the boring checks that save everyone later.
 
 ---
 
@@ -23,7 +23,7 @@ I am a Python backend engineer with a platform-minded streak: Docker, Linux, str
 
 **Testing and Quality:** Advanced pytest, integration tests, regression tests, test-driven development, mechanical validation gates
 
-**Tools:** Git/GitHub, SQLite, React dashboard integration, Hermes/Archilles agent infrastructure
+**Tools:** Git/GitHub, SQLite, React dashboard integration, self-managed agent infrastructure
 
 ---
 ## Education
@@ -65,10 +65,10 @@ Completed the Advanced Diploma in Software Engineering (ADSE Java track), a stru
 ---
 ## Selected Projects
 
-### Archilles and HaxJobs Runtime
+### HaxJobs Runtime
 *Linux, Docker, cron workflows, Python services, dashboard/API boundary*
 
-Built and operated HaxJobs around Archilles, my always-on Hermes agent infrastructure running on a cloud VPS. The system handles job discovery, evaluation, role-family classification, reusable CV routing, and dashboard monitoring.
+Built and operated HaxJobs on self-managed agent infrastructure running on a cloud VPS. The system handles job discovery, evaluation, role-family classification, reusable CV routing, and dashboard monitoring.
 
 - Uses Python services and SQLite for stateful job processing.
 - Separates source code from runtime state so deployments do not destroy working data.

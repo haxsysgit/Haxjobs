@@ -53,11 +53,6 @@ EMAIL_ADDRESS = _env("HAXJOBS_EMAIL_ADDRESS", _cfg["email"]["address"])
 EMAIL_ALLOWED_SENDERS = _env("HAXJOBS_EMAIL_ALLOWED_SENDERS",
     ",".join(_cfg["email"]["allowed_senders"])).split(",")
 
-# ── Telegram ──
-TELEGRAM_CHAT_ID = _env("HAXJOBS_TELEGRAM_CHAT_ID", _cfg["telegram"]["chat_id"])
-TELEGRAM_THREAD_ID = int(_env("HAXJOBS_TELEGRAM_THREAD_ID",
-    str(_cfg["telegram"]["thread_id"])))
-
 # ── User profile (plan 016) ──
 USER_PROFILE: dict = _cfg.get("user", {})
 

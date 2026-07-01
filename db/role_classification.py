@@ -1,7 +1,7 @@
 """Persist role-family classifications on jobs.
 
 The role-family classifier chooses the stable CV variant for a job. This module
-keeps that decision in SQLite so dashboard, pack generation, and Telegram can
+keeps that decision in SQLite so the dashboard and pipeline can
 all read the same answer.
 """
 from __future__ import annotations
@@ -42,7 +42,7 @@ def infer_source_quality(source: str) -> str:
         return "linkedin"
     if source_lower.startswith(THIRD_PARTY_SOURCES):
         return "third_party"
-    if source_lower in {"telegram", "dashboard", "manual"}:
+    if source_lower in {"dashboard", "manual"}:
         return "manual"
     return "unknown"
 

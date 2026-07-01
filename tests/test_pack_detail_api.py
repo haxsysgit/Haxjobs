@@ -21,7 +21,6 @@ def make_pack(tmp_path: Path) -> Path:
     (pack_dir / "fit_report.md").write_text("# Fit Report\n\nStrong match.")
     (pack_dir / "field_answers.md").write_text("# Field Answers\n")
     (pack_dir / "interview_questions.md").write_text("# Interview Questions\n")
-    (pack_dir / "telegram_summary.md").write_text("# Telegram Summary\n")
     return pack_dir
 
 

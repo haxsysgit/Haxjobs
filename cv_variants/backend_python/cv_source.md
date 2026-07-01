@@ -17,7 +17,7 @@ I have been writing Python since 2020 and it is my strongest language. I build b
 
 **Backend Engineering:** Python (primary, since 2020), FastAPI, SQLAlchemy, Alembic, PostgreSQL, REST API design, async/await, JWT authentication, role-based access control, schema design, query optimisation
 
-**AI and Automation:** HuggingFace, PyTorch, RAGAS, model fine-tuning, LLM evaluation, AI agent infrastructure (Archilles, Hermes agent fork), browser automation, agent orchestration, MCP servers
+**AI and Automation:** HuggingFace, PyTorch, RAGAS, model fine-tuning, LLM evaluation, self-managed AI agent infrastructure, browser automation, agent orchestration, MCP servers
 
 **Testing and Quality:** Advanced pytest (fixtures, parametrisation, integration coverage), structured test design for backend and AI workflows, test-driven development, API test automation
 
@@ -101,7 +101,7 @@ Applied the FRAME memory model to financial-crime investigation continuity, givi
 *Python, FastAPI, SQLite, React, TypeScript*
 [github.com/haxsysgit/Haxjobs](https://github.com/haxsysgit/Haxjobs)
 
-Built an end-to-end automated job discovery and application platform. Multi-platform discovery across Lever, Ashby, and Greenhouse APIs. Pipeline evaluates job fit against my profile using a deterministic classifier and produces structured application packs. Web dashboard for pipeline monitoring with real-time job status views. Runs on Archilles, my 24/7 AI agent infrastructure on a cloud VPS.
+Built an end-to-end automated job discovery and application platform. Multi-platform discovery across Lever, Ashby, and Greenhouse APIs. Pipeline evaluates job fit against my profile using a deterministic classifier and produces structured application packs. Web dashboard for pipeline monitoring with real-time job status views. Runs on self-managed 24/7 infrastructure on a cloud VPS.
 
 ---
 

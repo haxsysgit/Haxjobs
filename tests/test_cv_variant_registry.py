@@ -75,12 +75,11 @@ def test_pack_cv_metadata_references_reusable_variant_without_owning_cv():
     }
 
 
-def test_pull_script_exists_for_archilles_cv_variants():
+def test_pull_script_exists():
     script = ROOT / "scripts" / "pull-cv-variants"
     assert script.exists()
     text = script.read_text()
     assert "rsync" in text
-    assert "archilles:" in text
     assert "cv_variants/" in text
     # Remote path is configurable via HAXJOBS_REMOTE_HOME
 

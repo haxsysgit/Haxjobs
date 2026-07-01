@@ -9,13 +9,13 @@ London, UK · elenasuluarinze@gmail.com
 
 ## Professional Summary
 
-I build automation and agent workflows from the inside, not just by talking about agents like they are magic interns. Python is my strongest language, and I use it to build pipelines, browser automation, tool orchestration, and systems that keep running when nobody is watching. My daily setup includes Archilles, a Hermes agent fork running 24/7 on a cloud VPS, and I built Haxaml, HaxJobs, and Pharmax workflows to turn agent and AI ideas into governed systems with evidence, rules, and review gates. I like automation that saves time without turning into chaos with a cron schedule.
+I build automation and agent workflows from the inside, not just by talking about agents like they are magic interns. Python is my strongest language, and I use it to build pipelines, browser automation, tool orchestration, and systems that keep running when nobody is watching. My daily setup includes self-managed agent infrastructure running 24/7 on a cloud VPS, and I built Haxaml, HaxJobs, and Pharmax workflows to turn agent and AI ideas into governed systems with evidence, rules, and review gates. I like automation that saves time without turning into chaos with a cron schedule.
 
 ---
 
 ## Core Skills
 
-**Agent and Automation Workflows:** Archilles, Hermes agent infrastructure, Haxaml, FRAME, MCP server patterns, tool orchestration, browser automation
+**Agent and Automation Workflows:** self-managed agent infrastructure, Haxaml, FRAME, MCP server patterns, tool orchestration, browser automation
 
 **Backend Engineering:** Python, FastAPI, SQLite, PostgreSQL, SQLAlchemy, REST APIs, async/await, API validation
 
@@ -80,10 +80,10 @@ Built HaxJobs to discover roles, classify them into role families, evaluate fit,
 
 Built and published Haxaml, a governance tool for AI coding agents. It gives agents project memory, rules, and validation so they do not have to re-learn the repo every session.
 
-### Archilles, Always-On Agent Infrastructure
-*Hermes agent fork, Linux, VPS workflows*
+### Always-On Agent Infrastructure
+*Linux VPS, cron-based workflows*
 
-Use Archilles daily as 24/7 AI agent infrastructure for background workflows, monitoring, and messaging. It is practical agent infrastructure, not a theoretical setup saved in a Notion page.
+Use self-managed agent infrastructure daily for background workflows, monitoring, and messaging. It is practical agent infrastructure, not a theoretical setup saved in a Notion page.
 
 ---
 

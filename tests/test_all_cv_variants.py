@@ -57,7 +57,7 @@ VARIANT_KEY_TERMS = {
     "backend_python": ["FastAPI", "PostgreSQL", "SQLAlchemy", "pytest"],
     "fullstack_python_react": ["React", "TypeScript", "Vite", "FastAPI"],
     "ai_engineer_llm": ["RAGAS", "HuggingFace", "PyTorch", "FRAME", "Haxaml"],
-    "ai_automation_agents": ["Archilles", "Haxaml", "HaxJobs", "agent"],
+    "ai_automation_agents": ["self-managed", "Haxaml", "HaxJobs", "agent"],
     "junior_software": ["Java", "Flutter", "C++", "learning"],
     "data_python": ["SQL", "reporting", "data", "RAGAS"],
     "platform_backend": ["Docker", "Linux", "logging", "backend services"],

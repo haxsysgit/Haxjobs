@@ -1,4 +1,4 @@
-"""Outreach API routes for the HaxJobs dashboard and Telegram integration.
+"""Outreach API routes for the HaxJobs dashboard.
 
 GET  /api/outreach/jobs     → Jobs with drafts and connected pack info
 GET  /api/outreach/drafts   → All drafts with job + contact details

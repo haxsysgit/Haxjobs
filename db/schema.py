@@ -181,7 +181,7 @@ def init():
 
 
 def _ensure_jobs_columns(conn):
-    """Add reset-era job columns to older Archilles databases.
+    """Add new columns to existing databases created with an older schema.
 
     SQLite cannot add multiple columns in one statement, so this keeps startup
     migrations tiny and safe. Each column is additive and has a default.

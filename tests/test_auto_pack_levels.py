@@ -77,7 +77,7 @@ def test_l1_job_gets_pack(monkeypatch, tmp_path):
     assert "pack_dir" in pack_result
     assert Path(pack_result["pack_dir"]).exists()
     # All 6 files should exist
-    assert len(pack_result["files"]) == 6
+    assert len(pack_result["files"]) == 5
     for f in pack_result["files"]:
         assert Path(f).exists()
 

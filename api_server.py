@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Archilles Pipeline API — serves live pipeline data as JSON for the dashboard.
+"""HaxJobs API — serves pipeline data as JSON for the dashboard.
 
 v3.1 — Path containment, CORS restriction, optional token auth, structured errors.
 """

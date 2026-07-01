@@ -267,7 +267,7 @@ _SKILLS_TEMPLATES: dict[str, dict[str, list[str]]] = {
             "agent orchestration",
         ],
         "Infrastructure": [
-            "Docker", "Linux", "cloud VPS (Archilles)", "Git/GitHub",
+            "Docker", "Linux", "self-managed infrastructure", "Git/GitHub",
         ],
     },
     "data_python": {
@@ -403,7 +403,7 @@ _PROJECT_EMPHASIS: dict[str, list[dict]] = {
             "stack": "Python, FastAPI, SQLite, Multi-Agent Architecture",
             "bullets": [
                 "Built an end-to-end autonomous pipeline: multi-platform scraping → classification → agent-based evaluation → pack generation → reporting.",
-                "Runs on Archilles, a 24/7 AI agent VPS, with config-driven agent selection and automated cron scheduling.",
+                "Runs on self-managed infrastructure with automated scheduling.",
                 "Designed for zero-human-in-the-loop operation: scrapes, evaluates, and generates application packs automatically.",
             ],
         },
@@ -446,8 +446,8 @@ _PROJECT_EMPHASIS: dict[str, list[dict]] = {
             ],
         },
         {
-            "name": "Archilles, 24/7 AI Agent Infrastructure",
-            "stack": "Linux VPS, Docker, Python, Cron-based orchestration",
+            "name": "Self-Managed AI Agent Infrastructure",
+            "stack": "Linux, Docker, Python, Cron-based orchestration",
             "bullets": [
                 "Built and maintain a 24/7 cloud VPS running AI agent infrastructure (HaxJobs pipeline, Hermes agent fork).",
                 "Docker-based deployment with cron scheduling, structured logging, and automated pipeline execution.",

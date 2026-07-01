@@ -17,7 +17,6 @@ ALLOWED_PACK_TEXT_FILES = (
     "cover_letter.md",
     "field_answers.md",
     "interview_questions.md",
-    "telegram_summary.md",
 )
 
 

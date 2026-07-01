@@ -31,12 +31,8 @@ dir = "dashboard"
 [email]
 imap_host = "imap.gmail.com"
 imap_port = 993
-address = "archilleshaxsys@gmail.com"
+address = "elenasuluarinze@gmail.com"
 allowed_senders = ["elenasuluarinze@gmail.com", "pentacker@gmail.com"]
-
-[telegram]
-chat_id = "-1003991695885"
-thread_id = 18
 
 # ── User profile (drives evaluation prompts and pack generation) ──
 

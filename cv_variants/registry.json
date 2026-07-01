@@ -5,7 +5,7 @@
   "notes": [
     "These are reusable CV variants, not per-job tailored CVs.",
     "Per-job packs reference one variant through metadata instead of generating a new CV.",
-    "Final PDF/HTML files may live on Archilles and can be pulled to Jade with scripts/pull-cv-variants."
+    "Final PDF/HTML files are generated locally."
   ],
   "variants": {
     "backend_python": {

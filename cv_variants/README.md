@@ -17,7 +17,7 @@ cv_variants/backend_python/Arinze_Elenasulu_Backend_Python_CV.pdf
 cv_variants/backend_python/Arinze_Elenasulu_Backend_Python_CV.html
 ```
 
-To pull the approved files from Archilles to Jade:
+Files are generated locally.
 
 ```bash
 scripts/pull-cv-variants
