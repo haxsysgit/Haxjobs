@@ -1,0 +1,4 @@
+hermes: score=62 level=2 issues=[] VALID
+codex:last: score=62 level=2 issues=['Missing key: skip_reason'] INVALID
+codex:stdout: score=62 level=2 issues=['Missing key: skip_reason'] INVALID
+pi: score=60 level=2 issues=[] VALID
