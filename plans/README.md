@@ -13,7 +13,7 @@ Align all docs to the new product architecture in `docs/PRODUCT_ARCHITECTURE.md`
 | 031 | Rewrite AGENTS.md and README.md for new product architecture | P1 | M | 030 | DONE |
 | 032 | Rewrite ARCHITECTURE.md and update DATA_MODEL.md | P1 | M | 030 | DONE |
 | 033 | Update supporting docs — roadmap, repo map, handoff, env, scripts | P2 | M | 030, 031, 032 | DONE |
-| 034 | Rewrite plans/README.md — retire old waves, add new plans | P1 | M | 030, 031, 032, 033 | TODO |
+| 034 | Rewrite plans/README.md — retire old waves, add new plans | P1 | M | 030, 031, 032, 033 | DONE |
 
 ### Dependency notes (wave 6)
 
