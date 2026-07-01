@@ -13,13 +13,6 @@ import sys
 #  Actions — one named function per CLI action
 # ═══════════════════════════════════════════════════════════════════
 
-def action_seed():
-    """Seed sample jobs from intake/ directory."""
-    from db.seed import seed_from_intake
-    n = seed_from_intake()
-    print(f"Seeded {n} jobs from intake/")
-
-
 def action_classify_roles(argv: list[str] | None = None):
     """Run role classification on pending jobs."""
     from db.role_classification import classify_existing_jobs
@@ -227,9 +220,7 @@ if __name__ == "__main__":
     action = sys.argv[1] if len(sys.argv) > 1 else "status"
     rest = sys.argv[2:]
 
-    if action == "seed":
-        action_seed()
-    elif action == "classify-roles":
+    if action == "classify-roles":
         action_classify_roles(rest)
     elif action == "status":
         action_status()
@@ -257,6 +248,6 @@ if __name__ == "__main__":
         action_run_full()
     else:
         print(f"Unknown action: {action}")
-        print("Usage: pipeline_db.py [seed|classify-roles|status|activity|pending|reset|")
+        print("Usage: pipeline_db.py [classify-roles|status|activity|pending|reset|")
         print("       discover-manual|discover-run|scrape-greenhouse|scrape-ashby|scrape-lever|")
         print("       scrape-all|discover-full|run-full]")

@@ -18,7 +18,6 @@ from .whitelist import (
     add_whitelist, remove_whitelist, get_whitelist,
     get_whitelist_for_eval, suggest_whitelist,
 )
-from .seed import seed_from_intake
 from .discovered_jobs import (
     insert_discovered_job, find_duplicate, list_discovered_jobs,
     get_discovered_job, update_discovery_status, promote_discovered_job,

@@ -28,7 +28,6 @@ DB_PATH = Path(_env("HAXJOBS_DB", str(STATE_DIR / _cfg["paths"]["state"]["db"]))
 PIPELINE_LOG = STATE_DIR / _cfg["paths"]["state"]["log"]
 
 # ── Runtime directories ──
-INTAKE_DIR = HAXJOBS_HOME / _cfg["paths"]["runtime"]["intake"]
 PACKS_DIR = HAXJOBS_HOME / _cfg["paths"]["runtime"]["packs"]
 REPORTS_DIR = HAXJOBS_HOME / _cfg["paths"]["runtime"]["reports"]
 OUTREACH_DIR = HAXJOBS_HOME / _cfg["paths"]["runtime"]["outreach"]

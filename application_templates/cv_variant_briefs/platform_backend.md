@@ -10,7 +10,7 @@ Use this variant when the job family is `platform_backend`.
 The CV should read like Arinze with professional polish: clear, human, practical, and confident. It should not sound like an ATS keyword soup or a person cosplaying as a LinkedIn thought leader.
 
 ## Core proof to lean on
-Linux, backend services, deployment scripts, cron pipelines, HaxJobs/Jade/Archilles operational setup, reliability-minded debugging
+Linux, backend services, deployment scripts, cron pipelines, HaxJobs operational setup, reliability-minded debugging
 
 ## Voice
 boring-in-the-best-way platform work: logs, scripts, deployment paths, clear failure states.
