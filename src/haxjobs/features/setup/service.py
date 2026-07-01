@@ -4,7 +4,7 @@ import tomllib
 from pathlib import Path
 
 CONFIG_DIR = Path.home() / ".haxjobs"
-CONFIG_PATH = CONFIG_DIR / "config.toml"
+CONFIG_PATH = CONFIG_DIR / "haxjobs.toml"
 
 PRESETS = {
     "deepseek": {

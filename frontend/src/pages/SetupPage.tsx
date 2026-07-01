@@ -78,7 +78,7 @@ export function SetupPage() {
             <CardTitle>✓ Provider Configured</CardTitle>
             <CardDescription>
               Your {status.provider} provider is ready. You can reconfigure below
-              or manage your API key in <code>~/.haxjobs/config.toml</code>.
+              or manage your API key in <code>~/.haxjobs/haxjobs.toml</code>.
             </CardDescription>
           </CardHeader>
         </Card>
