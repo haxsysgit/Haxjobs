@@ -12,7 +12,7 @@ Each executor: read the plan fully, honor STOP conditions, update status row.
 | 040 | Restructure repo into installable package (uv + hatchling) | P1 | M | 038 | DONE |
 | 041 | FastAPI backend — feature-based structure, serve frontend | P1 | M | 040 | ✅ DONE |
 | 042 | Frontend shell — React + Vite + shadcn/ui (minimal deps) | P1 | M | 040, 041 | ✅ DONE |
-| 043 | Full native agent — Pi-style tools, prompt tiers, identity | P1 | M | 039, 040, 041, 044 | TODO ← NEXT |
+| 043 | Full native agent — job-search tools, prompt tiers, identity | P1 | M | 039, 040, 041, 044 | TODO ← NEXT |
 | 044 | Provider setup — first-run API key + model config | P1 | S | 040, 041, 042 | ✅ DONE |
 | 045 | Onboarding backend — CV upload, agent extraction, wizard API | P1 | M | 041, 043 | TODO |
 | 046 | Onboarding frontend — multi-step wizard UI | P1 | M | 044, 045 | TODO |
@@ -34,7 +34,7 @@ Each executor: read the plan fully, honor STOP conditions, update status row.
 - **argparse** for CLI (stdlib, zero deps)
 - **DeepSeek** as default LLM provider (via `openai` package as HTTP client)
 - **Provider setup** before onboarding: user picks provider, enters API key
-- **Bare-minimum agent** (039) then full agent (043) — staged approach; 043 mirrors Pi's tool registry and built-in tools in Python
+- **Bare-minimum agent** (039) then full agent (043) — staged approach; 043 mirrors Pi's registry/dispatch pattern, not Pi's coding-tool surface
 - **Feature-based backend**: `features/{jobs,onboarding,setup,discovery,evaluation,decisions,packs,profile}/`
 - **shadcn/ui directly** — no template fork, 10 runtime deps
 

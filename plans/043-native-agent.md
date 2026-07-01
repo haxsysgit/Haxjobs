@@ -1,12 +1,12 @@
-# Plan 043: Full native agent — Pi-style tools, prompt tiers, identity
+# Plan 043: Full native agent — job-search tools, prompt tiers, identity
 
 > **Executor instructions**: Read `docs/PI_HAXJOBS_INTERNALS_MAPPING.md` first, then
 > `haxjobs_agent_lab/analysis-docs.md` for the Hermes prompt-tier background.
 >
-> Reality update: Plan 043 should mirror Pi's useful internals in Python — tool
-> definitions, allow/exclude filtering, dispatch, and a small multi-turn loop. Do
-> **not** copy Pi's TUI/session/event machinery, and do **not** build Hermes' full
-> AST extension system yet. One flat registry and one tools module are enough.
+> Reality update: HaxJobs is a job-search automation harness, not a coding agent.
+> Mirror Pi's tool registry/dispatch pattern, not Pi's coding-tool surface. Do
+> **not** add `read`, `bash`, `edit`, `write`, `grep`, `find`, or `ls` in v1.
+> Keep tools domain-specific until arbitrary-site scraping or admin automation earns more.
 
 ## Status
 
@@ -25,13 +25,13 @@ internal equivalent of Pi's agent core:
 - Pi-style tool definitions: `name + JSON schema + handler + optional check_fn`
 - Pi-style tool filtering: allowlist/exclude list per agent run
 - Pi-style dispatch: model calls a tool by name; registry executes it
-- A small `run_with_tools()` loop for multi-turn discovery/maintenance tasks
+- A small `run_with_tools()` loop for discovery/research tasks
 - 3-tier system prompt assembly: stable/context/volatile
 - `~/.haxjobs/soul.md` identity loading, with defaults
 
-After this plan, HaxJobs can use the same agent for evaluation, discovery,
-onboarding, and admin/pipeline tasks while still keeping dangerous tools disabled
-unless explicitly requested.
+After this plan, HaxJobs can use native agentic discovery tools without becoming
+a coding agent. Evaluation and onboarding still use plain `Agent.run()` with
+Python passing the needed job/profile/CV text into the prompt.
 
 ## What we mirror from Pi
 
@@ -40,7 +40,7 @@ See `docs/PI_HAXJOBS_INTERNALS_MAPPING.md` for the complete mapping.
 | Pi internal | HaxJobs Python equivalent | Decision |
 |---|---|---|
 | `defineTool({ name, parameters, execute })` | `registry.register(name, schema, handler, check_fn=None)` | Port |
-| Built-in tools: `read`, `bash`, `edit`, `write`, `grep`, `find`, `ls` | Same names in `tools.py`, with HaxJobs path/command guards | Port |
+| Built-in coding tools: `read`, `bash`, `edit`, `write`, `grep`, `find`, `ls` | Not exposed in v1 | Defer |
 | Tool allowlist / `excludeTools` | `Agent(tools=[...], exclude_tools=[...])` | Port |
 | `session.prompt()` tool-call loop | `Agent.run_with_tools()` | Partial port |
 | Resource/context loading | `prompt.py` + `identity.py` | Partial port |
@@ -48,23 +48,20 @@ See `docs/PI_HAXJOBS_INTERNALS_MAPPING.md` for the complete mapping.
 
 ## Tool set
 
-HaxJobs needs Pi's file/process/search primitives plus job-search-native tools.
+HaxJobs needs job-search-native tools first. Python services already read/write
+profiles, packs, templates, and DB rows; the LLM does not need shell/filesystem
+powers in v1.
 
-| Tool | Enabled by default? | Notes |
+| Tool | Enabled where? | Notes |
 |---|---:|---|
-| `read` | yes | Read profile, templates, reports, generated packs, config snippets |
-| `grep` | yes | Search repo/runtime text with `rg`/stdlib fallback |
-| `find` | yes | Locate CV variants, pack files, reports, templates |
-| `ls` | yes | List directories/artifacts |
 | `web_search` | discovery only | Search for jobs/company career pages |
 | `fetch_page` | discovery only | Fetch job/company pages |
-| `db_query` | read-only | Read-only SQLite queries over HaxJobs tables |
-| `write` | explicit only | Generate drafts/artifacts; path-guarded |
-| `edit` | explicit only | Precise replacements only; path-guarded |
-| `bash` | explicit only | Approved repo commands only; timeout; no secrets printing |
+| `db_query` | read-only/admin summaries | Read-only SQLite queries over HaxJobs tables |
 
-Evaluation (Plan 048) should use `Agent.run()` without tools unless a specific
-read-only tool is explicitly needed.
+Deferred: `read`, `write`, `edit`, `bash`, `grep`, `find`, `ls`. Add them only
+when arbitrary-site scraping or user-approved admin automation needs them.
+
+Evaluation (Plan 048) and onboarding extraction should use `Agent.run()` without tools.
 
 ## Final file structure
 
@@ -75,12 +72,12 @@ src/haxjobs/agent/
   prompts.py        → template registry, from plan 039
   prompt.py         → build_system_prompt() with stable/context/volatile tiers
   registry.py       → Pi-style ToolDef, register(), get_schemas(), dispatch()
-  tools.py          → 7 Pi mirror tools + web_search/fetch_page/db_query
+  tools.py          → web_search, fetch_page, read-only db_query
   identity.py       → load soul.md + user.md + memory.md
 ```
 
-Keep this flat. Do not add `tools/` package, AST scanning, plugins, or a full
-ResourceLoader until there is a real external tool package to load.
+Keep this flat. Do not add coding tools, `tools/` package, AST scanning, plugins,
+or a full ResourceLoader until there is a real job-search workflow to justify it.
 
 ## New modules
 
@@ -144,32 +141,26 @@ def dispatch(name: str, args: dict) -> str:
         return json.dumps({"error": f"Tool {name} failed: {e}"})
 ```
 
-### 2. `tools.py` — Pi mirrors + HaxJobs tools
+### 2. `tools.py` — job-search tools
 
 Implement these functions and register them at module import time:
 
-- `read(path, limit=20000)`
-- `write(path, content)`
-- `edit(path, old, new)`
-- `bash(command, timeout=60)`
-- `grep(pattern, path=".")`
-- `find(pattern="*", path=".")`
-- `ls(path=".")`
 - `web_search(query)`
 - `fetch_page(url)`
 - `db_query(sql)`
 
 Guardrails:
 
-- File tools only operate inside approved roots: repo root, `~/.haxjobs`, and
-  configured runtime output dirs.
-- `bash` must have a timeout and deny obvious foot-guns/secrets (`sudo`, `rm -rf`,
-  `.env`, `git push`, `curl | sh`, etc.). Keep it explicit-only.
+- `web_search` and `fetch_page` are for discovery/research, not evaluation.
+- `fetch_page` must use a timeout, user-agent, and output truncation.
 - `db_query` must reject non-read-only SQL. Accept only `SELECT`/`WITH`.
 - Tool output must be truncated to keep prompts small.
 
-Use stdlib first: `pathlib`, `subprocess.run`, `sqlite3`, `urllib.request`. Add a
+Use stdlib first: `sqlite3`, `urllib.request`, `urllib.parse`. Add a
 third-party dependency only if stdlib fails in a real test.
+
+Do not add Pi coding tools (`read`, `write`, `edit`, `bash`, `grep`, `find`,
+`ls`) in this plan.
 
 ### 3. `prompt.py` — 3-tier system prompt
 
@@ -321,10 +312,8 @@ register, dispatch, get_schemas, TOOLS
 - `test_registry_register_and_dispatch`
 - `test_registry_check_fn_gates`
 - `test_get_schemas_allowlist_and_exclude`
-- `test_builtin_tool_names_registered` — all 10 tools registered
-- `test_file_tools_path_guard`
+- `test_builtin_tool_names_registered` — `web_search`, `fetch_page`, `db_query` registered
 - `test_db_query_read_only`
-- `test_bash_denylist`
 - `test_build_system_prompt_tiers`
 - `test_load_identity_default`
 - `test_run_with_tools_single_turn`
@@ -343,13 +332,11 @@ git commit -m "add full native agent with Pi-style tool registry"
 
 ## Done criteria
 
-- [ ] `read`, `write`, `edit`, `bash`, `grep`, `find`, `ls` are registered
 - [ ] `web_search`, `fetch_page`, and read-only `db_query` are registered
+- [ ] Pi coding tools (`read`, `write`, `edit`, `bash`, `grep`, `find`, `ls`) are not implemented in v1
 - [ ] Tool allowlist and exclude list work
 - [ ] `run_with_tools()` executes tool calls and returns final text
 - [ ] Tool handlers return JSON/text error instead of raising into the model loop
-- [ ] File tools enforce approved-root path guardrails
-- [ ] `bash` has timeout + denylist and is not enabled by automated evaluation
 - [ ] `db_query` rejects non-read SQL
 - [ ] `build_system_prompt()` assembles stable→context→volatile in order
 - [ ] `load_identity()` reads `~/.haxjobs/soul.md`, falls back to default
@@ -359,8 +346,7 @@ git commit -m "add full native agent with Pi-style tool registry"
 
 ## STOP conditions
 
-- A tool can read/write outside approved roots → stop and fix path guard before continuing
-- `bash` can print `.env`/secrets or run destructive commands → stop and tighten guardrails
+- A coding-agent tool (`read`, `write`, `edit`, `bash`, `grep`, `find`, `ls`) appears in v1 → stop and remove it
 - `db_query` accepts writes/deletes → stop and make it read-only
 - Tool loop exceeds max turns without useful output → return a clear error, don't recurse
 
@@ -368,6 +354,6 @@ git commit -m "add full native agent with Pi-style tool registry"
 
 - SKILL.md directory loader (`~/.haxjobs/skills/*/SKILL.md`)
 - Extension/plugin discovery
-- AST scanning for external tool modules
+- Coding-agent-style tools (`read`, `write`, `edit`, `bash`, `grep`, `find`, `ls`)
 - Context compression with `SUMMARY_PREFIX`
 - Provider fallback chain
