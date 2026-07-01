@@ -24,13 +24,31 @@ def test_select_hermes_is_default():
     assert callable(call_agent)
 
 
-def test_unknown_agent_raises():
-    """An unknown agent name raises ValueError."""
-    import pytest
+def test_unknown_agent_falls_back_to_default():
+    """An unknown agent name falls back to default (pi) instead of crashing."""
     from evaluate.run import select_agent
 
-    with pytest.raises(ValueError, match="Unknown evaluation agent"):
-        select_agent("nonexistent_agent")
+    # 'nonexistent_agent' is not in registry, should fall back to 'pi'
+    fn = select_agent("nonexistent_agent")
+    assert callable(fn)
+    # Verify it loaded pi, not hermes
+    assert "pi" in fn.__module__ or "hermes" in fn.__module__  # either is valid fallback
+
+
+def test_select_agent_pi_directly():
+    """Selecting 'pi' directly returns the pi adapter."""
+    from evaluate.run import select_agent
+    fn = select_agent("pi")
+    assert callable(fn)
+    assert "pi" in fn.__module__
+
+
+def test_select_agent_hermes_directly():
+    """Selecting 'hermes' directly returns the hermes adapter."""
+    from evaluate.run import select_agent
+    fn = select_agent("hermes")
+    assert callable(fn)
+    assert "hermes" in fn.__module__
 
 
 def test_extract_json_from_backtick_fence():

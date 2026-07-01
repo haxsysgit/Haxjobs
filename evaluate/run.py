@@ -19,6 +19,32 @@ from haxjobs_config import EVALUATION_AGENT, AUTO_PACK_LEVELS
 from evaluate.common import build_prompt, extract_json, validate_result
 
 
+# Agent registry: name → module.function
+_AGENT_REGISTRY: dict[str, str] = {
+    "hermes": "evaluate.agents.hermes.call_agent",
+    "pi": "evaluate.agents.pi.call_agent",
+}
+
+# ponytail: fallback chain — tried in order when primary agent returns None.
+# Pi is first fallback because deepseek is more reliable than hermes when rate-limited.
+_DEFAULT_FALLBACK: list[str] = ["pi"]
+
+
+def _load_agent(agent_name: str) -> Callable[..., str | None] | None:
+    """Import and return call_agent for the named agent. None if unavailable."""
+    import importlib
+
+    module_path = _AGENT_REGISTRY.get(agent_name)
+    if not module_path:
+        return None
+    try:
+        mod_path, func_name = module_path.rsplit(".", 1)
+        mod = importlib.import_module(mod_path)
+        return getattr(mod, func_name, None)
+    except (ImportError, AttributeError):
+        return None
+
+
 def select_agent(agent_name: str | None = None) -> Callable[..., str | None]:
     """Return a ``call_agent(prompt, *, timeout_seconds) -> str`` function.
 
@@ -29,17 +55,21 @@ def select_agent(agent_name: str | None = None) -> Callable[..., str | None]:
         A callable matching the agent adapter interface.
 
     Raises:
-        ValueError: If the agent name is unknown.
+        ValueError: If no agent is available.
     """
     name = (agent_name or EVALUATION_AGENT).strip().lower()
+    fallback_chain = [name] + [a for a in _DEFAULT_FALLBACK if a != name]
 
-    if name == "hermes":
-        from evaluate.agents.hermes import call_agent
-        return call_agent
+    for agent in fallback_chain:
+        fn = _load_agent(agent)
+        if fn:
+            if agent != name:
+                print(f"  (using fallback agent: {agent})")
+            return fn
 
     raise ValueError(
-        f"Unknown evaluation agent: {name!r}. "
-        f"Set [evaluation].agent in haxjobs.toml to a supported agent."
+        f"No available evaluation agent. Configured: {name!r}, tried: {fallback_chain}. "
+        f"Set [evaluation].agent in haxjobs.toml."
     )
 
 
