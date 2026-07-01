@@ -8,15 +8,15 @@ Each executor: read the plan fully, honor STOP conditions, update status row.
 | Plan | Title | Priority | Effort | Depends on | Status |
 |------|-------|----------|--------|------------|--------|
 | 038 | Pre-restructure — signal repo is under construction | P1 | S | — | DONE |
-| 039 | Bare-minimum native agent — core run loop, structured output | P1 | S | 040, 044 | TODO ← NEXT |
+| 039 | Bare-minimum native agent — core run loop, structured output | P1 | S | 040, 044 | ✅ DONE |
 | 040 | Restructure repo into installable package (uv + hatchling) | P1 | M | 038 | DONE |
 | 041 | FastAPI backend — feature-based structure, serve frontend | P1 | M | 040 | ✅ DONE |
 | 042 | Frontend shell — React + Vite + shadcn/ui (minimal deps) | P1 | M | 040, 041 | ✅ DONE |
-| 043 | Full native agent — tool registry, built-in tools, multi-turn | P1 | M | 039, 040, 041, 044 | TODO |
+| 043 | Full native agent — Pi-style tools, prompt tiers, identity | P1 | M | 039, 040, 041, 044 | TODO ← NEXT |
 | 044 | Provider setup — first-run API key + model config | P1 | S | 040, 041, 042 | ✅ DONE |
 | 045 | Onboarding backend — CV upload, agent extraction, wizard API | P1 | M | 041, 043 | TODO |
 | 046 | Onboarding frontend — multi-step wizard UI | P1 | M | 044, 045 | TODO |
-| 047 | Discovery API — scraper endpoints, run from UI | P1 | M | 041 | TODO |
+| 047 | Discovery API — scraper endpoints, run from UI | P1 | M | 041, 044 | TODO |
 | 048 | Agent-based evaluation — delete subprocess adapters, use native agent | P1 | M | 041, 043 | TODO |
 | 049 | Dashboard — job list with fit badges, filters, search | P1 | L | 041, 044, 047, 048 | TODO |
 | 050 | Job detail — JD viewer, evaluation breakdown, pack preview | P1 | M | 049 | TODO |
@@ -34,7 +34,7 @@ Each executor: read the plan fully, honor STOP conditions, update status row.
 - **argparse** for CLI (stdlib, zero deps)
 - **DeepSeek** as default LLM provider (via `openai` package as HTTP client)
 - **Provider setup** before onboarding: user picks provider, enters API key
-- **Bare-minimum agent** (039) then full agent (043) — staged approach
+- **Bare-minimum agent** (039) then full agent (043) — staged approach; 043 mirrors Pi's tool registry and built-in tools in Python
 - **Feature-based backend**: `features/{jobs,onboarding,setup,discovery,evaluation,decisions,packs,profile}/`
 - **shadcn/ui directly** — no template fork, 10 runtime deps
 
@@ -64,8 +64,8 @@ Each executor: read the plan fully, honor STOP conditions, update status row.
 3. **041** — FastAPI backend
 4. **042** — frontend shell
 5. **044** — provider setup
-6. **039** — bare agent (can run after 040+044, before 043)
-7. **043** — full agent (extends 039)
+6. **039** — bare agent (DONE)
+7. **043** — full agent (extends 039; NEXT)
 8-14. **045-054** — feature plans, docs
 15. **056** — ship
 

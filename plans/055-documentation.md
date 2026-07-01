@@ -28,8 +28,11 @@ When someone lands on the GitHub repo, the README is the product. It shows what 
 
 4. **Update docs/REPO_MAP.md** for new structure
 
+5. **Keep agent architecture docs linked**: ensure README or `docs/REPO_MAP.md` points to `docs/PI_HAXJOBS_INTERNALS_MAPPING.md` for the native agent design.
+
 ## Done criteria
 
 - [ ] README.md shows: install command, screenshot, feature list
 - [ ] Quickstart walks through full flow
 - [ ] 4+ screenshots in docs/screenshots/
+- [ ] Native agent docs link to `docs/PI_HAXJOBS_INTERNALS_MAPPING.md`

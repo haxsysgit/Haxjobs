@@ -7,6 +7,8 @@
 
 Discovery runs via CLI (`pipeline_db.py discover-run`). Should be triggerable from dashboard and show results streaming. This plan fills `features/discovery/` — wraps existing scraper code in API endpoints.
 
+Plan 043 adds agentic discovery tools (`web_search`, `fetch_page`, read-only `db_query`). This API plan can still ship with existing scrapers only. If the executor adds agentic discovery, allow only discovery/read-only tools here — not `bash`, `write`, or `edit`.
+
 ## Steps
 
 ### Backend: features/discovery/
@@ -31,6 +33,7 @@ Discovery runs via CLI (`pipeline_db.py discover-run`). Should be triggerable fr
 - [ ] `GET /api/discovery/status` shows running state + found count
 - [ ] New jobs appear in DB after discovery
 - [ ] Dashboard has discover button
+- [ ] If agentic discovery is enabled, its tool allowlist excludes `bash`, `write`, and `edit`
 
 ## STOP conditions
 

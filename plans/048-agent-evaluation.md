@@ -11,6 +11,8 @@
 
 This plan also fills `features/evaluation/` (the API layer for triggering evaluation from the UI).
 
+**Tool safety note from Plan 043**: automated evaluation should use `Agent.run()` without tools. Do not expose `bash`, `write`, `edit`, or web tools in the normal evaluation path; evaluation gets job/profile data from Python and returns JSON parsed with `extract_json()`.
+
 ## Steps
 
 ### Step 1: Delete agent subprocess adapters
@@ -85,6 +87,7 @@ uv run pytest -q tests/
 - [ ] `evaluate/agents/` directory deleted
 - [ ] `evaluate/chain.py` deleted
 - [ ] `evaluate/api.py` uses `Agent.run()` + `extract_json()` (not `run_structured`)
+- [ ] Evaluation does not enable Plan 043 tools by default (`bash`, `write`, `edit`, `web_search`, etc.)
 - [ ] `features/evaluation/` has working routes
 - [ ] No `subprocess.run()` in evaluate/ code
 - [ ] No direct `openai.chat.completions.create()` — all through agent
