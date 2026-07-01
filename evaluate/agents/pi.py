@@ -89,7 +89,7 @@ class PiAdapter(BaseAdapter):
         """Run pi in headless JSON mode. Returns CompletedProcess or None."""
         try:
             return subprocess.run(
-                [PI_BIN, "-p", prompt, "--mode", "json", "--no-tools", "--model", model],
+                [PI_BIN, "-p", prompt, "--mode", "json", "--model", model],
                 capture_output=True, text=True, timeout=300,
                 env={**os.environ, "HOME": os.path.expanduser("~")},
             )
