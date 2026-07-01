@@ -1,20 +1,20 @@
 {
   "schema_version": "0.1.0-local-profile-draft",
-  "updated_at": "2026-06-08T04:20:40.144942+00:00",
+  "updated_at": "2026-07-01T10:57:09.081652+00:00",
   "privacy_note": "Local development fixture. Do not commit. Do not store raw passwords here.",
   "user_profile": {
     "name": "Arinze Elenasulu",
     "preferred_headline": "Python Backend Engineer | AI & Automation",
     "email": "elenasuluarinze@gmail.com",
-    "phone": "",
+    "phone": "+44 78 237 654 97",
     "location": "London, UK",
     "linkedin_url": "https://www.linkedin.com/in/arinze-elenasulu/",
     "github_url": "https://github.com/haxsysgit",
     "portfolio_url": null,
-    "work_authorization_summary": "Currently in the UK on a student visa; graduating on June 25 and planning to apply for the Graduate visa.",
-    "requires_sponsorship": "May require sponsorship in the future, but not immediately necessary depending on role/timing.",
+    "work_authorization_summary": "Graduated June 2026 from Middlesex University. Currently on a UK student visa, planning to apply for the Graduate visa (2-year work right).",
+    "requires_sponsorship": "Does not currently require sponsorship. May need it in the future after Graduate visa expires.",
     "availability": "Available to start immediately.",
-    "salary_preference": "Depends on role scope; targeting \u00a335,000-\u00a360,000 for junior/mid-level roles, flexible for the right opportunity.",
+    "salary_preference": "Depends on role scope; targeting £35,000-£60,000 for junior/mid-level roles, flexible for the right opportunity.",
     "experience_levels": [
       "intern",
       "graduate",
@@ -74,13 +74,21 @@
       "REST API Design",
       "Git/GitHub",
       "Docker",
-      "Linux"
+      "Linux",
+      "React",
+      "TypeScript",
+      "JavaScript",
+      "Django",
+      "HTML/CSS",
+      "Redis",
+      "Celery",
+      "Nginx"
     ]
   },
   "confirmed_profile_facts": [
     {
       "category": "experience",
-      "claim": "Python since 2020 \u2014 6 years of continuous study and building.",
+      "claim": "Python since 2020 — 6 years of continuous study and building.",
       "safe_wording": "Python since 2020, strongest and primary language.",
       "avoid_wording": "Do not imply Python is secondary to Java or any other language.",
       "confidence": "confirmed",
@@ -88,17 +96,17 @@
     },
     {
       "category": "experience",
-      "claim": "Vigilis Software Engineer from August 2024 to February 2026.",
-      "safe_wording": "Software Engineer at Vigilis, building backend workflows for pharmacy operations: inventory, sales, payments, invoicing, reporting, and reliability.",
-      "avoid_wording": "Do not use older wording like Software and Data Engineer / IT Manager or June 2023 to February 2026.",
+      "claim": "Sole Developer at Vigilis (Aug 2024 – Feb 2026). Built and operated the full digital platform for a pharmaceutical business: migrated paper-based workflows to a digital system processing 200+ invoices/day (~6,000/month), reduced daily admin time ~70%, reduced stock discrepancies ~60% across 3+ pharmacy locations. Full-stack: infrastructure, backend, frontend, DevOps.",
+      "safe_wording": "Sole Developer at Vigilis (Aug 2024 – Feb 2026). Built a digital operations platform for a pharmaceutical business, migrating manual paper workflows to an automated system. Processed 200+ invoices/day (~6,000/month), reduced admin time ~70%, cut stock discrepancies ~60% across multiple pharmacy locations. Owned the full stack: infrastructure, backend, frontend, and DevOps.",
+      "avoid_wording": "Do not use older wording like Software and Data Engineer / IT Manager. Title is Sole Developer. Do not mention Nigeria or family business ownership.",
       "confidence": "confirmed",
       "evidence_source": "user correction"
     },
     {
       "category": "experience",
       "claim": "Aptech ADSE Java (Advanced Diploma in Software Engineering) from September 2022 to August 2024. Four-semester programme covering: Linux, Python, C++, C, Java, Spring Framework, Enterprise Java Beans (EJB), Flutter/Dart, MERN stack, MEAN stack.",
-      "safe_wording": "Software Engineer Intern at Aptech Computer Education, Lagos. Completed ADSE Java track \u2014 structured two-year programme across four semesters. Covered Linux, Python, C++, C, Java, Spring Framework, EJB, Flutter/Dart, MERN and MEAN stacks. Python became primary language during this period.",
-      "avoid_wording": "Do not describe Aptech as just 'built internal tooling' \u2014 mention the actual curriculum and technologies studied. Do not treat Aptech as only education; it was an internship with project work.",
+      "safe_wording": "Software Engineer Intern at Aptech Computer Education, Lagos. Completed ADSE Java track — structured two-year programme across four semesters. Covered Linux, Python, C++, C, Java, Spring Framework, EJB, Flutter/Dart, MERN and MEAN stacks. Python became primary language during this period.",
+      "avoid_wording": "Do not describe Aptech as just 'built internal tooling' — mention the actual curriculum and technologies studied. Do not treat Aptech as only education; it was an internship with project work.",
       "confidence": "confirmed",
       "evidence_source": "user correction 2026-06-07"
     },
@@ -119,7 +127,7 @@
     },
     {
       "category": "tooling",
-      "claim": "Uses Archilles (Hermes Agent fork) as daily AI agent infrastructure \u2014 NOT Claude Code, Cursor, or Copilot.",
+      "claim": "Uses Archilles (Hermes Agent fork) as daily AI agent infrastructure — NOT Claude Code, Cursor, or Copilot.",
       "safe_wording": "Daily AI agent usage via Archilles, a Hermes Agent fork running on cloud infrastructure 24/7.",
       "avoid_wording": "Never write 'Claude Code' in CV, cover letters, or profile. The tool is Archilles.",
       "confidence": "confirmed",
@@ -179,6 +187,14 @@
       "avoid_wording": "Never list Aptech as a university. They are separate: Middlesex = university, Aptech = ADSE diploma.",
       "confidence": "confirmed",
       "evidence_source": "user correction 2026-06-07"
+    },
+    {
+      "category": "project",
+      "claim": "Built Novelfriend (github.com/haxsysgit/novelfriend), a RAG-based conversational AI agent for discussing 3 long web novels (Kill the Sun, Lord of the Mysteries, Shadow Slave — 5,470 chapters total, 41.3MB). Uses embedding models and vector databases for semantic chapter retrieval. Capable of comparing characters, discussing motivations, and referencing specific chapters.",
+      "safe_wording": "Built Novelfriend, a RAG-powered conversational AI for discussing 3 long web novels (5,470 chapters, 41.3MB). Uses embeddings and vector search to retrieve and discuss characters, motivations, and specific chapters conversationally.",
+      "avoid_wording": "",
+      "confidence": "confirmed",
+      "evidence_source": "user correction 2026-07-01"
     }
   ],
   "platform_accounts": [
@@ -206,10 +222,10 @@
       "When a company is known to write quirky JDs (see company_notes), treat the JD text as marketing copy, not a literal checklist. Extract the actual role requirements from context clues.",
       "Python-backend roles that also mention Java: Arinze has Java from his Aptech diploma (Spring, EJB). This is a secondary skill, not a gap. Only treat Java as a gap if it is the PRIMARY language with zero Python overlap.",
       "Arinze's professional experience is ~1.5-2 years, not zero. Vigilis (Aug 2024 - Feb 2026) is real professional experience. Do not score him as if he has no experience.",
-      "If a role asks for AI/ML/agent experience, Arinze is a strong candidate: he built Pharmax (AI-integrated SaaS), trained models with HuggingFace/PyTorch, uses Archilles (Hermes Agent fork) daily, and built Haxaml (AI agent governance tool). This is not theoretical \u2014 it is hands-on.",
+      "If a role asks for AI/ML/agent experience, Arinze is a strong candidate: he built Pharmax (AI-integrated SaaS), trained models with HuggingFace/PyTorch, uses Archilles (Hermes Agent fork) daily, and built Haxaml (AI agent governance tool). This is not theoretical — it is hands-on.",
       "Do not inflate scores above 80 unless Arinze genuinely hits most requirements. Being truthful is more important than being optimistic.",
-      "Salary: Arinze targets \u00a335,000-\u00a360,000 for junior/mid roles but is flexible for the right opportunity. A role advertising above this range is not a gap unless it requires senior-level experience.",
-      "Work authorization: Arinze is on a UK student visa graduating June 25, planning to apply for a Graduate visa (2-year work right). This means he CAN work in the UK without immediate sponsorship. Only treat sponsorship as a hard blocker if the job explicitly says 'no visa holders' or 'must have permanent right to work.'"
+      "Salary: Arinze targets £35,000-£60,000 for junior/mid roles but is flexible for the right opportunity. A role advertising above this range is not a gap unless it requires senior-level experience.",
+      "Work authorization: Arinze graduated June 2026 and is on a UK student visa, planning to apply for a Graduate visa (2-year work right). He CAN work in the UK without immediate sponsorship. Only treat sponsorship as a hard blocker if the job explicitly says 'no visa holders' or 'must have permanent right to work.'"
     ],
     "scoring_guidance": {
       "ai_engineer_roles": "Score generously (70+) for AI Engineer, Applied AI, Agentic AI, and ML Engineer roles at junior/mid level. Arinze's FRAME, Haxaml, Pharmax, Archilles, and model training experience directly apply.",
@@ -225,24 +241,24 @@
       "match_type": "company_name_contains",
       "note": "Mongoose Gray is a recruitment agency known for humorous, quirky, and creative job descriptions. The JD text is intentionally playful and should NOT be taken literally. Extracts role requirements from context clues rather than surface-level JD wording. Jobs with titles like 'Junior AI Engineer' or 'Graduate AI Engineer' from Mongoose Gray are REAL engineering roles despite the JD talking about gemstones, cats, ballet, or other whimsical analogies. Evaluate the title and key requirements, not the creative writing.",
       "created_at": "2026-06-07",
-      "source": "user correction \u2014 false positive skip of Junior AI Engineer role"
+      "source": "user correction — false positive skip of Junior AI Engineer role"
     },
     "experis": {
       "pattern": "experis",
       "match_type": "company_name_contains",
-      "note": "Experis is a large IT recruitment/staffing agency. Many postings are contract roles (IR35) for enterprise clients. SC clearance is common in Experis postings \u2014 check carefully. Do not skip Experis jobs automatically \u2014 they post legitimate junior/mid roles alongside senior contracts. Filter based on the actual role requirements, not the agency name.",
+      "note": "Experis is a large IT recruitment/staffing agency. Many postings are contract roles (IR35) for enterprise clients. SC clearance is common in Experis postings — check carefully. Do not skip Experis jobs automatically — they post legitimate junior/mid roles alongside senior contracts. Filter based on the actual role requirements, not the agency name.",
       "created_at": "2026-06-07"
     }
   },
   "saved_answers": [
     {
       "question_key": "requires_sponsorship",
-      "answer": "I may require sponsorship in the future, but not immediately. I am currently on a student visa, graduating June 25, and plan to apply for a Graduate visa.",
+      "answer": "I do not currently require sponsorship. I graduated June 2026 and am on a UK student visa, planning to apply for a Graduate visa (2-year work right). I may need sponsorship in the future after the visa expires.",
       "sensitivity": "legal_sensitive"
     },
     {
       "question_key": "salary_expectation",
-      "answer": "Flexible depending on the role and responsibilities, but generally targeting fair compensation above \u00a335,000 annually.",
+      "answer": "Flexible depending on the role and responsibilities, but generally targeting fair compensation above £35,000 annually.",
       "sensitivity": "review_before_use"
     },
     {

@@ -6,7 +6,6 @@ import json
 import os
 import re
 from datetime import datetime, timezone
-from pathlib import Path
 
 from haxjobs_config import HAXJOBS_HOME, PROFILE_PATH
 
@@ -32,8 +31,14 @@ def load_json(path):
 def build_profile_blurb(company: str = "") -> str:
     """Build the profile section of the evaluation prompt.
 
-    Reads from the local profile JSON for confirmed facts, evaluation context,
-    and company-specific notes.
+    Reads the profile JSON and produces one efficient prompt section with:
+    - User profile basics (name, location, work auth, salary, preferences)
+    - Full skills list
+    - Structured facts with safe_wording/avoid_wording guidance inline
+    - Behavioral guardrails + scoring guidance
+    - Company-specific notes (if matching)
+
+    No raw JSON dump — everything is merged into readable text.
     """
     if not os.path.exists(PROFILE_PATH):
         return "Profile not found."
@@ -44,31 +49,45 @@ def build_profile_blurb(company: str = "") -> str:
     eval_context = p.get("evaluation_context", {})
     company_notes = p.get("company_notes", {})
 
-    by_cat: dict[str, list[str]] = {}
-    for f in facts:
-        cat = f.get("category", "other")
-        by_cat.setdefault(cat, []).append(f.get("claim", ""))
-
+    # ── Basics ──
+    skills = up.get("skills", [])
     lines = [
         f"Name: {up.get('name', 'Arinze Elenasulu')}",
         f"Headline: {up.get('preferred_headline', 'Python Backend Engineer | AI & Automation')}",
         f"Location: {up.get('location', 'London, UK')}",
-        f"Sponsorship: {up.get('work_authorization_summary', 'UK work authorization, requires sponsorship for non-UK roles')}",
-        f"Salary range: {up.get('salary_preference', '£35,000-£60,000')}",
-        f"University: {up.get('university', 'Middlesex University London')}",
-        f"Preferred roles: {', '.join(up.get('preferred_roles', ['AI Engineer', 'Backend Engineer', 'Full Stack Engineer', 'Software Developer']))}",
-        f"Preferred locations: {', '.join(up.get('preferred_locations', ['London', 'Manchester', 'Leeds', 'Remote UK']))}",
-        f"Preferred work: {', '.join(up.get('preferred_work_modes', ['Hybrid', 'Remote', 'On-site']))}",
-        f"Target levels: {', '.join(up.get('experience_levels', ['junior', 'mid-level', 'graduate', 'intern']))}",
-        f"Excluded levels: {', '.join(up.get('excluded_levels', ['senior', 'lead', 'principal', 'staff', 'director', 'VP', 'head of', 'manager']))}",
+        f"University: {up.get('university', 'Middlesex University')}, {up.get('university_location', 'London, UK')}",
+        f"Work authorization: {up.get('work_authorization_summary', '')}",
+        f"Requires sponsorship: {up.get('requires_sponsorship', '')}",
+        f"Availability: {up.get('availability', '')}",
+        f"Salary: {up.get('salary_preference', '£35,000-£60,000')}",
+        f"Phone: {up.get('phone', '')}",
+        f"Email: {up.get('email', '')}",
+        f"LinkedIn: {up.get('linkedin_url', '')}",
+        f"GitHub: {up.get('github_url', '')}",
+        "",
+        "Skills: " + ", ".join(skills),
+        "",
+        f"Preferred roles: {', '.join(up.get('preferred_roles', []))}",
+        f"Preferred locations: {', '.join(up.get('preferred_locations', []))}",
+        f"Preferred work modes: {', '.join(up.get('preferred_work_modes', []))}",
+        f"Target levels: {', '.join(up.get('experience_levels', []))}",
+        f"Excluded levels: {', '.join(up.get('excluded_levels', []))}",
     ]
 
-    if by_cat:
-        lines.append("\nProfile facts:")
-        for cat, claims in by_cat.items():
-            lines.append(f"  [{cat}]")
-            for c in claims:
-                lines.append(f"    - {c}")
+    # ── Structured facts (safe wording rules embedded inline) ──
+    if facts:
+        lines.append("\n## Confirmed Profile Facts")
+        lines.append("  (Use safe_wording in CVs/packs. Follow avoid_wording rules.)\n")
+        for f in facts:
+            cat = f.get("category", "other")
+            claim = f.get("claim", "")
+            safe = f.get("safe_wording", "")
+            avoid = f.get("avoid_wording", "")
+            lines.append(f"  [{cat}] {claim}")
+            if safe:
+                lines.append(f"    → CV wording: {safe}")
+            if avoid:
+                lines.append(f"    → AVOID: {avoid}")
 
     # ── Evaluation Context (behavioral guardrails) ──
     guardrails = eval_context.get("behavioral_guardrails", [])
@@ -101,22 +120,6 @@ def build_profile_blurb(company: str = "") -> str:
     return "\n".join(lines)
 
 
-def _load_profile_json_for_prompt() -> str:
-    """Load the full profile JSON as a compact string for the evaluation prompt."""
-    try:
-        raw = Path(PROFILE_PATH).read_text() if os.path.exists(str(PROFILE_PATH)) else ""
-        if raw:
-            # Compact-print to save tokens — strip pretty-print whitespace
-            data = json.loads(raw)
-            # Keep confirmed_profile_facts and evaluation_context, drop platform_accounts (credentials)
-            data.pop("platform_accounts", None)
-            data.pop("saved_answers", None)
-            return json.dumps(data, indent=2, ensure_ascii=False)
-    except Exception:
-        pass
-    return "(profile JSON not found or unreadable)"
-
-
 def _build_whitelist_context(company: str, title: str) -> str:
     """Build whitelist context from DB for the evaluation prompt."""
     try:
@@ -140,15 +143,11 @@ def build_prompt(title: str, company: str, location: str,
     """Build the evaluation prompt from job data."""
     profile_blurb = build_profile_blurb(company)
     whitelist_context = _build_whitelist_context(company, title)
-    profile_json_block = _load_profile_json_for_prompt()
 
     return f"""You are evaluating a job for Arinze Elenasulu. Your output must be ONLY valid JSON — no markdown, no commentary, no code fences.
 
 ## Arinze's Profile
 {profile_blurb}
-
-## Full Profile JSON (source of truth — use safe_wording, follow avoid_wording rules)
-{profile_json_block}
 
 ## Whitelist / Learning Context
 {whitelist_context}
