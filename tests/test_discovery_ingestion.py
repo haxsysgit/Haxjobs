@@ -19,7 +19,7 @@ def init_temp_db(tmp_path, monkeypatch):
     ``haxjobs_config.DB_PATH`` is evaluated at import time and cannot
     be changed via ``setenv`` mid-session.
     """
-    import db.schema as schema_mod
+    import haxjobs.db.schema as schema_mod
     db_path = str(tmp_path / "test.db")
     monkeypatch.setattr(schema_mod, "DB_PATH", db_path)
     schema_mod.init()
@@ -46,7 +46,7 @@ def make_discovered_job(**overrides) -> dict:
 def test_duplicate_source_url_rejected(tmp_path, monkeypatch):
     """Duplicate source_url cannot create a second accepted discovered job."""
     init_temp_db(tmp_path, monkeypatch)
-    from db.discovered_jobs import insert_discovered_job, find_duplicate
+    from haxjobs.db.discovered_jobs import insert_discovered_job, find_duplicate
 
     r1 = insert_discovered_job(make_discovered_job(source_url="https://ex.com/job1"))
     assert r1 is not None, "First insert should succeed"
@@ -64,7 +64,7 @@ def test_duplicate_source_url_rejected(tmp_path, monkeypatch):
 def test_duplicate_company_title_rejected(tmp_path, monkeypatch):
     """Same company+title (case-insensitive) is rejected even with different URL."""
     init_temp_db(tmp_path, monkeypatch)
-    from db.discovered_jobs import insert_discovered_job
+    from haxjobs.db.discovered_jobs import insert_discovered_job
 
     r1 = insert_discovered_job(make_discovered_job(
         source_url="https://a.com/job",
@@ -84,8 +84,8 @@ def test_duplicate_company_title_rejected(tmp_path, monkeypatch):
 def test_blacklisted_company_rejected(tmp_path, monkeypatch):
     """Blacklisted company gets discovery_status='blacklisted' and is not promoted."""
     init_temp_db(tmp_path, monkeypatch)
-    from db.discovered_jobs import insert_discovered_job, get_discovered_job, promote_discovered_job
-    from discovery.hooks import should_accept_discovered_job
+    from haxjobs.db.discovered_jobs import insert_discovered_job, get_discovered_job, promote_discovered_job
+    from haxjobs.discovery.hooks import should_accept_discovered_job
 
     record = make_discovered_job(
         company="Robert Half",
@@ -100,7 +100,7 @@ def test_blacklisted_company_rejected(tmp_path, monkeypatch):
     assert rec_id is not None
 
     # Simulate discover-run logic: update status and attempt promotion
-    from db.discovered_jobs import update_discovery_status
+    from haxjobs.db.discovered_jobs import update_discovery_status
     update_discovery_status(rec_id, "blacklisted", reason)
     dj = get_discovered_job(rec_id)
     assert dj["discovery_status"] == "blacklisted"
@@ -112,8 +112,8 @@ def test_blacklisted_company_rejected(tmp_path, monkeypatch):
 def test_obvious_non_tech_role_filtered(tmp_path, monkeypatch):
     """Obvious non-tech role gets discovery_status='filtered'."""
     init_temp_db(tmp_path, monkeypatch)
-    from db.discovered_jobs import insert_discovered_job, get_discovered_job, promote_discovered_job
-    from discovery.hooks import should_accept_discovered_job
+    from haxjobs.db.discovered_jobs import insert_discovered_job, get_discovered_job, promote_discovered_job
+    from haxjobs.discovery.hooks import should_accept_discovered_job
 
     record = make_discovered_job(
         title="Barista",
@@ -127,7 +127,7 @@ def test_obvious_non_tech_role_filtered(tmp_path, monkeypatch):
     rec_id = insert_discovered_job(record)
     assert rec_id is not None
 
-    from db.discovered_jobs import update_discovery_status
+    from haxjobs.db.discovered_jobs import update_discovery_status
     update_discovery_status(rec_id, "filtered", reason)
     dj = get_discovered_job(rec_id)
     assert dj["discovery_status"] == "filtered"
@@ -139,7 +139,7 @@ def test_obvious_non_tech_role_filtered(tmp_path, monkeypatch):
 def test_manual_and_scraped_same_normalization_path(tmp_path, monkeypatch):
     """Manual job and scraped job use the same normalization path."""
     init_temp_db(tmp_path, monkeypatch)
-    from discovery.normalize import normalize_job
+    from haxjobs.discovery.normalize import normalize_job
 
     # Simulate a manual entry
     manual_raw = {
@@ -174,13 +174,13 @@ def test_manual_and_scraped_same_normalization_path(tmp_path, monkeypatch):
 def test_accepted_discovered_job_promotes(tmp_path, monkeypatch):
     """A discovered job that passes hooks gets promoted into the jobs table."""
     init_temp_db(tmp_path, monkeypatch)
-    from db.discovered_jobs import (
+    from haxjobs.db.discovered_jobs import (
         insert_discovered_job, get_discovered_job,
         update_discovery_status, promote_discovered_job,
     )
-    from db.jobs import get_job
-    from discovery.hooks import should_accept_discovered_job
-    from discovery.normalize import normalize_job
+    from haxjobs.db.jobs import get_job
+    from haxjobs.discovery.hooks import should_accept_discovered_job
+    from haxjobs.discovery.normalize import normalize_job
 
     raw = make_discovered_job(
         title="ML Engineer",
@@ -216,12 +216,12 @@ def test_accepted_discovered_job_promotes(tmp_path, monkeypatch):
 def test_discover_run_processes_new_jobs(tmp_path, monkeypatch):
     """``discover-run`` (simulated) processes new jobs, accepts valid ones, rejects others."""
     init_temp_db(tmp_path, monkeypatch)
-    from db.discovered_jobs import (
+    from haxjobs.db.discovered_jobs import (
         insert_discovered_job, list_discovered_jobs,
         update_discovery_status, promote_discovered_job,
     )
-    from db.jobs import get_all_jobs
-    from discovery.hooks import should_accept_discovered_job
+    from haxjobs.db.jobs import get_all_jobs
+    from haxjobs.discovery.hooks import should_accept_discovered_job
 
     # Insert a mix
     insert_discovered_job(make_discovered_job(
@@ -259,8 +259,8 @@ def test_discover_run_processes_new_jobs(tmp_path, monkeypatch):
 def test_insert_discovered_job_preserves_raw_payload(tmp_path, monkeypatch):
     """raw_payload_json stores the full original record."""
     init_temp_db(tmp_path, monkeypatch)
-    from db.discovered_jobs import insert_discovered_job, get_discovered_job
-    from discovery.normalize import normalize_job
+    from haxjobs.db.discovered_jobs import insert_discovered_job, get_discovered_job
+    from haxjobs.discovery.normalize import normalize_job
 
     raw = {
         "title": "Full Stack Dev",
@@ -286,7 +286,7 @@ def test_insert_discovered_job_preserves_raw_payload(tmp_path, monkeypatch):
 
 def test_location_filter_london_passes():
     """Jobs in London pass the location filter."""
-    from discovery.hooks import passes_location_filter
+    from haxjobs.discovery.hooks import passes_location_filter
 
     assert passes_location_filter("London, UK") is True
     assert passes_location_filter("London, United Kingdom") is True
@@ -295,7 +295,7 @@ def test_location_filter_london_passes():
 
 def test_location_filter_manchester_leeds_pass():
     """Jobs in Manchester or Leeds pass the location filter."""
-    from discovery.hooks import passes_location_filter
+    from haxjobs.discovery.hooks import passes_location_filter
 
     assert passes_location_filter("Manchester, UK") is True
     assert passes_location_filter("Leeds, United Kingdom") is True
@@ -303,7 +303,7 @@ def test_location_filter_manchester_leeds_pass():
 
 def test_location_filter_remote_passes():
     """Remote jobs pass only when paired with UK or preferred location."""
-    from discovery.hooks import passes_location_filter
+    from haxjobs.discovery.hooks import passes_location_filter
 
     assert passes_location_filter("Remote UK") is True
     assert passes_location_filter("Remote, UK") is True
@@ -317,7 +317,7 @@ def test_location_filter_remote_passes():
 
 def test_location_filter_nyc_rejected():
     """Jobs in New York (no UK/remote) are rejected."""
-    from discovery.hooks import passes_location_filter
+    from haxjobs.discovery.hooks import passes_location_filter
 
     assert passes_location_filter("New York, New York, USA") is False
     assert passes_location_filter("Sao Paulo, Brazil") is False
@@ -327,7 +327,7 @@ def test_location_filter_nyc_rejected():
 
 def test_location_filter_empty_passes():
     """Empty location passes — let classifier/eval handle it."""
-    from discovery.hooks import passes_location_filter
+    from haxjobs.discovery.hooks import passes_location_filter
 
     assert passes_location_filter("") is True
     assert passes_location_filter("   ") is True
@@ -335,7 +335,7 @@ def test_location_filter_empty_passes():
 
 def test_location_filter_uk_variants_pass():
     """Various UK spelling/casing passes."""
-    from discovery.hooks import passes_location_filter
+    from haxjobs.discovery.hooks import passes_location_filter
 
     assert passes_location_filter("Edinburgh, Scotland") is True
     assert passes_location_filter("Cardiff, Wales") is True
@@ -347,8 +347,8 @@ def test_location_filter_uk_variants_pass():
 def test_should_accept_rejects_wrong_location(tmp_path, monkeypatch):
     """should_accept_discovered_job rejects non-UK locations during discovery."""
     init_temp_db(tmp_path, monkeypatch)
-    from discovery.hooks import should_accept_discovered_job
-    from discovery.normalize import normalize_job
+    from haxjobs.discovery.hooks import should_accept_discovered_job
+    from haxjobs.discovery.normalize import normalize_job
 
     # Good job: London
     good = normalize_job(make_discovered_job(

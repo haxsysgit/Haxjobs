@@ -14,7 +14,7 @@ import pytest
 
 # Paths
 ROOT = Path(__file__).resolve().parent.parent
-CV_SOURCE_DIR = ROOT / "cv_variants"
+CV_SOURCE_DIR = ROOT / "src/haxjobs/cv_variants"
 TEST_VARIANT = "backend_python"
 SOURCE_MD = CV_SOURCE_DIR / TEST_VARIANT / "cv_source.md"
 OUTPUT_HTML = CV_SOURCE_DIR / TEST_VARIANT / "Arinze_Elenasulu_Backend_Python_CV.html"

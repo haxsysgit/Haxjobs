@@ -1,7 +1,7 @@
 """Tests for cycle report generation."""
 
-from db.jobs import insert_job
-from db.evaluations import save_evaluation
+from haxjobs.db.jobs import insert_job
+from haxjobs.db.evaluations import save_evaluation
 
 
 def test_report_renders_job_entries(test_db):

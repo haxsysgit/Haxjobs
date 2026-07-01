@@ -7,9 +7,9 @@ Each executor: read the plan fully, honor STOP conditions, update status row.
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |------|-------|----------|--------|------------|--------|
-| 038 | Pre-restructure — signal repo is under construction | P1 | S | — | TODO |
+| 038 | Pre-restructure — signal repo is under construction | P1 | S | — | DONE |
 | 039 | Bare-minimum native agent — core run loop, structured output | P1 | S | 040, 042 | TODO |
-| 040 | Restructure repo into installable package (uv + hatchling) | P1 | M | 038 | TODO |
+| 040 | Restructure repo into installable package (uv + hatchling) | P1 | M | 038 | TODO ← NEXT |
 | 041 | FastAPI backend — feature-based structure, serve frontend | P1 | M | 040 | TODO |
 | 042 | Provider setup — first-run API key + model config | P1 | S | 040, 041 | TODO |
 | 043 | Full native agent — tool registry, built-in tools, multi-turn | P1 | M | 039, 040, 041, 042 | TODO |

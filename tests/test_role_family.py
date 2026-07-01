@@ -48,7 +48,7 @@ def get_test_roles() -> list[dict]:
 
 def test_load_role_profiles_from_config():
     """Role profiles can be loaded from a list of config dicts."""
-    from evaluation.role_family import load_role_profiles
+    from haxjobs.evaluation.role_family import load_role_profiles
 
     roles = get_test_roles()
     taxonomy = load_role_profiles(roles)
@@ -63,7 +63,7 @@ def test_load_role_profiles_from_config():
 def test_load_role_profiles_uses_explicit_roles():
     """When roles are provided explicitly, they're used directly."""
     import copy
-    from evaluation.role_family import load_role_profiles
+    from haxjobs.evaluation.role_family import load_role_profiles
 
     # No more JSON fallback — role_taxonomy.json is deleted.
     # Instead verify explicit roles work.
@@ -80,7 +80,7 @@ def test_load_role_profiles_uses_explicit_roles():
 
 def test_classify_backend_role():
     """A Python backend job maps to backend_python."""
-    from evaluation.role_family import classify_role_family
+    from haxjobs.evaluation.role_family import classify_role_family
 
     result = classify_role_family(
         title="Python Backend Engineer",
@@ -94,7 +94,7 @@ def test_classify_backend_role():
 
 def test_classify_fullstack_role():
     """A fullstack React+Python job maps to fullstack_python_react."""
-    from evaluation.role_family import classify_role_family
+    from haxjobs.evaluation.role_family import classify_role_family
 
     result = classify_role_family(
         title="Full Stack Engineer",
@@ -107,7 +107,7 @@ def test_classify_fullstack_role():
 
 def test_classify_ai_role():
     """An AI Engineer job maps to ai_engineer_llm."""
-    from evaluation.role_family import classify_role_family
+    from haxjobs.evaluation.role_family import classify_role_family
 
     result = classify_role_family(
         title="AI Engineer",
@@ -119,7 +119,7 @@ def test_classify_ai_role():
 
 def test_classify_unknown_role():
     """A non-tech job returns unknown."""
-    from evaluation.role_family import classify_role_family
+    from haxjobs.evaluation.role_family import classify_role_family
 
     result = classify_role_family(
         title="Barista",
@@ -133,7 +133,7 @@ def test_classify_unknown_role():
 
 def test_negative_keywords_penalize():
     """A backend job that also has negative keywords gets lower confidence."""
-    from evaluation.role_family import classify_role_family
+    from haxjobs.evaluation.role_family import classify_role_family
 
     result = classify_role_family(
         title="Backend Engineer",
@@ -149,7 +149,7 @@ def test_negative_keywords_penalize():
 
 def test_title_exact_match_scores_highest():
     """Exact title match scores higher than keyword-only match."""
-    from evaluation.role_family import classify_role_family
+    from haxjobs.evaluation.role_family import classify_role_family
 
     # Exact title match for ai_engineer_llm
     result = classify_role_family(
@@ -164,7 +164,7 @@ def test_title_exact_match_scores_highest():
 
 def test_priority_breaks_ties():
     """When two families score equally, priority breaks the tie."""
-    from evaluation.role_family import classify_role_family
+    from haxjobs.evaluation.role_family import classify_role_family
 
     # Job that could match both backend_python and fullstack_python_react
     # but backend_python has higher priority (1 vs 2)
@@ -179,7 +179,7 @@ def test_priority_breaks_ties():
 
 def test_junior_software_role():
     """Junior/graduate roles map to junior_software."""
-    from evaluation.role_family import classify_role_family
+    from haxjobs.evaluation.role_family import classify_role_family
 
     result = classify_role_family(
         title="Junior Software Engineer",
@@ -192,7 +192,7 @@ def test_junior_software_role():
 
 def test_classify_with_explicit_roles_list():
     """Classify works with an explicit roles list (no JSON path needed)."""
-    from evaluation.role_family import classify_role_family
+    from haxjobs.evaluation.role_family import classify_role_family
 
     explicit_roles = [
         {"id": "backend_python", "cv_variant": "backend_python", "priority": 1,
@@ -212,7 +212,7 @@ def test_classify_with_explicit_roles_list():
 
 def test_matched_terms_and_title_matches_preserved():
     """Result includes matched_terms and title_matches for debugging."""
-    from evaluation.role_family import classify_role_family
+    from haxjobs.evaluation.role_family import classify_role_family
 
     result = classify_role_family(
         title="Backend Engineer",

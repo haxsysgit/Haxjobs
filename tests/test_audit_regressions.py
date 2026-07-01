@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from db import schema
-from db.decisions import record_decision
-from db.jobs import insert_job
-from server.routes.jobs import toggle_auto_apply
-from server.routes.pack_resources import get_pack_detail
+from haxjobs.db import schema
+from haxjobs.db.decisions import record_decision
+from haxjobs.db.jobs import insert_job
+from haxjobs.server.routes.jobs import toggle_auto_apply
+from haxjobs.server.routes.pack_resources import get_pack_detail
 
 
 def use_temp_db(monkeypatch, tmp_path):

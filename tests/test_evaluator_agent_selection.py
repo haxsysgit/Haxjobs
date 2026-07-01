@@ -10,7 +10,7 @@ from __future__ import annotations
 
 def test_chain_imports():
     """Chain module imports cleanly."""
-    from evaluate.chain import evaluate_one_job, evaluate_batch, _resolve_order
+    from haxjobs.evaluate.chain import evaluate_one_job, evaluate_batch, _resolve_order
     assert callable(evaluate_one_job)
     assert callable(evaluate_batch)
     assert callable(_resolve_order)
@@ -18,8 +18,8 @@ def test_chain_imports():
 
 def test_all_adapters_import():
     """All 5 adapters import and inherit BaseAdapter."""
-    from evaluate.agents import AGENT_LIST
-    from evaluate.agents.base import BaseAdapter
+    from haxjobs.evaluate.agents import AGENT_LIST
+    from haxjobs.evaluate.agents.base import BaseAdapter
 
     assert len(AGENT_LIST) == 5
     for name, adapter in AGENT_LIST.items():
@@ -29,7 +29,7 @@ def test_all_adapters_import():
 
 def test_auto_discover_returns_list():
     """auto_discover returns a list of installed agent names."""
-    from evaluate.agents import auto_discover
+    from haxjobs.evaluate.agents import auto_discover
 
     discovered = auto_discover()
     assert isinstance(discovered, list)
@@ -39,8 +39,8 @@ def test_auto_discover_returns_list():
 
 def test_resolve_order_respects_config():
     """_resolve_order returns the configured agent chain."""
-    from evaluate.chain import _resolve_order
-    from haxjobs_config import EVALUATION_AGENT
+    from haxjobs.evaluate.chain import _resolve_order
+    from haxjobs.config import EVALUATION_AGENT
 
     order = _resolve_order()
     assert isinstance(order, list)
@@ -50,7 +50,7 @@ def test_resolve_order_respects_config():
 
 def test_evaluate_one_job_accepts_agent_order():
     """evaluate_one_job accepts an explicit agent_order override."""
-    from evaluate.chain import evaluate_one_job
+    from haxjobs.evaluate.chain import evaluate_one_job
 
     # Empty order — no agents tried, returns None
     result = evaluate_one_job(
@@ -70,7 +70,7 @@ def test_evaluate_one_job_accepts_agent_order():
 
 def test_extract_json_from_backtick_fence():
     """JSON inside ```json fences is extracted."""
-    from evaluate.common import extract_json
+    from haxjobs.evaluate.common import extract_json
 
     text = '```json\n{"fit_score": 85, "level": 1}\n```'
     result = extract_json(text)
@@ -79,7 +79,7 @@ def test_extract_json_from_backtick_fence():
 
 def test_extract_json_from_plain_text():
     """JSON block anywhere in text is found."""
-    from evaluate.common import extract_json
+    from haxjobs.evaluate.common import extract_json
 
     text = 'Some commentary here.\n{"fit_score": 72, "fit_verdict": "GOOD_FIT"}\nMore text.'
     result = extract_json(text)
@@ -89,7 +89,7 @@ def test_extract_json_from_plain_text():
 
 def test_extract_json_returns_none_for_garbage():
     """Garbage text returns None."""
-    from evaluate.common import extract_json
+    from haxjobs.evaluate.common import extract_json
 
     result = extract_json("not json at all")
     assert result is None
@@ -97,7 +97,7 @@ def test_extract_json_returns_none_for_garbage():
 
 def test_validate_result_passes_valid():
     """A fully valid result has no issues."""
-    from evaluate.common import validate_result
+    from haxjobs.evaluate.common import validate_result
 
     valid = {
         "fit_score": 75,
@@ -117,7 +117,7 @@ def test_validate_result_passes_valid():
 
 def test_validate_result_catches_missing_key():
     """Missing required key is reported."""
-    from evaluate.common import validate_result
+    from haxjobs.evaluate.common import validate_result
 
     result = {"fit_score": 75}
     issues = validate_result(result)
@@ -127,7 +127,7 @@ def test_validate_result_catches_missing_key():
 
 def test_validate_result_catches_wrong_type():
     """Wrong type is reported."""
-    from evaluate.common import validate_result
+    from haxjobs.evaluate.common import validate_result
 
     result = {
         "fit_score": "seventy-five",
@@ -147,7 +147,7 @@ def test_validate_result_catches_wrong_type():
 
 def test_validate_result_catches_out_of_range():
     """Out-of-range values are reported."""
-    from evaluate.common import validate_result
+    from haxjobs.evaluate.common import validate_result
 
     for bad_score in (-1, 101):
         result = {

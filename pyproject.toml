@@ -1,0 +1,29 @@
+[project]
+name = "haxjobs"
+version = "1.0.0.dev0"
+description = "Self-hosted job search platform"
+requires-python = ">=3.12"
+license = {text = "MIT"}
+authors = [{name = "Arinze Elenasulu"}]
+readme = "README.md"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.34",
+    "requests>=2.32",
+    "markdown>=3.10.2",
+]
+
+[project.scripts]
+haxjobs = "haxjobs.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/haxjobs"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]

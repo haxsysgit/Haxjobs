@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from db.discovered_jobs import get_discovered_job, insert_discovered_job
-from discovery.normalize import normalize_job
+from haxjobs.db.discovered_jobs import get_discovered_job, insert_discovered_job
+from haxjobs.discovery.normalize import normalize_job
 
 
 def sample_ashby_job(**overrides) -> dict:
@@ -22,7 +22,7 @@ def sample_ashby_job(**overrides) -> dict:
 
 def test_normalize_ashby_job() -> None:
     """Ashby job payloads map into the canonical discovered job shape."""
-    from discovery.scrapers.ashby import build_raw_job
+    from haxjobs.discovery.scrapers.ashby import build_raw_job
 
     raw_job = build_raw_job("notion", sample_ashby_job())
     normalized = normalize_job(raw_job, source="ashby")
@@ -40,7 +40,7 @@ def test_normalize_ashby_job() -> None:
 
 def test_ashby_jd_cleanup() -> None:
     """Ashby HTML descriptions become clean readable text."""
-    from discovery.scrapers.greenhouse import extract_jd_text
+    from haxjobs.discovery.scrapers.greenhouse import extract_jd_text
 
     jd_text = extract_jd_text("<h2>About</h2><p>Build backend systems.</p>")
 
@@ -51,7 +51,7 @@ def test_ashby_jd_cleanup() -> None:
 
 def test_insert_ashby_job(test_db: str) -> None:
     """A normalized Ashby job can be inserted into discovered_jobs."""
-    from discovery.scrapers.ashby import build_raw_job
+    from haxjobs.discovery.scrapers.ashby import build_raw_job
 
     raw_job = build_raw_job("notion", sample_ashby_job())
     normalized = normalize_job(raw_job, source="ashby")
@@ -69,7 +69,7 @@ def test_insert_ashby_job(test_db: str) -> None:
 
 def test_ashby_profile_filter_skips_unmatched_titles() -> None:
     """Ashby filtering happens before detail fetches and inserts."""
-    from discovery.scrapers.ashby import filter_profile_jobs
+    from haxjobs.discovery.scrapers.ashby import filter_profile_jobs
 
     jobs = [
         sample_ashby_job(title="AI Engineer"),

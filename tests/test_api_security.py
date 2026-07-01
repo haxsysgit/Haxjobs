@@ -5,7 +5,7 @@ from __future__ import annotations
 from io import BytesIO
 from types import SimpleNamespace
 
-import api_server
+from haxjobs import api_server
 
 
 def test_safe_static_path_allows_normal_file(tmp_path):

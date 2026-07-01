@@ -1,6 +1,6 @@
 """Tests for CV review module — per-job CV improvement."""
 import pytest
-from evaluate.cv_review import (
+from haxjobs.evaluate.cv_review import (
     build_improved_cv,
     review_cv_for_job,
     extract_jd_requirements,

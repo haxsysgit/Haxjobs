@@ -2,10 +2,10 @@
 
 from pathlib import Path
 
-from db import schema
-from db.jobs import insert_job, update_job_pack_status
-from db.evaluations import save_evaluation, get_evaluation
-from packs_builder.job_pack import build_job_pack
+from haxjobs.db import schema
+from haxjobs.db.jobs import insert_job, update_job_pack_status
+from haxjobs.db.evaluations import save_evaluation, get_evaluation
+from haxjobs.packs_builder.job_pack import build_job_pack
 
 
 def use_temp_db(monkeypatch, tmp_path):
@@ -20,8 +20,8 @@ def _make_cv_metadata(variant="backend_python"):
         "pack_owns_cv": False,
         "recommended_cv_variant": variant,
         "role_family": variant,
-        "cv_pdf": f"cv_variants/{variant}/cv.pdf",
-        "cv_html": f"cv_variants/{variant}/cv.html",
+        "cv_pdf": f"src/haxjobs/cv_variants/{variant}/cv.pdf",
+        "cv_html": f"src/haxjobs/cv_variants/{variant}/cv.html",
     }
 
 
@@ -44,7 +44,7 @@ def test_l1_job_gets_pack(monkeypatch, tmp_path):
         jd_text="Python FastAPI PostgreSQL.",
         source="manual",
     )
-    from db import schema as s
+    from haxjobs.db import schema as s
     conn = s.get_db()
     conn.execute("UPDATE jobs SET role_family=?, recommended_cv_variant=? WHERE id=?",
                  ("backend_python", "backend_python", job_id))
@@ -106,7 +106,7 @@ def test_l3_job_no_pack_path_expected(monkeypatch, tmp_path):
     save_evaluation(job_id, result)
 
     # Verify level 3 is NOT in AUTO_PACK_LEVELS (default [1, 2])
-    from haxjobs_config import AUTO_PACK_LEVELS
+    from haxjobs.config import AUTO_PACK_LEVELS
     assert 3 not in AUTO_PACK_LEVELS
     assert 4 not in AUTO_PACK_LEVELS
     assert 1 in AUTO_PACK_LEVELS
@@ -166,7 +166,7 @@ def test_all_role_templates_load_and_fill(monkeypatch, tmp_path):
     """Every configured role family has a template that fills without errors."""
     use_temp_db(monkeypatch, tmp_path)
 
-    from haxjobs_config import ROLE_PROFILES
+    from haxjobs.config import ROLE_PROFILES
 
     variants = list({r["cv_variant"] for r in ROLE_PROFILES})
     assert len(variants) >= 7, f"Expected at least 7 variants, got {len(variants)}"

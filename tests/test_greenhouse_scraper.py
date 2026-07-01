@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from db.discovered_jobs import get_discovered_job, insert_discovered_job
-from discovery.normalize import normalize_job
+from haxjobs.db.discovered_jobs import get_discovered_job, insert_discovered_job
+from haxjobs.discovery.normalize import normalize_job
 
 
 def sample_greenhouse_job(**overrides) -> dict:
@@ -22,7 +22,7 @@ def sample_greenhouse_job(**overrides) -> dict:
 
 def test_normalize_greenhouse_job() -> None:
     """Greenhouse job payloads map into the canonical discovered job shape."""
-    from discovery.scrapers.greenhouse import build_raw_job
+    from haxjobs.discovery.scrapers.greenhouse import build_raw_job
 
     raw_job = build_raw_job("datadog", sample_greenhouse_job())
     normalized = normalize_job(raw_job, source="greenhouse")
@@ -40,7 +40,7 @@ def test_normalize_greenhouse_job() -> None:
 
 def test_greenhouse_jd_parsing() -> None:
     """Greenhouse escaped HTML descriptions become clean readable text."""
-    from discovery.scrapers.greenhouse import extract_jd_text
+    from haxjobs.discovery.scrapers.greenhouse import extract_jd_text
 
     html_text = """
     &lt;div id=&quot;content&quot;&gt;
@@ -62,7 +62,7 @@ def test_greenhouse_jd_parsing() -> None:
 
 def test_insert_greenhouse_job(test_db: str) -> None:
     """A normalized Greenhouse job can be inserted into discovered_jobs."""
-    from discovery.scrapers.greenhouse import build_raw_job
+    from haxjobs.discovery.scrapers.greenhouse import build_raw_job
 
     raw_job = build_raw_job("datadog", sample_greenhouse_job())
     normalized = normalize_job(raw_job, source="greenhouse")
@@ -82,7 +82,7 @@ def test_insert_greenhouse_job(test_db: str) -> None:
 
 def test_greenhouse_profile_filter_skips_unmatched_titles() -> None:
     """Greenhouse filtering keeps target roles and drops unrelated roles."""
-    from discovery.scrapers.greenhouse import filter_profile_jobs
+    from haxjobs.discovery.scrapers.greenhouse import filter_profile_jobs
 
     jobs = [
         sample_greenhouse_job(title="Backend Engineer"),

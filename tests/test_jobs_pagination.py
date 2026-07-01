@@ -6,8 +6,8 @@ from unittest.mock import patch
 
 def _seed_pagination_data():
     """Seed 25 jobs (10 pending, 10 evaluated, 5 skipped)."""
-    from db.jobs import insert_job, update_job_status
-    from db.evaluations import save_evaluation
+    from haxjobs.db.jobs import insert_job, update_job_status
+    from haxjobs.db.evaluations import save_evaluation
 
     for i in range(25):
         job_id = insert_job(
@@ -30,7 +30,7 @@ def _seed_pagination_data():
 
 
 def _seed_simple_jobs(n=10):
-    from db.jobs import insert_job
+    from haxjobs.db.jobs import insert_job
     for i in range(n):
         insert_job(title=f"J{i}", company=f"C{i}", location="London", source="test")
 
@@ -39,7 +39,7 @@ def test_db_pagination_returns_limited_results(test_db):
     """get_jobs_with_evaluations respects limit/offset."""
     _seed_pagination_data()
 
-    import db.evaluations as db_evals
+    import haxjobs.db.evaluations as db_evals
     page = db_evals.get_jobs_with_evaluations(limit=10, offset=0)
     assert len(page) == 10
     page2 = db_evals.get_jobs_with_evaluations(limit=10, offset=10)
@@ -52,7 +52,7 @@ def test_db_pagination_returns_limited_results(test_db):
 def test_db_pagination_with_status_filter(test_db):
     _seed_pagination_data()
 
-    import db.evaluations as db_evals
+    import haxjobs.db.evaluations as db_evals
     result = db_evals.get_jobs_with_evaluations(status_filter="pending", limit=5, offset=0)
     assert len(result) <= 5
     for r in result:
@@ -62,7 +62,7 @@ def test_db_pagination_with_status_filter(test_db):
 def test_db_no_limit_returns_all(test_db):
     _seed_pagination_data()
 
-    import db.evaluations as db_evals
+    import haxjobs.db.evaluations as db_evals
     result = db_evals.get_jobs_with_evaluations()
     assert len(result) == 25
 
@@ -71,7 +71,7 @@ def test_list_jobs_passes_params_to_db_layer(test_db):
     """list_jobs forwards status_filter, offset, limit to get_jobs_with_evaluations."""
     _seed_simple_jobs(1)
 
-    import db.evaluations as db_evals
+    import haxjobs.db.evaluations as db_evals
     fake_raw = [{
         "id": 1, "title": "T", "company": "C", "location": "", "source": "test",
         "source_quality": "direct", "role_family": "backend_python",
@@ -92,7 +92,7 @@ def test_list_jobs_passes_params_to_db_layer(test_db):
         return fake_raw
 
     with patch.object(db_evals, "get_jobs_with_evaluations", fake_get_jobs):
-        from server.routes.jobs import list_jobs
+        from haxjobs.server.routes.jobs import list_jobs
         result = list_jobs(status_filter="pending", offset=5, limit=20)
         assert captured_kwargs == {"status_filter": "pending", "offset": 5, "limit": 20}
         assert len(result) == 1
@@ -100,12 +100,12 @@ def test_list_jobs_passes_params_to_db_layer(test_db):
 
 def test_list_jobs_backward_compat_no_args(test_db):
     """list_jobs() with no args still works (backward compat)."""
-    import db.evaluations as db_evals
+    import haxjobs.db.evaluations as db_evals
 
     def fake_get_jobs(**kwargs):
         return []
 
     with patch.object(db_evals, "get_jobs_with_evaluations", fake_get_jobs):
-        from server.routes.jobs import list_jobs
+        from haxjobs.server.routes.jobs import list_jobs
         result = list_jobs()
         assert result == []

@@ -8,8 +8,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from server.routes.pack_resources import get_pack_detail, read_pack_text_file
-from server.routes.resources import serve_pack_file
+from haxjobs.server.routes.pack_resources import get_pack_detail, read_pack_text_file
+from haxjobs.server.routes.resources import serve_pack_file
 
 
 def make_pack(tmp_path: Path) -> Path:
@@ -74,7 +74,7 @@ def test_read_pack_text_file_reads_allowed_file(tmp_path):
 
 def test_serve_pack_file_returns_file_from_specified_pack_dir(tmp_path, monkeypatch):
     """serve_pack_file must only look inside the requested pack directory."""
-    import server.routes.resources as rmod
+    from haxjobs.server.routes import resources as rmod
 
     packs_root = tmp_path / "packs"
     job_a = packs_root / "job_A_testco"
@@ -101,7 +101,7 @@ def test_serve_pack_file_returns_file_from_specified_pack_dir(tmp_path, monkeypa
 
 def test_serve_pack_file_rejects_nonexistent_directory(tmp_path, monkeypatch):
     """serve_pack_file returns None when the pack directory doesn't exist."""
-    import server.routes.resources as rmod
+    from haxjobs.server.routes import resources as rmod
 
     packs_root = tmp_path / "packs"
     packs_root.mkdir()

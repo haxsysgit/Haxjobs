@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 
-CV_SOURCE_DIR = Path(__file__).resolve().parent.parent / "cv_variants"
+CV_SOURCE_DIR = Path(__file__).resolve().parent.parent / "src" / "haxjobs" / "cv_variants"
 PROFILE_PATH = Path(__file__).resolve().parent.parent / "profile" / "arinze_profile.local.json"
 
 # ---------------------------------------------------------------------------

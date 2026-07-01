@@ -9,7 +9,7 @@ is evaluated at import time and cannot be changed via ``setenv`` mid-session.
 Usage::
 
     def test_something(test_db):
-        from db.jobs import insert_job
+        from haxjobs.db.jobs import insert_job
         job_id = insert_job(title="...", ...)
 """
 from __future__ import annotations
@@ -20,7 +20,7 @@ import pytest
 @pytest.fixture
 def test_db(tmp_path, monkeypatch) -> str:
     """Create a temp SQLite DB, patch db.schema.DB_PATH, init schema."""
-    import db.schema as schema_mod
+    import haxjobs.db.schema as schema_mod
     db_path = str(tmp_path / "test.db")
     monkeypatch.setattr(schema_mod, "DB_PATH", db_path)
     schema_mod.init()

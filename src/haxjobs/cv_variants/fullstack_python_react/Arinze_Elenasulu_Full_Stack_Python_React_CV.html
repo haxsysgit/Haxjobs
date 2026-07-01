@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Arinze Elenasulu, CV</title>
+<style>
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+    font-size: 10pt;
+    line-height: 1.5;
+    color: #1a1a1a;
+    background: #fff;
+    padding: 36px 44px;
+    max-width: 210mm;
+  }
+  .header { margin-bottom: 16px; }
+  .header h1 { font-size: 20pt; font-weight: 700; color: #111; }
+  .header h2 { font-size: 10.5pt; font-weight: 500; color: #4a6fa5; }
+  .contact { font-size: 8.5pt; color: #555; margin-top: 6px; }
+  .contact a { color: #4a6fa5; text-decoration: none; }
+  .contact span { margin: 0 5px; color: #ccc; }
+
+  .section { margin-top: 14px; }
+  .section-title {
+    font-size: 10pt; font-weight: 700; color: #2c3e50;
+    border-bottom: 1.5px solid #4a6fa5; padding-bottom: 2px; margin-bottom: 6px;
+    letter-spacing: 0.3px;
+  }
+  .summary p { font-size: 9.5pt; line-height: 1.55; color: #2d2d2d; }
+
+  .skill-group { margin-bottom: 3px; font-size: 9pt; }
+  .skill-group strong { color: #2c3e50; }
+
+  .exp-item { margin-bottom: 10px; }
+  .exp-header { margin-bottom: 1px; }
+  .exp-title { font-weight: 700; font-size: 10pt; color: #1a1a1a; }
+  .exp-meta { font-size: 8.5pt; color: #666; }
+  .exp-desc { font-size: 9pt; color: #444; margin: 2px 0 4px 0; line-height: 1.45; }
+  .exp-bullets { list-style: none; padding: 0; }
+  .exp-bullets li { font-size: 9pt; color: #3a3a3a; padding: 1.5px 0 1.5px 12px; position: relative; line-height: 1.45; }
+  .exp-bullets li::before { content: "\25B8"; position: absolute; left: 0; color: #4a6fa5; font-size: 7pt; top: 3px; }
+
+  .project-item { margin-bottom: 8px; }
+  .project-title { font-weight: 700; font-size: 9.5pt; color: #1a1a1a; }
+  .project-stack { font-size: 8pt; color: #4a6fa5; margin-bottom: 1px; }
+  .project-link { font-size: 8pt; color: #888; margin-bottom: 2px; }
+  .project-link a { color: #4a6fa5; text-decoration: none; }
+  .project-desc { font-size: 9pt; color: #3a3a3a; line-height: 1.45; margin-bottom: 2px; }
+  .project-bullets { list-style: none; padding: 0; margin-top: 1px; }
+  .project-bullets li { font-size: 8.5pt; color: #3a3a3a; padding: 1px 0 1px 12px; position: relative; line-height: 1.4; }
+  .project-bullets li::before { content: "\25B8"; position: absolute; left: 0; color: #4a6fa5; font-size: 6pt; top: 3px; }
+
+  .edu-item { font-size: 9pt; margin-bottom: 2px; }
+  .edu-degree { font-weight: 700; }
+  .edu-meta { font-size: 8.5pt; color: #666; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Arinze Elenasulu</h1>
+  <h2>Junior Python Full Stack Developer</h2>
+  <div class="contact">
+    London, UK <span>·</span> elenasuluarinze@gmail.com<br>
+    <a href="https://www.linkedin.com/in/arinze-elenasulu/">linkedin.com/in/arinze-elenasulu</a> <span>·</span>
+    <a href="https://github.com/haxsysgit">github.com/haxsysgit</a>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Professional Summary</div>
+  <div class="summary">
+    <p>I'm a curious engineer. when I see a problem worth solving, I throw everything I have at it until it's done right. Python has been my language since 2020, and I've spent those years building real systems: a pharmacy management platform handling live business operations, autonomous AI agent infrastructure running 24/7 on cloud, and open source governance tooling for AI pipelines published on PyPI. I care about building things that work reliably, not just things that look good in a demo.</p>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Core Skills</div>
+    <div class="skill-group"><strong>Backend:</strong> Python (primary, since 2020), FastAPI, SQLAlchemy, Alembic, REST APIs, async/await, PostgreSQL, JWT auth, role-based access</div>
+  <div class="skill-group"><strong>Frontend:</strong> React, TypeScript, JavaScript ES6+, HTML5/CSS3, Vite, MERN stack, MEAN stack, Flutter/Dart</div>
+  <div class="skill-group"><strong>Infrastructure:</strong> Docker (multi-stage, docker-compose), Linux, Git/GitHub, CI/CD, structured logging</div>
+  <div class="skill-group"><strong>Testing:</strong> Advanced pytest (fixtures, parametrisation, integration), API test automation, React Testing Library</div>
+  <div class="skill-group"><strong>Additional:</strong> Java, Spring Framework, C++, C, SQL, data mining and analysis (Tableau)</div>
+</div>
+
+<div class="section">
+  <div class="section-title">Experience</div>
+    <div class="exp-item">
+    <div class="exp-header"><span class="exp-title">Vigilis, Software Engineer</span></div>
+    <div class="exp-meta">August 2024 - February 2026 · Lagos, Nigeria</div>
+    <div class="exp-desc">Built and maintained the backend for a pharmacy operations platform handling sales, inventory, payments, and reporting across multiple locations. System used day-to-day by pharmacy staff.</div>
+    <ul class="exp-bullets">
+      <li>Designed the full data model and API layer (FastAPI, PostgreSQL, SQLAlchemy) with role-based access, JWT auth, and Alembic migrations.</li>
+      <li>Sat with pharmacy staff to understand their manual processes, then turned paper workflows into software that cut daily admin time and reduced stock discrepancies.</li>
+      <li>Built the invoice lifecycle with state-machine validation, automatic stock deduction on finalise, and reversal on cancel.</li>
+      <li>Added structured logging, input validation, and business rule enforcement at the API boundary.</li>
+      <li>Owned the backend end to end: feature planning, database design, deployment, monitoring, and production bug fixes.</li>
+    </ul>
+  </div>
+  <div class="exp-item">
+    <div class="exp-header"><span class="exp-title">Aptech Computer Education, Software Engineer Intern</span></div>
+    <div class="exp-meta">September 2022 - August 2024 · Lagos, Nigeria</div>
+    <div class="exp-desc">Completed the Advanced Diploma in Software Engineering (ADSE Java track), covering Linux, Python, C++, Java, Spring, Flutter/Dart, and full-stack web development across four semesters.</div>
+    <ul class="exp-bullets">
+      <li>Covered the full stack: Linux admin, Python, C++, C, Java, Spring Framework, EJB, Flutter/Dart, MERN and MEAN stacks.</li>
+      <li>Built projects across multiple technology stacks, gaining practical exposure to different frameworks and architectures.</li>
+      <li>Python became my primary language during this period and has remained so since 2020.</li>
+    </ul>
+  </div>
+  <div class="exp-item">
+    <div class="exp-header"><span class="exp-title">Bucca Hut, AI and Backend Engineer (Contract, part-time)</span></div>
+    <div class="exp-meta">February 2025 - May 2025</div>
+    <div class="exp-desc">Built a data analysis tool connecting LLM outputs and mined data insights to real operational decisions for a food business.</div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Selected Projects</div>
+    <div class="project-item">
+    <div class="project-title">FRAME, Typed Project Memory Format for AI Agents</div>
+    <div class="project-stack">Python, Markdown/YAML, Multi-Agent</div>
+    <div class="project-link"><a href="https://github.com/haxsysgit/FRAME">github.com/haxsysgit/FRAME</a></div>
+    <div class="project-desc">Designed a portable standard that gives AI coding agents structured project context across sessions.</div>
+    <ul class="project-bullets">
+      <li>Five-part memory model (Facts, Rules, Acts, Map, Expect) for agent context.</li>
+      <li>Reduces repeated prompting, context rot, and full-repo rescans.</li>
+      <li>Published docs and frame-python implementation on GitHub.</li>
+    </ul>
+  </div>
+  <div class="project-item">
+    <div class="project-title">Haxaml, AI Agent Governance & Project Memory</div>
+    <div class="project-stack">Python, MCP, FRAME</div>
+    <div class="project-link"><a href="https://github.com/haxsysgit/haxaml">github.com/haxsysgit/haxaml</a> · <a href="https://pypi.org/project/haxaml">pypi.org/project/haxaml</a></div>
+    <div class="project-desc">Governance runtime enforcing FRAME correctness, blocking AI-generated code until mechanical checks pass. Published on PyPI.</div>
+    <ul class="project-bullets">
+      <li>Five-stage pipeline: Admission to Scoped Context to Agent Work to Verification to Recording.</li>
+      <li>MCP server for AI coding tools to read/write project memory.</li>
+      <li>Local dashboard for inspecting agent session history and project state.</li>
+    </ul>
+  </div>
+  <div class="project-item">
+    <div class="project-title">Pharmax, Pharmacy Management Platform</div>
+    <div class="project-stack">Python, FastAPI, PostgreSQL, SQLAlchemy, Alembic</div>
+    <div class="project-desc">Backend for a pharmacy operations platform handling inventory, sales, invoicing, and reporting.</div>
+    <ul class="project-bullets">
+      <li>Products CRUD with multi-unit pricing, full invoice lifecycle with stock deduction and reversal.</li>
+      <li>Stock adjustments with audit trail, reorder-level tracking, role-based access with JWT.</li>
+      <li>Comprehensive pytest suite. Sat with pharmacy staff to turn manual processes into software.</li>
+    </ul>
+  </div>
+  <div class="project-item">
+    <div class="project-title">HaxJobs, Automated Job Search & Application Platform</div>
+    <div class="project-stack">Python, Playwright, React, TypeScript, Hermes Agent</div>
+    <div class="project-link"><a href="https://github.com/haxsysgit/haxjobs">github.com/haxsysgit/haxjobs</a></div>
+    <div class="project-desc">End-to-end automated job discovery platform. Multi-platform scraping, AI-powered evaluation, web dashboard.</div>
+    <ul class="project-bullets">
+      <li>Multi-platform job discovery across 95+ companies via Lever, Ashby, Greenhouse APIs.</li>
+      <li>Hermes-powered evaluation pipeline with 5-level application pack generation.</li>
+      <li>React + TypeScript dashboard with real-time job status views.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Education</div>
+  <div class="edu-item"><span class="edu-degree">BSc Information Technology</span> <span class="edu-meta">, Middlesex University London (June 2026)</span></div>
+  <div class="edu-item"><span class="edu-degree">Advanced Diploma in Software Engineering (ADSE Java)</span> <span class="edu-meta">, Aptech Computer Education, Lagos (September 2022 - August 2024)</span></div>
+</div>
+</body>
+</html>

@@ -1,8 +1,8 @@
 """Tests for evaluation decision default and DB writeback consistency."""
 
-from db import schema
-from db.jobs import insert_job
-from db.evaluations import save_evaluation, get_evaluation
+from haxjobs.db import schema
+from haxjobs.db.jobs import insert_job
+from haxjobs.db.evaluations import save_evaluation, get_evaluation
 
 
 def use_temp_db(monkeypatch, tmp_path):

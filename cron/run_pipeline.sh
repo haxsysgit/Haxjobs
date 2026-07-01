@@ -21,12 +21,12 @@ log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] $*" | tee -a "$LOG_FILE"; }
 # Read config values
 BATCH=$(python3 -c "
 import sys; sys.path.insert(0, '.')
-from haxjobs_config import CRON_CONFIG
+from haxjobs.config import CRON_CONFIG
 print(CRON_CONFIG.get('evaluate_batch', 1))
 ")
 DISCOVERY_INTERVAL=$(python3 -c "
 import sys; sys.path.insert(0, '.')
-from haxjobs_config import CRON_CONFIG
+from haxjobs.config import CRON_CONFIG
 print(CRON_CONFIG.get('discovery_interval_minutes', 720))
 ")
 

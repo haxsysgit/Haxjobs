@@ -14,8 +14,8 @@ import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-REGISTRY_PATH = ROOT / "cv_variants" / "registry.json"
-CV_ROOT = ROOT / "cv_variants"
+REGISTRY_PATH = ROOT / "src" / "haxjobs" / "cv_variants" / "registry.json"
+CV_ROOT = ROOT / "src" / "haxjobs" / "cv_variants"
 
 REQUIRED_SECTION_ORDER = [
     "Professional Summary",
@@ -92,7 +92,7 @@ def test_every_variant_registry_points_to_generated_source(variant_id):
     variant = registry()["variants"][variant_id]
 
     assert variant["source_status"] == "generated"
-    assert variant["source_md"] == f"cv_variants/{variant_id}/cv_source.md"
+    assert variant["source_md"] == f"src/haxjobs/cv_variants/{variant_id}/cv_source.md"
     assert (ROOT / variant["source_md"]).exists()
 
 
@@ -145,7 +145,7 @@ def test_each_variant_has_role_specific_emphasis(variant_id):
 
 @pytest.mark.parametrize("variant_id", variant_ids())
 def test_every_variant_renders_to_html_without_em_dashes(variant_id):
-    from cv_variants.renderer import render_html
+    from haxjobs.cv_variants.renderer import render_html
 
     html = render_html(CV_ROOT / variant_id / "cv_source.md")
 

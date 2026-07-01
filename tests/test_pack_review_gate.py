@@ -5,11 +5,11 @@ Slice 5 locks the review lifecycle for generated application packs.
 
 from __future__ import annotations
 
-from db import schema
-from db.decisions import get_decisions
-from db.jobs import get_job, insert_job, update_job_pack_status
-from db.pack_review import get_pack_review, review_pack
-from server.routes.jobs import list_jobs, review_job_pack
+from haxjobs.db import schema
+from haxjobs.db.decisions import get_decisions
+from haxjobs.db.jobs import get_job, insert_job, update_job_pack_status
+from haxjobs.db.pack_review import get_pack_review, review_pack
+from haxjobs.server.routes.jobs import list_jobs, review_job_pack
 
 
 def use_temp_db(monkeypatch, tmp_path):

@@ -4,8 +4,8 @@ import pytest
 
 class TestRecordDecision:
     def test_insert_and_retrieve(self, test_db):
-        from db.jobs import insert_job
-        from db.decisions import record_decision, get_decisions
+        from haxjobs.db.jobs import insert_job
+        from haxjobs.db.decisions import record_decision, get_decisions
 
         job_id = insert_job(title="Test Job", company="TestCo", source="test")
         record_decision(job_id, "apply", "good fit, L1 role")
@@ -19,8 +19,8 @@ class TestRecordDecision:
         assert d["decided_at"] is not None
 
     def test_multiple_decisions_ordered_newest_first(self, test_db):
-        from db.jobs import insert_job
-        from db.decisions import record_decision, get_decisions
+        from haxjobs.db.jobs import insert_job
+        from haxjobs.db.decisions import record_decision, get_decisions
 
         job_id = insert_job(title="Multi", company="TestCo", source="test")
         record_decision(job_id, "skip", "first pass")
@@ -32,14 +32,14 @@ class TestRecordDecision:
         assert decisions[1]["decision"] == "skip"
 
     def test_empty_for_no_decisions(self, test_db):
-        from db.decisions import get_decisions
+        from haxjobs.db.decisions import get_decisions
 
         result = get_decisions(999)
         assert result == []
 
     def test_only_returns_decisions_for_that_job(self, test_db):
-        from db.jobs import insert_job
-        from db.decisions import record_decision, get_decisions
+        from haxjobs.db.jobs import insert_job
+        from haxjobs.db.decisions import record_decision, get_decisions
 
         job_a = insert_job(title="A", company="CoA", source="test")
         job_b = insert_job(title="B", company="CoB", source="test")
@@ -55,8 +55,8 @@ class TestRecordDecision:
 
 class TestAutoApplyStates:
     def test_returns_true_for_latest_auto_apply(self, test_db):
-        from db.jobs import insert_job
-        from db.decisions import record_decision, get_latest_auto_apply_states
+        from haxjobs.db.jobs import insert_job
+        from haxjobs.db.decisions import record_decision, get_latest_auto_apply_states
 
         job_id = insert_job(title="T", company="C", source="test")
         record_decision(job_id, "auto_apply")
@@ -65,8 +65,8 @@ class TestAutoApplyStates:
         assert states == {job_id: True}
 
     def test_returns_false_for_auto_apply_remove(self, test_db):
-        from db.jobs import insert_job
-        from db.decisions import record_decision, get_latest_auto_apply_states
+        from haxjobs.db.jobs import insert_job
+        from haxjobs.db.decisions import record_decision, get_latest_auto_apply_states
 
         job_id = insert_job(title="T", company="C", source="test")
         record_decision(job_id, "auto_apply")
@@ -76,8 +76,8 @@ class TestAutoApplyStates:
         assert states == {job_id: False}
 
     def test_omits_job_with_no_auto_apply_decisions(self, test_db):
-        from db.jobs import insert_job
-        from db.decisions import record_decision, get_latest_auto_apply_states
+        from haxjobs.db.jobs import insert_job
+        from haxjobs.db.decisions import record_decision, get_latest_auto_apply_states
 
         job_a = insert_job(title="A", company="CA", source="test")
         job_b = insert_job(title="B", company="CB", source="test")
@@ -90,8 +90,8 @@ class TestAutoApplyStates:
         assert states[job_b] is True
 
     def test_ignores_non_auto_apply_decisions(self, test_db):
-        from db.jobs import insert_job
-        from db.decisions import record_decision, get_latest_auto_apply_states
+        from haxjobs.db.jobs import insert_job
+        from haxjobs.db.decisions import record_decision, get_latest_auto_apply_states
 
         job_id = insert_job(title="T", company="C", source="test")
         record_decision(job_id, "skip")
@@ -101,16 +101,16 @@ class TestAutoApplyStates:
         assert states == {}
 
     def test_empty_input_returns_empty(self):
-        from db.decisions import get_latest_auto_apply_states
+        from haxjobs.db.decisions import get_latest_auto_apply_states
 
         assert get_latest_auto_apply_states([]) == {}
 
 
 class TestActivityLogging:
     def test_record_decision_logs_activity(self, test_db):
-        from db.jobs import insert_job
-        from db.decisions import record_decision
-        from db.activity import get_recent_activity
+        from haxjobs.db.jobs import insert_job
+        from haxjobs.db.decisions import record_decision
+        from haxjobs.db.activity import get_recent_activity
 
         job_id = insert_job(title="Logged", company="TestCo", source="test")
         record_decision(job_id, "apply", "strong match, L1")

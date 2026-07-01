@@ -1,0 +1,5 @@
+"""Markdown-first per-job pack generation."""
+
+from haxjobs.packs_builder.job_pack import build_job_pack
+
+__all__ = ["build_job_pack"]

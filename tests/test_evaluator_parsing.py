@@ -3,7 +3,7 @@
 Tests extract_json() and validate_result() directly — no Hermes calls.
 """
 
-from evaluate.common import extract_json, validate_result
+from haxjobs.evaluate.common import extract_json, validate_result
 
 
 # ── extract_json ──

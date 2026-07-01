@@ -1,10 +1,10 @@
 """Outreach draft review enforcement tests."""
 
-from db import schema
-from db.outreach import insert_draft
-from db.evaluations import save_evaluation
-from db.jobs import insert_job, update_job_pack_status
-from server.routes.outreach import (
+from haxjobs.db import schema
+from haxjobs.db.outreach import insert_draft
+from haxjobs.db.evaluations import save_evaluation
+from haxjobs.db.jobs import insert_job, update_job_pack_status
+from haxjobs.server.routes.outreach import (
     approve_draft,
     list_outreach_drafts,
     list_outreach_jobs,

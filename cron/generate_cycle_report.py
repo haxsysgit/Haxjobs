@@ -22,7 +22,7 @@ def generate_cycle_report(cycle_id: str | None = None) -> dict:
     Returns a dict with the report path, body, and job counts.
     """
     import pipeline_db as db
-    from haxjobs_config import EVALUATION_AGENT
+    from haxjobs.config import EVALUATION_AGENT
 
     db.init()
 
@@ -49,12 +49,12 @@ def generate_cycle_report(cycle_id: str | None = None) -> dict:
     print(f"Report written: {report_path}")
 
     # Save report path + body to DB for each evaluated job
-    from db.evaluations import save_evaluation
+    from haxjobs.db.evaluations import save_evaluation
     count = 0
     for job in jobs:
         try:
             # Only update the report fields, preserving existing eval data
-            from db.schema import get_db
+            from haxjobs.db.schema import get_db
             conn = get_db()
             conn.execute(
                 "UPDATE evaluations SET report_markdown=?, report_cycle_id=? WHERE job_id=?",
@@ -82,7 +82,7 @@ def generate_cycle_report(cycle_id: str | None = None) -> dict:
 def _get_evaluated_jobs_fallback() -> list[dict]:
     """Fallback query when get_evaluated_jobs_for_report is not available."""
     import sqlite3
-    from haxjobs_config import DB_PATH
+    from haxjobs.config import DB_PATH
 
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row

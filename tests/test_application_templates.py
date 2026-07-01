@@ -3,13 +3,13 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-TEMPLATE_ROOT = ROOT / "application_templates"
-CV_REGISTRY = ROOT / "cv_variants" / "registry.json"
+TEMPLATE_ROOT = ROOT / "src" / "haxjobs" / "application_templates"
+CV_REGISTRY = ROOT / "src" / "haxjobs" / "cv_variants" / "registry.json"
 
 
 def _load_taxonomy() -> dict:
-    """Load role taxonomy from haxjobs_config (TOML-driven)."""
-    from haxjobs_config import ROLE_PROFILES
+    """Load role taxonomy from haxjobs.config (TOML-driven)."""
+    from haxjobs.config import ROLE_PROFILES
     return {rp["id"]: rp for rp in ROLE_PROFILES}
 FORBIDDEN_PHRASES = (
     "I am writing to express",
