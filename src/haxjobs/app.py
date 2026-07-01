@@ -37,6 +37,7 @@ def mount_features():
     from haxjobs.features.decisions.routes import router as decisions_router
     from haxjobs.features.packs.routes import router as packs_router
     from haxjobs.features.profile.routes import router as profile_router
+    from haxjobs.features.setup.routes import router as setup_router
 
     app.include_router(jobs_router, prefix="/api")
     app.include_router(onboarding_router, prefix="/api")
@@ -45,6 +46,7 @@ def mount_features():
     app.include_router(decisions_router, prefix="/api")
     app.include_router(packs_router, prefix="/api")
     app.include_router(profile_router, prefix="/api")
+    app.include_router(setup_router, prefix="/api")
 
 
 mount_features()
