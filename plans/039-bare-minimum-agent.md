@@ -28,51 +28,47 @@ From `haxjobs_agent_lab/analysis.md` and analysis of Hermes' `agent/oneshot.py`:
 | What | Source | Lines |
 |------|--------|-------|
 | Config loading | Plan 044 (provider setup) | `haxjobs.features.setup.service.get_config()` from `~/.haxjobs/haxjobs.toml` |
-| Single-turn `run()` | Hermes `oneshot.py:133-155` | Clean: system → user → call → strip_fence → return |
-| `run_structured()` | OpenAI `response_format` | JSON schema enforcement |
-| `_strip_code_fence()` | Hermes `oneshot.py:163-170` | Models wrap JSON in ``` — strip exactly one layer |
+| Single-turn `run()` | Hermes `oneshot.py:133-155` | Clean: system → user → call → return text |
+| JSON parsing | `evaluate.common.extract_json()` | Already battle-tested: handles ``` fences, Hermes box chars, \\r\\n, brace-matching fallback |
 | Template registry | Pi skills convention | Named prompts, reusable across evaluation/onboarding/wizard |
 
 ## Files
 
-### `src/haxjobs/agent/agent.py` — ~80 lines
+### `src/haxjobs/agent/agent.py` — ~65 lines
 
-> **Reality note**: Config loading imports from `haxjobs.features.setup.service` (plan 044)
-> rather than re-implementing TOML parsing. The env var fallback is a failsafe when
-> `~/.haxjobs/haxjobs.toml` doesn't exist (headless/CI environments).
+> **Reality notes**:
+> - Config imports from `haxjobs.features.setup.service` (plan 044) — no duplicate TOML parsing.
+> - `timeout=60` on the OpenAI client so API hangs don't stall the pipeline.
+> - No `run_structured()`, no `json_schema`, no `_strip_code_fence`. Some providers don't
+>   support `response_format`. Callers use `evaluate.common.extract_json()` on `run()` output
+>   instead — it already handles ``` fences, Hermes box chars, `\r\n`, and brace-matching.
+> - `~/.haxjobs/haxjobs.toml` is **provider credentials**. The repo's `haxjobs.toml` is
+>   **product config** (roles, paths, cron). They are different files with the same name.
 
 ```python
 """Minimal agent loop — single-turn. Extended by plan 043 with tools + tiers."""
-import json
 import os
-import re
 from openai import OpenAI
-
-
-def _strip_code_fence(text: str) -> str:
-    """Strip a single layer of ``` fences if present. Hermes pattern."""
-    text = text.strip()
-    if text.startswith("```"):
-        text = re.sub(r"^```[^\n]*\n?", "", text)
-        text = re.sub(r"\n?```$", "", text)
-    return text.strip()
 
 
 class Agent:
     """Thin wrapper over OpenAI-compatible chat API."""
 
-    def __init__(self, model: str | None = None):
+    def __init__(self, model: str | None = None, timeout: int = 60):
         cfg = self._load_config()
         p = cfg["provider"]
-        self.client = OpenAI(api_key=p["api_key"], base_url=p["base_url"])
+        self.client = OpenAI(
+            api_key=p["api_key"], base_url=p["base_url"], timeout=timeout
+        )
         self.model = model or p["model"]
 
     @staticmethod
     def _load_config() -> dict:
-        """Load provider config.
+        """Load provider config from ~/.haxjobs/haxjobs.toml (provider credentials).
 
-        Primary: imports from haxjobs.features.setup.service (plan 044),
-        which reads ~/.haxjobs/haxjobs.toml.
+        NOT the repo haxjobs.toml (that's product config — roles, paths, cron).
+
+        Primary: imports from haxjobs.features.setup.service (plan 044).
         Failsafe: env vars for headless/CI environments.
         """
         try:
@@ -99,7 +95,11 @@ class Agent:
         temperature: float = 0.3,
         max_tokens: int = 4096,
     ) -> str:
-        """Single-turn: system → user → call → strip_fence → return text."""
+        """Single-turn: system → user → call → return text.
+        
+        Callers who need structured output should use evaluate.common.extract_json()
+        on the returned text — it handles fences, box chars, and brace-matching.
+        """
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
@@ -110,35 +110,7 @@ class Agent:
             temperature=temperature,
             max_tokens=max_tokens,
         )
-        return _strip_code_fence(response.choices[0].message.content or "")
-
-    def run_structured(
-        self,
-        prompt: str,
-        system: str | None = None,
-        json_schema: dict | None = None,
-        temperature: float = 0.3,
-        max_tokens: int = 4096,
-    ) -> dict:
-        """Single-turn with structured JSON output. Strips fences."""
-        messages = []
-        if system:
-            messages.append({"role": "system", "content": system})
-        messages.append({"role": "user", "content": prompt})
-        kwargs: dict = {
-            "model": self.model,
-            "messages": messages,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-        }
-        if json_schema:
-            kwargs["response_format"] = {
-                "type": "json_schema",
-                "json_schema": {"name": "response", "schema": json_schema},
-            }
-        response = self.client.chat.completions.create(**kwargs)
-        text = _strip_code_fence(response.choices[0].message.content or "")
-        return json.loads(text)
+        return response.choices[0].message.content or ""
 ```
 
 ### `src/haxjobs/agent/prompts.py` — ~30 lines
@@ -180,7 +152,7 @@ def get_prompt(name: str, **variables) -> tuple[str, str]:
 ### `src/haxjobs/agent/__init__.py` — 3 lines
 
 ```python
-from haxjobs.agent.agent import Agent, _strip_code_fence
+from haxjobs.agent.agent import Agent
 from haxjobs.agent.prompts import get_prompt, PromptTemplate, PROMPTS
 __all__ = ["Agent", "get_prompt", "PromptTemplate", "PROMPTS"]
 ```
@@ -210,13 +182,12 @@ uv run python -c "from haxjobs.agent import Agent, get_prompt; print('ok')"
 ### Step 4: Write tests
 
 `tests/test_agent_minimal.py`:
-- `test_agent_init` — loads config, creates client (mocked)
-- `test_agent_run` — mocks chat.completions.create, returns stripped text
-- `test_agent_run_stripped_fence` — model returns ```json...``` → Agent strips fences
-- `test_agent_run_structured` — mocks call with JSON schema, returns parsed dict
+- `test_agent_init` — loads config, creates client with timeout (mocked)
+- `test_agent_run` — mocks chat.completions.create, returns raw text
+- `test_agent_run_with_extract_json` — model returns ```json...``` → `extract_json()` from evaluate.common parses it
 - `test_agent_no_config` — raises RuntimeError when no config
 - `test_get_prompt_fills_variables` — {profile_json} gets filled
-- `test_strip_code_fence` — test _strip_code_fence directly with various fence formats
+- `test_setup_service_integration` — `get_config()` from setup service returned correctly
 
 ```bash
 uv run pytest -q tests/test_agent_minimal.py
@@ -230,14 +201,15 @@ git commit -m "add bare-minimum native agent: oneshot pattern + template registr
 
 ## Done criteria
 
-- [ ] `Agent.run()` returns stripped text from LLM (Hermes oneshot pattern)
-- [ ] `Agent.run_structured()` returns parsed dict (OpenAI JSON schema)
-- [ ] `_strip_code_fence()` handles ```json, ```, and mixed fences
+- [ ] `Agent.__init__()` creates OpenAI client with `timeout=60`
+- [ ] `Agent.run()` returns raw text from LLM (system → user → call → return)
+- [ ] JSON parsing delegated to `evaluate.common.extract_json()` (no `_strip_code_fence`, no `run_structured`)
 - [ ] `get_prompt("evaluate_job", ...)` returns filled (system, user) tuple
 - [ ] Provider config loaded from `~/.haxjobs/haxjobs.toml` via `haxjobs.features.setup.service.get_config()`
 - [ ] Falls back to `DEEPSEEK_API_KEY` env var
-- [ ] 7 tests pass
+- [ ] 6 tests pass
 - [ ] No tool registry, no multi-turn, no prompt tiers — those are plan 043
+- [ ] No `json_schema`/`response_format` — not all providers support it; `extract_json()` is more portable
 
 ## What plan 043 adds later
 
