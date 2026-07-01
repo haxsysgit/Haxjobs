@@ -207,7 +207,13 @@ def action_run_full():
 
     print("\n─ Evaluation ─")
     from evaluate.run import evaluate_from_db
-    evaluate_from_db()  # processes all pending, auto-packs L1/L2
+    count = 0
+    while True:
+        ok = evaluate_from_db()
+        if not ok:
+            break
+        count += 1
+    print(f"Evaluated {count} jobs")
 
     print("\n─ Report ─")
     from cron.generate_cycle_report import main as report_main
