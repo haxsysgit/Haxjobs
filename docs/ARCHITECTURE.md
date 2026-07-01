@@ -1,90 +1,83 @@
 # HaxJobs Architecture
 
-> **Migration note (2026-06-29, Plan 017)**: Role classification is now config-driven via `haxjobs.toml` `[[roles]]` sections. See `evaluation/role_family.py:load_role_profiles()`. The old `profile/role_taxonomy.json` is deleted.
+HaxJobs is a self-hosted job search platform, not a five-stage pipeline. It runs as a web app at `localhost:8241` with a Python backend, React frontend, and SQLite database. The canonical product vision is in `PRODUCT_ARCHITECTURE.md`.
 
-HaxJobs is an autonomous pipeline, not a web-app workspace. Jobs flow through five stages. The dashboard and API are secondary — the primary interface is the cycle report.
-
-## Pipeline architecture
+## Component architecture
 
 ```
-                             ┌─────────────────┐
-                             │   haxjobs.toml   │
-                             │  (user profile,  │
-                             │   job prefs,     │
-                             │   agent config,  │
-                             │   delivery)      │
-                             └────────┬────────┘
-                                      │ drives everything
-                                      ▼
-┌──────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────┐
-│ DISCOVERY│───▶│CLASSIFICATION│───▶│  EVALUATION  │───▶│ PACK GENERATION│───▶│  REPORT  │
-└──────────┘    └──────────────┘    └──────────────┘    └──────────────┘    └──────────┘
-     │                 │                   │                   │                  │
-     ▼                 ▼                   ▼                   ▼                  ▼
-┌──────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────┐
-│discovered │    │    jobs      │    │ evaluations  │    │   packs/     │    │ reports/ │
-│  _jobs    │    │  (accepted)  │    │ (fit data)   │    │ (templates   │    │ (markdown│
-│  (raw)    │    │              │    │              │    │  filled)     │    │  digest) │
-└──────────┘    └──────────────┘    └──────────────┘    └──────────────┘    └──────────┘
+┌─────────────────────────────────────────────────────────┐
+│                    Web UI (React)                         │
+│  Dashboard │ Jobs │ Discovery │ Packs │ Outreach │ Profile│
+│  Settings  │ Pipeline │ Activity │ Onboarding Wizard     │
+└────────────────────┬────────────────────────────────────┘
+                     │ HTTP REST API
+┌────────────────────┴────────────────────────────────────┐
+│                 Python API Server                         │
+│  /api/profile  /api/jobs  /api/evaluations  /api/packs   │
+│  /api/discovery  /api/outreach  /api/decisions           │
+│  /api/onboarding (CV upload, profile extraction, wizard) │
+└────────────────────┬────────────────────────────────────┘
+                     │
+┌────────────────────┴────────────────────────────────────┐
+│                   Pipeline Engine                         │
+│                                                           │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐ │
+│  │Discovery │→│Classify  │→│Evaluate  │→│Pack Gen  │ │
+│  │(scrapers │  │(config-  │  │(LLM API) │  │(template │ │
+│  │ +web)    │  │ driven)  │  │          │  │ fill)    │ │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘ │
+│                                                           │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐               │
+│  │Outreach  │  │Learning  │  │Report    │               │
+│  │Engine    │  │Engine    │  │Generator │               │
+│  └──────────┘  └──────────┘  └──────────┘               │
+└────────────────────┬────────────────────────────────────┘
+                     │
+┌────────────────────┴────────────────────────────────────┐
+│                   SQLite Database                         │
+│  profile │ jobs │ evaluations │ decisions │ outreach     │
+│  discovered_jobs │ activity_log │ cycle_state           │
+│  job_history │ learning_patterns                        │
+└─────────────────────────────────────────────────────────┘
 ```
 
-### Stage 1: Discovery
+## Key design decisions
 
-Automatic scrapers find jobs. Pre-discovery hooks run:
-- Dedup: check source_url against existing jobs
-- Blacklist: check company against configured blacklist
-- Filter: leniently remove non-tech or profile-irrelevant roles
+### 1. Direct LLM API for evaluation, not agent subprocess
 
-Accepted jobs promote from `discovered_jobs` to `jobs` table. Manual submissions (paste JD link) go through the same normalization and hooks.
+Evaluation is a text-in → JSON-out task. Direct API calls (`openai.chat.completions.create()` with `response_format: {type: "json_schema"}`) are faster, cheaper, and more reliable than spawning agent CLIs as subprocesses. Agent adapters stay for interactive use only (the Pi skill, where the agent's own reasoning adds value). For headless cron: direct API.
 
-### Stage 2: Classification
+### 2. Profile is the backbone — and it evolves
 
-Profile-driven from `haxjobs.toml` `[[roles]]` config. Each configured role has keywords, cv_variant, priority. The classifier matches job title/JD against configured roles. Output: role_family, cv_variant, confidence. No hardcoded taxonomy.
+The profile JSON (`profile/arinze_profile.local.json`) drives every pipeline stage. It's built during onboarding from CV extraction + targeted questions. It continuously evolves as the learning engine processes user decisions — not static, not hand-maintained.
 
-### Stage 3: Evaluation
+### 3. Three data tiers for jobs
 
-Pluggable agent system (`evaluate/` package). Agent choice from `haxjobs.toml` `[evaluation].agent`. Each agent adapter implements: `call_agent(prompt, timeout_seconds) -> str`. Results written to `evaluations` table with agent name, fit score (0-100), level (1-4), gaps, summary.
+- `discovered_jobs` — raw scraped, pre-filtering. Temporary.
+- `jobs` — promoted, classified, evaluated. Active.
+- `job_history` — applied, interviewed, rejected, archived. Permanent record.
 
-Levels:
-- L1 (75+): Standard — auto-pack
-- L2 (50-74): Quick Apply — auto-pack
-- L3 (30-49): Lite — report only, no pack
-- L4 (<30): Skip — report only
+### 4. Cycle-based operation
 
-### Stage 4: Pack Generation
+Each pipeline run is a "cycle" (e.g., biweekly). Cycle ID groups all jobs/evaluations/packs from that run. Between cycles: DB cleanup, learning engine processes user decisions. Cycle report shows what's new plus what changed since last time.
 
-Pre-built role templates live in `application_templates/`. Seven roles, each with cover letter template and pack template. Slots: `{company}`, `{hiring_manager_or_team}`, `{role_title}`, `{jd_match_points}`, `{company_reason}`, `{evidence_story}`, `{gap_note}`.
+### 5. Self-contained, local-first
 
-L1/L2: auto-fill template slots → regenerate PDF/cover letter from HTML.
-L3/L4: no pack generation. Appear in cycle report for manual review.
+Ships as a single installable package. Web UI on localhost. SQLite — no Postgres/MySQL. LLM API keys are the only external dependency (user brings their own).
 
-### Stage 5: Report
-
-End-of-cycle markdown report: all evaluated jobs with links, scores, levels, pack paths, fit summaries. Saved to DB (`evaluations.report_markdown`). Delivered via configured channels (email, Telegram).
-
-## DB layout
-
-Single SQLite database (`state/haxjobs.db`):
+## User journey
 
 ```
-discovered_jobs     — raw scraped/manual jobs before hooks
-jobs                — accepted jobs promoted from discovery
-evaluations         — fit evaluation results (agent, score, level, report, pack path)
-favorites           — user-starred jobs
-saved_jobs          — user-saved jobs
-decisions           — approval/rejection decisions
-outreach_drafts     — generated outreach messages
-activity_log        — pipeline event log
-evaluation_history  — historical scores on re-evaluation
-profile_snapshots   — profile state at evaluation time
-whitelist           — company/role whitelist entries
+ONBOARD → DISCOVER → REVIEW → APPLY → LEARN → REPEAT
 ```
+
+See `PRODUCT_ARCHITECTURE.md` for the full phase-by-phase breakdown.
 
 ## Config architecture
 
 `haxjobs.toml` is the canonical config. `haxjobs_config.py` parses it with `tomllib` and applies env var overrides. Every script imports config — no hardcoded paths or agent names.
 
-Sections: `[paths]`, `[user]`, `[job_search]`, `[[roles]]`, `[evaluation]`, `[delivery]`, `[email]`, `[telegram]`.
+Sections: `[paths]`, `[user]`, `[job_search]`, `[[roles]]`, `[evaluation]`, `[delivery]`, `[cron]`, `[email]`, `[telegram]`.
 
 ## Directory map
 
@@ -92,32 +85,41 @@ Sections: `[paths]`, `[user]`, `[job_search]`, `[[roles]]`, `[evaluation]`, `[de
 haxjobs-private-dev/
 ├── haxjobs.toml              ← canonical config
 ├── haxjobs_config.py         ← thin parser
-├── AGENTS.md                 ← agent guide (this vision)
-├── cron/run_pipeline.sh      ← pipeline entry point
-├── pipeline_db.py            ← CLI: seed, classify, status
+├── AGENTS.md                 ← agent guide
+├── README.md                 ← project overview
+├── pipeline_db.py            ← CLI entry point (18 commands)
+├── api_server.py             ← stdlib HTTP API server
 ├── db/                       ← SQLite layer (schema, jobs, evaluations, etc.)
-├── evaluate/                 ← evaluation agents (common + agent adapters)
-├── packs_builder/            ← pack generation (template fill)
-├── reports/                  ← cycle report generation
-├── server/                   ← API server + routes
-├── dashboard/                ← React + TypeScript dashboard
-├── cv_variants/              ← 7 reusable CV variants
-├── application_templates/    ← role templates with fillable slots
-├── profile/                  ← user profile data
-├── state/                    ← runtime artifacts (DB, logs)
-├── packs/                    ← generated pack directories
+├── evaluate/                 ← evaluation logic
+│   ├── common.py             ← prompt building, JSON parsing, validation
+│   ├── chain.py              ← config-driven agent fallback chain
+│   ├── run.py                ← evaluate_from_db, batch CLI
+│   ├── cv_review.py          ← per-job CV review generation
+│   └── agents/               ← agent adapter implementations
+├── discovery/                ← job sourcing
+│   ├── scrapers/             ← greenhouse.py, ashby.py, lever.py
+│   ├── hooks.py              ← post-discovery filtering
+│   ├── profile_search.py     ← pre-scrape filtering
+│   └── normalize.py          ← canonical job format
+├── packs_builder/            ← pack generation
+├── application_templates/    ← 7 role-specific pack templates
+├── cv_variants/              ← 7 reusable CV variants (HTML + PDF)
+├── cron/                     ← scheduling (run_pipeline.sh)
+├── dashboard/                ← React + TypeScript + Vite web UI
+├── server/                   ← API route handlers
+├── profile/                  ← user profile JSON (backbone)
 ├── reports/                  ← generated cycle reports
+├── packs/                    ← generated application packs
 ├── tests/                    ← test suite
-└── plans/                    ← implementation plans
+├── plans/                    ← implementation plans
+└── docs/                     ← architecture and product docs
 ```
 
-## Future: 3-Agent Simulation Loop (v0.3)
+## Data model
 
-After pack generation, an optional coaching simulation stress-tests the pack:
+See `DATA_MODEL.md` for the full schema. Key points:
 
-```
-RECRUITER (asks questions) → APPLICANT (answers from profile) → EVALUATOR (judges improvement)
-```
-
-Stops when: shortlisted, rejected with unfixable gaps, no material gain, or max 3 rounds.
-Output: `packs/<job>/simulation.json`.
+- **Three tiers**: discovered_jobs → jobs → job_history
+- **Feedback loop**: decisions table drives learning engine → profile evolution
+- **Cycle tracking**: cycle_state table groups work by run
+- **Deprecated**: favorites, saved_jobs, evaluation_history (replaced by decisions + cycle_id)

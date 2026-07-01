@@ -48,6 +48,10 @@ Accepted jobs promoted from discovery.
 | pack_dir | TEXT | Path to pack directory |
 | pack_review_status | TEXT | For L3/L4 manual review |
 | outreach_status | TEXT | |
+| applied_at | TEXT | ISO-8601, when user clicked "apply" |
+| decision | TEXT | apply, skip, reject, pending |
+| decision_reason | TEXT | Why the user chose this |
+| cycle_id | TEXT | Which discovery cycle this job came from |
 | classified_at | TEXT | ISO-8601 |
 | discovered_at | TEXT | ISO-8601 |
 | updated_at | TEXT | ISO-8601 |
@@ -79,15 +83,57 @@ Fit evaluation results. One row per evaluated job.
 | evaluated_by | TEXT | Agent name |
 | evaluated_at | TEXT | ISO-8601 |
 
+### cycle_state
+
+Tracks each pipeline run cycle for learning and reporting.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | INTEGER PK | |
+| cycle_id | TEXT UNIQUE | e.g. `2026-07-01` |
+| started_at | TEXT | ISO-8601 |
+| completed_at | TEXT | ISO-8601 |
+| jobs_discovered | INTEGER | |
+| jobs_evaluated | INTEGER | |
+| packs_generated | INTEGER | |
+| decisions_made | INTEGER | |
+
+### job_history
+
+Permanent archive of user actions on jobs. Jobs move here after apply/reject/archive.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | INTEGER PK | |
+| job_id | INTEGER FK | Reference to jobs |
+| action | TEXT | applied, rejected, archived |
+| action_reason | TEXT | |
+| acted_at | TEXT | ISO-8601 |
+| cycle_id | TEXT | Which cycle |
+
+### learning_patterns
+
+Learned preferences from user decisions over time.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | INTEGER PK | |
+| pattern_type | TEXT | preferred_company, rejected_keyword, salary_trend, role_preference |
+| pattern_value | TEXT | The actual pattern value |
+| weight | REAL | Confidence 0.0-1.0 |
+| evidence_count | INTEGER | How many decisions support this |
+| updated_at | TEXT | ISO-8601 |
+
 ### Supporting tables
 
+> **Deprecated** — replaced by `decisions` table + `job_history`. Will be removed in a future DB migration.
 - **favorites** — user-starred jobs (job_id UNIQUE FK)
 - **saved_jobs** — user-saved jobs with notes (job_id UNIQUE FK)
+- **evaluation_history** — historical scores on re-evaluation. Replaced by `evaluations.report_cycle_id`
 - **decisions** — approval/rejection/skip decisions per job
 - **outreach_drafts** — generated outreach messages (linked to jobs and contacts)
 - **outreach_contacts** — discovered recruiter/hiring manager contacts
 - **activity_log** — pipeline event log
-- **evaluation_history** — historical scores when jobs are re-evaluated
 - **profile_snapshots** — profile state captured at evaluation time
 - **whitelist** — company/role whitelist patterns for evaluation
 
@@ -96,10 +142,11 @@ Fit evaluation results. One row per evaluated job.
 ```
 discovered_jobs --(promoted)--> jobs
 jobs --(evaluated)--> evaluations
-jobs --(starred)--> favorites
-evaluations --(historical)--> evaluation_history
 jobs --(decided)--> decisions
+decisions --(feed)--> learning_patterns
+jobs --(archived)--> job_history
 jobs --(outreach)--> outreach_drafts --> outreach_contacts
+cycles captured in --> cycle_state
 ```
 
 ## Config-driven, not schema-driven
