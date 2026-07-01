@@ -10,8 +10,8 @@ Each executor: read the plan fully, honor STOP conditions, update status row.
 | 038 | Pre-restructure — signal repo is under construction | P1 | S | — | DONE |
 | 039 | Bare-minimum native agent — core run loop, structured output | P1 | S | 040, 042 | TODO |
 | 040 | Restructure repo into installable package (uv + hatchling) | P1 | M | 038 | DONE |
-| 041 | FastAPI backend — feature-based structure, serve frontend | P1 | M | 040 | TODO ← NEXT |
-| 042 | Provider setup — first-run API key + model config | P1 | S | 040, 041 | TODO |
+| 041 | FastAPI backend — feature-based structure, serve frontend | P1 | M | 040 | ✅ DONE |
+| 042 | Provider setup — first-run API key + model config | P1 | S | 040, 041 | TODO ← NEXT |
 | 043 | Full native agent — tool registry, built-in tools, multi-turn | P1 | M | 039, 040, 041, 042 | TODO |
 | 044 | Frontend shell — React + Vite + shadcn/ui (minimal deps) | P1 | M | 040, 041 | TODO |
 | 045 | Onboarding backend — CV upload, agent extraction, wizard API | P1 | M | 041, 043 | TODO |
