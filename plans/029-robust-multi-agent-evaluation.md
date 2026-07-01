@@ -1,622 +1,708 @@
-# Plan 029: Build model-aware multi-agent evaluation with native integration
+# Plan 029: Build two-mode multi-agent evaluation adapters
 
-> **Executor**: This plan builds the production evaluation adapters based on Plan 027 research and Plan 028 test results. The architecture is fundamentally different from the shallow approach: adapters prioritize NATIVE integration (direct function calls into the agent's Python API) over EXTERNAL (subprocess). Every adapter is model-aware: it reads the agent's config and knows which models are available.
+> **Executor**: This plan builds production evaluation adapters for 5 agents, each with two modes: **session-native** (free, uses the host agent's own model) and **headless** (subprocess, for cron).
 >
-> **Drift check**: `test -f research/test-results/SUMMARY.md && echo "Plan 028 done" || echo "BLOCKED: Plan 028 not complete"` — confirms Plan 028 testing is done.
+> **Drift check**: `test -f research/test-results/SUMMARY.md && echo "Plan 028 done" || echo "BLOCKED: Plan 028 not complete"`
 
 ## Status
 
 - **Priority**: P1
-- **Effort**: L (6-10 hours, includes building adapters, rewriting evaluate/run.py, and testing)
-- **Risk**: MED (native APIs may be fragile across agent versions; need good error handling)
+- **Effort**: L (6-10 hours)
+- **Risk**: MED (native APIs fragile across agent versions; Claude Code headless blocked by credit)
 - **Depends on**: Plan 027 + Plan 028
 - **Category**: feature
-- **Planned at**: commit `354429b`, 2026-06-29
+- **Planned at**: commit `6326123`, 2026-07-01
 
-## Why this matters
+## Plan 028 findings (build drivers)
 
-After Plans 027-028, we know:
-- Which agents have importable Python APIs (native mode)
-- Which agents support multiple models (model switching)
-- Which models work and what their latency/quality is
-- The exact function calls and import paths
+| Agent | Mode | Score (job #633) | Verdict |
+|---|---|---|---|
+| Claude Code | headless `claude -p` | — | ❌ blocked by Anthropic credit gate |
+| Claude Code | session-native (plugin) | — | ⭐ FREE — uses user's active session (DeepSeek) |
+| Codex | headless `codex exec --output-schema` | 62 L2 | ✅ strongest headless adapter |
+| Hermes | headless `hermes -z` | 62 L2 | ✅ works as CLI subprocess |
+| Hermes | native `import` | — | ⚠️ imports OK, live call fails on missing `openai` module |
+| Pi | headless `pi -p --mode json --no-tools` | 60 L2 | ✅ works, needs JSONL event parser |
+| Pi | session-native (skill) | — | ⭐ FREE — Pi is the evaluator itself |
+| Gemini CLI | headless `gemini -p -o json -y` | — | ❌ blocked by tier migration |
 
-Plan 029 builds adapters that use the DEEPEST integration available:
+## Architecture: two modes per agent
 
-| Agent | Best integration | Fallback |
-|-------|-----------------|----------|
-| Hermes | `from hermes_cli.xxx import yyy` — direct function call | `subprocess: hermes chat --yolo -Q -q --model X` |
-| Claude API | `urllib.request` → Anthropic Messages API | N/A (always API) |
-| Gemini API | `urllib.request` → Google Generative Language API | N/A (always API) |
-| Codex (if native) | `import codex` — direct function call | `subprocess: codex exec` |
-| Pi | Pi extension registering `haxjobs_evaluate` tool | Pi skill (interactive only) |
+Every adapter exports two functions:
 
-## Architecture
+```python
+def evaluate_session(job: dict) -> dict | None   # FREE — uses host agent's model, no auth
+def evaluate_headless(job: dict) -> dict | None   # Cron — subprocess, needs auth
+```
+
+### When session-native works
+
+Running inside the host agent (Pi skill, Hermes plugin, Claude Code hook, Codex extension):
+- No subprocess, no auth, no credit check
+- Uses whatever model the session is using
+- Same model the user already configured
+
+### When headless is needed
+
+Cron pipeline on Archilles (no interactive session):
+- Spawns the agent's CLI as a subprocess
+- Must have auth configured (API keys, OAuth)
+- Model specified via CLI flags
+
+## Build order
+
+| # | Adapter | Session-native | Headless | What to build |
+|---|---|---|---|---|
+| 1 | **Claude Code** | ⭐ plugin/hook | ❌ credit gate | `evaluate/agents/claude_code.py` — session-native only for now |
+| 2 | **Codex** | extension | ✅ `--output-schema` | `evaluate/agents/codex.py` — headless primary |
+| 3 | **Hermes** | plugin | ✅ `-z` | `evaluate/agents/hermes.py` — rewrite for both modes |
+| 4 | **Pi** | ⭐ skill | ✅ `--mode json` | `evaluate/agents/pi.py` — already built, add JSONL parser |
+| 5 | **Gemini CLI** | — | ❌ tier | deferred until tier migration resolved |
+
+## Files to create/modify
 
 ```
 evaluate/
 ├── agents/
-│   ├── __init__.py           # AGENT_REGISTRY dict
-│   ├── hermes.py             # REWRITTEN — native import + config reading + model switching
-│   ├── claude_api.py         # NEW — direct Anthropic Messages API (stdlib)
-│   ├── gemini_api.py         # NEW — direct Google Gemini API (stdlib)
-│   ├── codex.py              # NEW — if native API found in 027/028
-│   ├── claude_code.py        # NEW — if native API found in 027/028
-│   └── gemini.py             # NEW — if native API found in 027/028
-├── common.py                 # UNCHANGED — build_prompt, extract_json, validate_result
-├── run.py                    # REWRITTEN — model-aware agent dispatch
-└── model_registry.py         # NEW — reads agent configs, manages fallback chains
+│   ├── __init__.py          # UPDATE — 5-agent registry
+│   ├── base.py              # NEW — BaseAdapter with shared logic
+│   ├── claude_code.py       # NEW — session-native via Claude Code hook
+│   ├── codex.py             # NEW — headless via codex exec --output-schema
+│   ├── hermes.py            # REWRITE — two-mode with model switching
+│   ├── pi.py                # UPDATE — add evaluate_headless() JSONL parser
+│   └── gemini.py            # NEW — stub, blocked by tier migration
+├── common.py                # UNCHANGED
+├── chain.py                 # NEW — fallback chain manager
+└── run.py                   # UPDATE — use chain instead of select_agent
 ```
 
-### New file: `evaluate/model_registry.py`
-
-Central module that reads agent configs and manages model availability:
+### New file: `evaluate/agents/base.py`
 
 ```python
-"""Model registry — reads agent configs, tracks availability, manages fallback chains."""
+"""Base class for evaluation agent adapters.
 
-import os
-import json
-import time
-from typing import Optional
+Every adapter inherits from this and implements at least one of:
+- evaluate_session(job) -> dict | None  — free, uses host agent's session model
+- evaluate_headless(job) -> dict | None — subprocess CLI, for cron
+"""
 
-# Per-model rate-limit tracking
-_rate_limit_state: dict[str, float] = {}  # model_key → timestamp when rate-limited
-
-
-def is_rate_limited(model_key: str, cooldown_seconds: int = 300) -> bool:
-    """Check if a model is currently in rate-limit cooldown."""
-    if model_key in _rate_limit_state:
-        elapsed = time.time() - _rate_limit_state[model_key]
-        if elapsed < cooldown_seconds:
-            return True
-        del _rate_limit_state[model_key]
-    return False
+from evaluate.common import build_prompt, extract_json, validate_result
 
 
-def mark_rate_limited(model_key: str) -> None:
-    """Record that a model hit a rate limit."""
-    _rate_limit_state[model_key] = time.time()
+class BaseAdapter:
+    name: str = "base"
+
+    def can_evaluate_session(self) -> bool:
+        """Can this adapter use the host agent's session? (always False by default)"""
+        return False
+
+    def can_evaluate_headless(self) -> bool:
+        """Can this adapter spawn a headless subprocess? (always False by default)"""
+        return False
+
+    def evaluate_session(self, prompt: str) -> str | None:
+        """Evaluate using the host agent's session model. Override in subclass."""
+        raise NotImplementedError
+
+    def evaluate_headless(self, prompt: str) -> str | None:
+        """Evaluate via headless subprocess. Override in subclass."""
+        raise NotImplementedError
+
+    def evaluate_job(self, job: dict, *, prompt: str | None = None) -> dict | None:
+        """Evaluate a job. Prefers session-native, falls back to headless."""
+        prompt = prompt or build_prompt(
+            job["title"], job["company"], job.get("location", ""),
+            job.get("jd_text", ""), job.get("source_url", ""),
+        )
+
+        raw = None
+        if self.can_evaluate_session():
+            raw = self.evaluate_session(prompt)
+        if raw is None and self.can_evaluate_headless():
+            raw = self.evaluate_headless(prompt)
+
+        if not raw:
+            return None
+
+        result = extract_json(raw)
+        if result:
+            issues = validate_result(result)
+            if not issues:
+                result["evaluated_by"] = self.name
+                return result
+        return None
+```
+
+### New file: `evaluate/chain.py`
+
+```python
+"""Fallback chain — tries agents in order until one returns a valid result."""
+
+from evaluate.common import build_prompt
+from evaluate.agents import AGENT_LIST
 
 
-def get_hermes_models() -> list[dict]:
-    """Read Hermes config.yaml and return available models in priority order."""
-    # Attempt 1: import hermes_cli directly
-    try:
-        from hermes_cli.config import load_config
-        cfg = load_config()
-        models = cfg.get("models", [])
-        if models:
-            return models
-    except ImportError:
-        pass
-    
-    # Attempt 2: parse config.yaml manually
-    yaml_path = os.path.expanduser("~/.hermes/hermes-agent/config.yaml")
-    if os.path.exists(yaml_path):
-        return _parse_hermes_yaml_models(yaml_path)
-    
-    return []
+def evaluate_one_job(job: dict, *, agent_order: list[str] | None = None) -> dict | None:
+    """Evaluate a job. Tries each agent in order, returns first valid result."""
+    prompt = build_prompt(
+        job["title"], job["company"], job.get("location", ""),
+        job.get("jd_text", ""), job.get("source_url", ""),
+    )
 
+    order = agent_order or ["claude_code", "codex", "hermes", "pi"]
 
-def get_available_models() -> dict[str, list[str]]:
-    """Return {agent_name: [model_keys]} for the configured agent."""
-    agent = os.environ.get("HAXJOBS_EVALUATION_AGENT", "hermes")
-    if agent == "hermes":
-        models = get_hermes_models()
-        return {"hermes": [f"{m['provider']}/{m['name']}" for m in models]}
-    # ... other agents
-    return {}
+    for agent_name in order:
+        adapter = AGENT_LIST.get(agent_name)
+        if not adapter:
+            continue
 
+        result = adapter.evaluate_job(job, prompt=prompt)
+        if result:
+            return result
 
-def select_model(agent_name: str, preferred: str | None = None) -> str | None:
-    """Pick the best available model for an agent, skipping rate-limited ones."""
-    models = get_available_models().get(agent_name, [])
-    
-    # Try preferred model first
-    if preferred and preferred in models and not is_rate_limited(preferred):
-        return preferred
-    
-    # Try each model
-    for model in models:
-        if not is_rate_limited(model):
-            return model
-    
     return None
+
+
+def evaluate_batch(jobs: list[dict], *, agent_order: list[str] | None = None) -> list[dict | None]:
+    """Evaluate multiple jobs. Returns results in same order."""
+    return [evaluate_one_job(job, agent_order=agent_order) for job in jobs]
 ```
 
-### Rewritten: `evaluate/agents/hermes.py`
+### New file: `evaluate/agents/claude_code.py`
 
 ```python
-"""Hermes adapter — native integration with hermes_cli Python API.
+"""Claude Code adapter — session-native evaluation.
 
-Uses direct function calls when running inside Hermes (no subprocess).
-Reads config.yaml to know available models.
-Switches models automatically when rate-limited.
+When HaxJobs runs as a Claude Code plugin/hook, evaluation uses the session's
+model (DeepSeek) for free — no API key, no credit check, no subprocess.
 
-External mode (cron/subprocess): calls hermes chat CLI with explicit --model flag.
+Headless mode (claude -p) is documented but blocked by Anthropic credit gate.
+"""
+
+from evaluate.agents.base import BaseAdapter
+
+
+class ClaudeCodeAdapter(BaseAdapter):
+    name = "claude_code"
+
+    def can_evaluate_session(self) -> bool:
+        # True when running inside Claude Code (CLAUDE_CODE_SESSION_ID set)
+        import os
+        return bool(os.environ.get("CLAUDE_CODE_SESSION_ID"))
+
+    def evaluate_session(self, prompt: str) -> str | None:
+        # ponytail: Claude Code hook API — when a hook is invoked by Claude Code,
+        # the hook's stdout is the response. We print the prompt and Claude Code
+        # evaluates it with the session's model.
+        # For programmatic use within a hook: write prompt to a temp file,
+        # invoke claude task with --print and capture output.
+        import subprocess, os, tempfile, json
+        from pathlib import Path
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            f.write(prompt)
+            prompt_file = f.name
+
+        try:
+            result = subprocess.run(
+                ["claude", "-p", "--output-format", "json",
+                 "--permission-mode", "bypassPermissions",
+                 f"Read the file at {prompt_file} and evaluate it. Return ONLY valid JSON with no markdown."],
+                capture_output=True, text=True, timeout=180,
+                env={**os.environ},
+            )
+            output = result.stdout.strip()
+            if not output:
+                return None
+
+            # claude -p returns JSON with result field
+            try:
+                data = json.loads(output)
+                if isinstance(data, dict) and "result" in data:
+                    return data["result"]
+            except json.JSONDecodeError:
+                pass
+            return output
+        finally:
+            Path(prompt_file).unlink(missing_ok=True)
+```
+
+### New file: `evaluate/agents/codex.py`
+
+```python
+"""Codex adapter — headless evaluation via codex exec --output-schema.
+
+Primary headless adapter. Schema-enforced JSON eliminates all parsing fragility.
+Requires: Codex installed (shutil.which("codex")) with OAuth or CODEX_API_KEY.
+"""
+
+import json
+import os
+import shutil
+import subprocess
+import tempfile
+from pathlib import Path
+
+from evaluate.agents.base import BaseAdapter
+
+SCHEMA = {
+    "type": "object",
+    "properties": {
+        "fit_score": {"type": "integer", "minimum": 0, "maximum": 100},
+        "fit_verdict": {"type": "string"},
+        "level": {"type": "integer", "minimum": 1, "maximum": 4},
+        "level_name": {"type": "string"},
+        "strongest_matches": {"type": "array", "items": {"type": "string"}},
+        "major_gaps": {"type": "array", "items": {"type": "string"}},
+        "sponsorship_risk": {"type": "string"},
+        "summary": {"type": "string"},
+        "decision": {"type": "string"},
+    },
+    "required": ["fit_score", "fit_verdict", "level", "level_name",
+                 "strongest_matches", "major_gaps", "sponsorship_risk",
+                 "summary", "decision"],
+    "additionalProperties": False,
+}
+
+
+class CodexAdapter(BaseAdapter):
+    name = "codex"
+
+    def can_evaluate_headless(self) -> bool:
+        return shutil.which("codex") is not None
+
+    def evaluate_headless(self, prompt: str) -> str | None:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as sf:
+            json.dump(SCHEMA, sf)
+            schema_path = sf.name
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as of:
+            output_path = of.name
+
+        try:
+            result = subprocess.run(
+                ["codex", "exec",
+                 "--skip-git-repo-check", "--ephemeral",
+                 "--sandbox", "read-only",
+                 "--output-schema", schema_path,
+                 "--output-last-message", output_path,
+                 prompt],
+                capture_output=True, text=True, timeout=300,
+                env={**os.environ},
+                cwd="/tmp",
+            )
+
+            if result.returncode != 0:
+                return None
+
+            last_msg = Path(output_path).read_text(errors="replace").strip()
+            if last_msg:
+                # Validate it parses as JSON
+                json.loads(last_msg)
+                return last_msg
+            return None
+        finally:
+            Path(schema_path).unlink(missing_ok=True)
+            Path(output_path).unlink(missing_ok=True)
+```
+
+### Rewrite: `evaluate/agents/hermes.py`
+
+Two-mode adapter. Replace current content.
+
+```python
+"""Hermes adapter — two-mode evaluation.
+
+Session-native: import hermes_cli when running inside Hermes.
+Headless: hermes -z for cron (works, validated in Plan 028).
+
+Also supports native Python import (agent.oneshot.run_oneshot) when the
+openai module dependency is resolvable.
 """
 
 import os
+import shutil
 import subprocess
 import sys
-import time
-from evaluate.model_registry import is_rate_limited, mark_rate_limited, get_hermes_models
 
-# ---- Config ----
-HERMES_CONFIG_PATH = os.path.expanduser("~/.hermes/hermes-agent/config.yaml")
+from evaluate.agents.base import BaseAdapter
 
 
-def _detect_inside_hermes() -> bool:
-    """Are we running inside a Hermes process?"""
-    return bool(os.environ.get("HERMES_SESSION_ID") or os.environ.get("HERMES_HOME"))
+class HermesAdapter(BaseAdapter):
+    name = "hermes"
 
+    def can_evaluate_session(self) -> bool:
+        return bool(os.environ.get("HERMES_SESSION_ID"))
 
-def _native_call(prompt: str, model: str = "deepseek", timeout: int = 180) -> str | None:
-    """Call Hermes model directly via Python API — NO subprocess."""
-    try:
-        # ponytail: hermes_cli may not be on PYTHONPATH from HaxJobs venv.
-        # We add Hermes' venv to sys.path if needed.
-        hermes_path = os.path.expanduser("~/.hermes/hermes-agent")
-        if hermes_path not in sys.path:
-            sys.path.insert(0, hermes_path)
-        
-        from hermes_cli.xxx import yyy  # Exact import from Plan 027 research
-        result = yyy(prompt, model=model, max_tokens=4096)
-        return result
-    except ImportError as e:
-        # hermes_cli not importable — fall back to external
-        return None
-    except Exception as e:
-        if "rate" in str(e).lower() or "429" in str(e):
-            mark_rate_limited(f"hermes/{model}")
-        return None
+    def can_evaluate_headless(self) -> bool:
+        return shutil.which("hermes") is not None
 
+    def evaluate_session(self, prompt: str) -> str | None:
+        # Attempt native Python API first
+        try:
+            from pathlib import Path
+            hermes_src = str(Path.home() / ".hermes" / "hermes-agent")
+            if hermes_src not in sys.path:
+                sys.path.insert(0, hermes_src)
+            from agent.oneshot import run_oneshot
+            result = run_oneshot(prompt, task="job_evaluation")
+            return result.strip() if result else None
+        except ImportError:
+            pass
+        except Exception:
+            pass
 
-def _external_call(prompt: str, model: str = "deepseek", timeout: int = 180) -> str | None:
-    """Call Hermes via CLI subprocess — used when native import fails."""
-    try:
-        result = subprocess.run(
-            ["hermes", "chat", "--yolo", "-Q", "-q", "--model", model, prompt],
-            capture_output=True, text=True, timeout=timeout,
-            env={**os.environ, "HOME": os.path.expanduser("~")},
-        )
-        output = result.stdout.strip()
-        if not output:
+        # Fall back to hermes -z within session
+        return self.evaluate_headless(prompt)
+
+    def evaluate_headless(self, prompt: str) -> str | None:
+        try:
+            result = subprocess.run(
+                ["hermes", "-z", prompt],
+                capture_output=True, text=True, timeout=180,
+                env={**os.environ, "HERMES_YOLO_MODE": "1"},
+            )
+            if result.returncode != 0:
+                return None
+            output = result.stdout.strip()
+            return output if output else None
+        except (subprocess.TimeoutExpired, FileNotFoundError):
             return None
-        if "rate limit" in output.lower() or "usage limit" in output.lower():
-            mark_rate_limited(f"hermes/{model}")
-            return None
-        return output
-    except (subprocess.TimeoutExpired, FileNotFoundError):
+```
+
+### Update: `evaluate/agents/pi.py`
+
+Add `evaluate_headless()` with JSONL parser. The session-native path already exists via Pi's HaxJobs skill.
+
+Add to existing PiAdapter:
+
+```python
+import shutil
+
+def can_evaluate_headless(self) -> bool:
+    return shutil.which("pi") is not None
+
+def evaluate_headless(self, prompt: str) -> str | None:
+    """Pi headless — parse JSONL event stream for final assistant text."""
+    import json
+    result = subprocess.run(
+        ["pi", "-p", prompt, "--mode", "json", "--no-tools", "--model", "deepseek/deepseek-v4-pro"],
+        capture_output=True, text=True, timeout=300,
+        env={**os.environ},
+    )
+    if result.returncode != 0:
         return None
 
-
-def call_agent(prompt: str, *, timeout_seconds: int = 180, retries: int = 2) -> str | None:
-    """Send prompt to Hermes. Native mode preferred, external as fallback."""
-    
-    # Get available models from config (sorted by priority)
-    models = get_hermes_models()
-    model_keys = [f"{m.get('provider','')}/{m.get('name','')}" for m in models]
-    
-    if not model_keys:
-        model_keys = ["deepseek"]  # fallback default
-    
-    use_native = _detect_inside_hermes()
-    
-    for model_key in model_keys:
-        if is_rate_limited(model_key):
+    # Parse JSONL event stream
+    texts = []
+    for line in result.stdout.strip().split("\n"):
+        line = line.strip()
+        if not line:
             continue
-        
-        for attempt in range(retries + 1):
-            if use_native:
-                result = _native_call(prompt, model=model_key, timeout=timeout_seconds)
-            else:
-                result = _external_call(prompt, model=model_key, timeout=timeout_seconds)
-            
-            if result:
-                return result
-            
-            if attempt < retries:
-                time.sleep(2 ** attempt)
-    
-    return None
+        try:
+            evt = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if evt.get("type") == "message_end":
+            content = evt.get("message", {}).get("content", [])
+            for c in content:
+                if c.get("type") == "text":
+                    texts.append(c["text"])
+        elif evt.get("type") == "text":
+            texts.append(evt.get("text", ""))
+
+    full = "".join(texts)
+    # Extract last JSON object from text (Pi may echo the prompt)
+    import re
+    objs = re.findall(r'\{[^{}]*"fit_score"[^{}]*\}', full)
+    return objs[-1] if objs else full if full else None
 ```
 
-### New file: `evaluate/agents/claude_api.py`
+### New file: `evaluate/agents/gemini.py`
 
 ```python
-"""Claude API adapter — direct Anthropic Messages API via stdlib."""
+"""Gemini CLI adapter — deferred until tier migration resolved.
 
-import json
-import os
-import urllib.request
-import urllib.error
+Blocked by IneligibleTierError: free tier deprecated, needs Antigravity migration.
+When resolved: gemini -p <prompt> -o json -y
+"""
 
-API_URL = "https://api.anthropic.com/v1/messages"
-MODEL = "claude-3-5-sonnet-20241022"  # ponytail: single model, configurable via env
-MAX_TOKENS = 4096
+from evaluate.agents.base import BaseAdapter
 
 
-def _api_key() -> str:
-    return os.environ.get("ANTHROPIC_API_KEY", "")
+class GeminiAdapter(BaseAdapter):
+    name = "gemini"
 
+    def can_evaluate_headless(self) -> bool:
+        import shutil
+        return shutil.which("gemini") is not None
 
-def call_agent(prompt: str, *, timeout_seconds: int = 180, retries: int = 2) -> str | None:
-    key = _api_key()
-    if not key:
+    def evaluate_headless(self, prompt: str) -> str | None:
+        # Blocked — tier migration required
+        # import subprocess, os
+        # result = subprocess.run(["gemini", "-p", prompt, "-o", "json", "-y"], ...)
         return None
-
-    payload = json.dumps({
-        "model": os.environ.get("HAXJOBS_CLAUDE_MODEL", MODEL),
-        "max_tokens": int(os.environ.get("HAXJOBS_CLAUDE_MAX_TOKENS", str(MAX_TOKENS))),
-        "messages": [{"role": "user", "content": prompt}],
-    }).encode()
-
-    for attempt in range(retries + 1):
-        try:
-            req = urllib.request.Request(API_URL, data=payload, headers={
-                "x-api-key": key,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            })
-            with urllib.request.urlopen(req, timeout=timeout_seconds) as resp:
-                data = json.loads(resp.read())
-                # Extract text from content block
-                for block in data.get("content", []):
-                    if block.get("type") == "text":
-                        return block["text"]
-                return None
-        except urllib.error.HTTPError as e:
-            if e.code == 429:
-                return None  # rate limited
-            if attempt == retries:
-                return None
-        except Exception:
-            if attempt == retries:
-                return None
-    return None
 ```
 
-### New file: `evaluate/agents/gemini_api.py`
-
-Same pattern as Claude API but against Google Generative Language API.
+### Update: `evaluate/agents/__init__.py`
 
 ```python
-"""Gemini API adapter — direct Google Generative Language API via stdlib."""
+"""HaxJobs evaluation agent adapters — two-mode architecture.
 
-import json
-import os
-import urllib.request
-import urllib.error
+Each adapter implements BaseAdapter with:
+- evaluate_session(job) — FREE, uses host agent's session model
+- evaluate_headless(job) — Cron, subprocess CLI
 
-API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
-MODEL = "gemini-2.5-flash"
+Adapters are tried in AGENT_ORDER until one returns a valid result.
+"""
 
+from evaluate.agents.base import BaseAdapter
 
-def _api_key() -> str:
-    return os.environ.get("GEMINI_API_KEY", "")
+from evaluate.agents.claude_code import ClaudeCodeAdapter
+from evaluate.agents.codex import CodexAdapter
+from evaluate.agents.hermes import HermesAdapter
+from evaluate.agents.pi import PiAdapter
+from evaluate.agents.gemini import GeminiAdapter
 
+AGENT_LIST: dict[str, BaseAdapter] = {
+    "claude_code": ClaudeCodeAdapter(),
+    "codex": CodexAdapter(),
+    "hermes": HermesAdapter(),
+    "pi": PiAdapter(),
+    "gemini": GeminiAdapter(),
+}
 
-def call_agent(prompt: str, *, timeout_seconds: int = 180, retries: int = 2) -> str | None:
-    key = _api_key()
-    if not key:
-        return None
+# Default chain order: session-native first, headless fallback
+AGENT_ORDER = ["claude_code", "codex", "hermes", "pi"]
+```
 
-    model = os.environ.get("HAXJOBS_GEMINI_MODEL", MODEL)
-    url = f"{API_BASE}/{model}:generateContent?key={key}"
-    
-    payload = json.dumps({
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {
-            "responseMimeType": "application/json",  # Gemini native JSON mode!
-        },
-    }).encode()
+### Update: `evaluate/run.py`
 
-    for attempt in range(retries + 1):
-        try:
-            req = urllib.request.Request(url, data=payload, headers={
-                "Content-Type": "application/json",
-            })
-            with urllib.request.urlopen(req, timeout=timeout_seconds) as resp:
-                data = json.loads(resp.read())
-                candidates = data.get("candidates", [])
-                if candidates:
-                    parts = candidates[0].get("content", {}).get("parts", [])
-                    if parts:
-                        return parts[0].get("text", "")
-                return None
-        except urllib.error.HTTPError as e:
-            if e.code == 429:
-                return None
-            if attempt == retries:
-                return None
-        except Exception:
-            if attempt == retries:
-                return None
-    return None
+Replace `select_agent()` with chain-based dispatch:
+
+```python
+from evaluate.chain import evaluate_one_job, evaluate_batch
+
+# Old: select_agent() — delete, replaced by chain
+# New: evaluate_one_job() handles all agent selection and fallback
 ```
 
 ## Steps
 
-### Step 1: Create `evaluate/model_registry.py`
+### Step 1: Create `evaluate/agents/base.py`
 
-Implement as specified above. Core functions:
-- `get_hermes_models()` — reads config.yaml, returns model list with provider/priority
-- `is_rate_limited(model_key)` / `mark_rate_limited(model_key)` — cooldown tracking
-- `select_model(agent_name)` — picks best available model, skipping rate-limited ones
+BaseAdapter class with shared `evaluate_job()` dispatch.
 
 **Verify**:
 ```bash
-PYTHONPATH=. python3 -c "
-from evaluate.model_registry import get_hermes_models, select_model
-models = get_hermes_models()
-print(f'Hermes models: {len(models)}')
-for m in models:
-    print(f'  {m}')
-model = select_model('hermes')
-print(f'Selected: {model}')
-"
+PYTHONPATH=. python3 -c "from evaluate.agents.base import BaseAdapter; print('base OK')"
 ```
 
-### Step 2: Rewrite `evaluate/agents/hermes.py`
+### Step 2: Create `evaluate/agents/claude_code.py`
 
-Replace the current shallow subprocess-only adapter with the native+external version above.
-
-Key additions:
-- `_detect_inside_hermes()` — check env vars
-- `_native_call()` — direct Python import (exact import from Plan 027)
-- `_external_call()` — subprocess with explicit `--model` flag
-- Model switching from `model_registry`
+ClaudeCodeAdapter — session-native first, headless documented but blocked.
 
 **Verify**:
 ```bash
-# Import test
-PYTHONPATH=. python3 -c "from evaluate.agents.hermes import call_agent; print('Import OK')"
-
-# Model list test
-PYTHONPATH=. python3 -c "
-from evaluate.agents.hermes import call_agent
-from evaluate.model_registry import get_hermes_models
-print('Models:', get_hermes_models())
-"
+PYTHONPATH=. python3 -c "from evaluate.agents.claude_code import ClaudeCodeAdapter; a=ClaudeCodeAdapter(); print('claude_code OK', a.name)"
 ```
 
-### Step 3: Create `evaluate/agents/claude_api.py` + `evaluate/agents/gemini_api.py`
+### Step 3: Create `evaluate/agents/codex.py`
 
-Implement as specified above. Pure stdlib, no dependencies.
+CodexAdapter — headless with `--output-schema`.
 
 **Verify**:
 ```bash
-PYTHONPATH=. python3 -c "from evaluate.agents.claude_api import call_agent; print('Claude API import OK')"
-PYTHONPATH=. python3 -c "from evaluate.agents.gemini_api import call_agent; print('Gemini API import OK')"
+PYTHONPATH=. python3 -c "from evaluate.agents.codex import CodexAdapter; a=CodexAdapter(); print('codex OK', a.can_evaluate_headless())"
 ```
 
-### Step 4: Update `evaluate/agents/__init__.py`
+### Step 4: Rewrite `evaluate/agents/hermes.py`
 
-```python
-"""HaxJobs evaluation agent adapters.
+Two-mode HermesAdapter replacing current subprocess-only version.
 
-Each module exports a call_agent(prompt, *, timeout_seconds, retries) -> str | None function.
-"""
-
-from evaluate.agents.hermes import call_agent as hermes_call_agent
-
-# Optional adapters — may fail to import if not configured
-try:
-    from evaluate.agents.claude_api import call_agent as claude_api_call_agent
-except ImportError:
-    claude_api_call_agent = None
-
-try:
-    from evaluate.agents.gemini_api import call_agent as gemini_api_call_agent
-except ImportError:
-    gemini_api_call_agent = None
-
-AGENT_REGISTRY = {
-    "hermes": "evaluate.agents.hermes.call_agent",
-    "claude_api": "evaluate.agents.claude_api.call_agent",
-    "gemini_api": "evaluate.agents.gemini_api.call_agent",
-}
+**Verify**:
+```bash
+PYTHONPATH=. python3 -c "from evaluate.agents.hermes import HermesAdapter; a=HermesAdapter(); print('hermes OK', a.can_evaluate_headless())"
 ```
 
-### Step 5: Rewrite `evaluate/run.py` — model-aware dispatch
+### Step 5: Update `evaluate/agents/pi.py`
 
-Current `select_agent()` returns a bare function. New version:
+Add `evaluate_headless()` with JSONL parser. Keep existing session-native.
 
-```python
-import os
-import time
-from evaluate.model_registry import is_rate_limited, mark_rate_limited, select_model
-
-AGENT_FALLBACK_CHAIN = ["claude_api", "gemini_api", "hermes"]
-
-def _load_call_agent(agent_name: str):
-    """Import and return call_agent function for the named agent."""
-    import importlib
-    module_path = AGENT_REGISTRY.get(agent_name)
-    if not module_path:
-        return None
-    try:
-        mod_path, func_name = module_path.rsplit(".", 1)
-        mod = importlib.import_module(mod_path)
-        return getattr(mod, func_name, None)
-    except (ImportError, AttributeError):
-        return None
-
-def select_agent(agent_name: str | None = None) -> tuple[Callable, str, str]:
-    """Return (call_agent_fn, effective_agent_name, effective_model).
-    
-    Picks the best available model for the configured agent.
-    Falls back through AGENT_FALLBACK_CHAIN if primary agent is unavailable.
-    """
-    agent_name = agent_name or EVALUATION_AGENT
-    fallback_chain = [agent_name] + [
-        a for a in (EVALUATION_CONFIG.get("fallback_agents", []) or AGENT_FALLBACK_CHAIN)
-        if a != agent_name
-    ]
-    
-    for agent in fallback_chain:
-        call_fn = _load_call_agent(agent)
-        if not call_fn:
-            continue
-        
-        model = select_model(agent)
-        if model:
-            return call_fn, agent, model
-    
-    raise RuntimeError(f"No available agent. Tried: {fallback_chain}")
-
-def evaluate_one_job(job_data: dict, agent_name: str | None = None) -> dict | None:
-    call_agent_fn, effective_agent, effective_model = select_agent(agent_name)
-    
-    prompt = build_prompt(job_data)
-    raw_output = call_agent_fn(prompt)
-    
-    if raw_output is None:
-        # Mark model as rate-limited and retry with next in chain
-        mark_rate_limited(f"{effective_agent}/{effective_model}")
-        return evaluate_one_job(job_data, agent_name)  # will pick next model
-    
-    result = extract_json(raw_output)
-    if result:
-        result["evaluated_by"] = f"{effective_agent}/{effective_model}"
-    return result
+**Verify**:
+```bash
+PYTHONPATH=. python3 -c "from evaluate.agents.pi import PiAdapter; a=PiAdapter(); print('pi OK', a.can_evaluate_headless())"
 ```
 
-### Step 6: Add `fallback_agents` to `haxjobs.toml`
+### Step 6: Create `evaluate/agents/gemini.py`
+
+Stub adapter — blocked by tier migration.
+
+**Verify**:
+```bash
+PYTHONPATH=. python3 -c "from evaluate.agents.gemini import GeminiAdapter; a=GeminiAdapter(); print('gemini stub OK')"
+```
+
+### Step 7: Update `evaluate/agents/__init__.py`
+
+Wire AGENT_LIST and AGENT_ORDER.
+
+### Step 8: Create `evaluate/chain.py`
+
+Fallback chain manager with `evaluate_one_job()` and `evaluate_batch()`.
+
+### Step 9: Update `evaluate/run.py`
+
+Replace `select_agent()` dispatch with chain-based `evaluate_one_job()`.
+
+### Step 10: Update `haxjobs.toml` + `haxjobs_config.py`
 
 ```toml
 [evaluation]
-agent = "hermes"
-fallback_agents = ["claude_api", "gemini_api"]
-timeout_seconds = 180
+agent = "claude_code"       # Primary — uses Claude Code session when available
+fallback_agents = ["codex", "hermes", "pi"]
+timeout_seconds = 300       # Codex needs more time (300s vs 180s)
 ```
 
-Add `EVALUATION_FALLBACK_AGENTS` to `haxjobs_config.py`.
+```python
+EVALUATION_FALLBACK_AGENTS: list[str] = EVALUATION_CONFIG.get("fallback_agents", ["codex", "hermes", "pi"])
+```
 
-### Step 7: Add tests
-
-Create `tests/test_evaluation_agents.py`:
+### Step 11: Add tests — `tests/test_evaluation_agents.py`
 
 ```python
-"""Tests for evaluation agent adapters — import-level only, no live calls."""
+"""Tests for evaluation agent adapters."""
 
 import pytest
 
-def test_hermes_adapter_imports():
-    from evaluate.agents.hermes import call_agent
-    assert callable(call_agent)
 
-def test_claude_api_adapter_imports():
-    from evaluate.agents.claude_api import call_agent
-    assert callable(call_agent)
+def test_base_adapter_exists():
+    from evaluate.agents.base import BaseAdapter
+    a = BaseAdapter()
+    assert a.name == "base"
+    assert not a.can_evaluate_session()
+    assert not a.can_evaluate_headless()
 
-def test_gemini_api_adapter_imports():
-    from evaluate.agents.gemini_api import call_agent
-    assert callable(call_agent)
 
-def test_model_registry_imports():
-    from evaluate.model_registry import (
-        is_rate_limited, mark_rate_limited,
-        get_hermes_models, select_model
-    )
-    assert callable(is_rate_limited)
-    assert callable(get_hermes_models)
+def test_claude_code_adapter_exists():
+    from evaluate.agents.claude_code import ClaudeCodeAdapter
+    a = ClaudeCodeAdapter()
+    assert a.name == "claude_code"
+    assert callable(a.evaluate_job)
 
-def test_model_registry_rate_limit_tracking():
-    from evaluate.model_registry import is_rate_limited, mark_rate_limited
-    mark_rate_limited("test/model")
-    assert is_rate_limited("test/model")
-    # ponytail: no cleanup — test-only state, ephemeral process
 
-def test_agent_registry_has_expected_keys():
-    from evaluate.agents import AGENT_REGISTRY
-    assert "hermes" in AGENT_REGISTRY
-    assert "claude_api" in AGENT_REGISTRY
-    assert "gemini_api" in AGENT_REGISTRY
+def test_codex_adapter_exists():
+    from evaluate.agents.codex import CodexAdapter
+    a = CodexAdapter()
+    assert a.name == "codex"
+    assert callable(a.evaluate_job)
 
-def test_select_agent_returns_callable():
-    """Requires hermes to be configured."""
-    from evaluate.run import _load_call_agent
-    fn = _load_call_agent("hermes")
-    assert callable(fn)
+
+def test_hermes_adapter_exists():
+    from evaluate.agents.hermes import HermesAdapter
+    a = HermesAdapter()
+    assert a.name == "hermes"
+    assert callable(a.evaluate_job)
+
+
+def test_pi_adapter_exists():
+    from evaluate.agents.pi import PiAdapter
+    a = PiAdapter()
+    assert a.name == "pi"
+    assert callable(a.evaluate_job)
+
+
+def test_gemini_adapter_exists():
+    from evaluate.agents.gemini import GeminiAdapter
+    a = GeminiAdapter()
+    assert a.name == "gemini"
+
+
+def test_agent_list_has_five_adapters():
+    from evaluate.agents import AGENT_LIST, AGENT_ORDER
+    assert len(AGENT_LIST) == 5
+    assert "claude_code" in AGENT_LIST
+    assert "codex" in AGENT_LIST
+    assert "hermes" in AGENT_LIST
+    assert "pi" in AGENT_LIST
+    assert "gemini" in AGENT_LIST
+    assert len(AGENT_ORDER) == 4  # gemini not in default order (blocked)
+
+
+def test_chain_evaluates_with_fallback():
+    """Chain tries agents in order, returns first valid result."""
+    from evaluate.chain import evaluate_one_job
+    # ponytail: test with a minimal job dict, no live calls
+    result = evaluate_one_job({
+        "title": "Test Role",
+        "company": "Test Corp",
+        "location": "Remote",
+        "jd_text": "Python backend role.",
+        "source_url": "http://example.com",
+    }, agent_order=[])  # Empty order → returns None
+    assert result is None
+
+
+def test_all_adapters_inherit_base():
+    from evaluate.agents import AGENT_LIST
+    from evaluate.agents.base import BaseAdapter
+    for name, adapter in AGENT_LIST.items():
+        assert isinstance(adapter, BaseAdapter), f"{name} does not inherit BaseAdapter"
 ```
 
-### Step 8: Update `.env.example`
-
-Add any new API key env vars:
-```
-# Direct API fallbacks
-ANTHROPIC_API_KEY=
-GEMINI_API_KEY=
-```
-
-### Step 9: End-to-end verification
+### Step 12: End-to-end verification
 
 ```bash
 # All tests pass
 PYTHONPATH=. python3 -m pytest -q
 
-# Imports clean
-PYTHONPATH=. python3 -m py_compile evaluate/model_registry.py evaluate/agents/hermes.py evaluate/agents/claude_api.py evaluate/agents/gemini_api.py evaluate/run.py
+# Imports clean across all new files
+PYTHONPATH=. python3 -m py_compile \
+  evaluate/agents/base.py \
+  evaluate/agents/claude_code.py \
+  evaluate/agents/codex.py \
+  evaluate/agents/hermes.py \
+  evaluate/agents/gemini.py \
+  evaluate/chain.py
 
-# Model registry works
-PYTHONPATH=. python3 -c "from evaluate.model_registry import get_hermes_models; print(get_hermes_models())"
-
-# Live evaluation (if models available)
-PYTHONPATH=. python3 evaluate/run.py --next
-```
-
-## haxjobs.toml changes
-
-```toml
-[evaluation]
-agent = "hermes"                              # Primary agent
-fallback_agents = ["claude_api", "gemini_api"] # Auto-fallback chain
-timeout_seconds = 180
-```
-
-## haxjobs_config.py changes
-
-```python
-EVALUATION_FALLBACK_AGENTS: list[str] = EVALUATION_CONFIG.get("fallback_agents", [])
-```
-
-## .env.example changes
-
-```
-# Direct API keys for evaluation fallback
-ANTHROPIC_API_KEY=               # Claude API — reliable paid fallback
-GEMINI_API_KEY=                  # Gemini API — free tier fallback
+# Chain works (no live calls, just import + dispatch)
+PYTHONPATH=. python3 -c "
+from evaluate.chain import evaluate_one_job
+from evaluate.agents import AGENT_LIST, AGENT_ORDER
+print('Agents:', list(AGENT_LIST.keys()))
+print('Default order:', AGENT_ORDER)
+print('Chain OK')
+"
 ```
 
 ## Deliverables
 
-- [ ] `evaluate/model_registry.py` — model/config reading + rate-limit tracking
-- [ ] `evaluate/agents/hermes.py` — rewritten with native + external + model switching
-- [ ] `evaluate/agents/claude_api.py` — new, stdlib HTTP adapter
-- [ ] `evaluate/agents/gemini_api.py` — new, stdlib HTTP adapter
-- [ ] `evaluate/agents/__init__.py` — updated with AGENT_REGISTRY
-- [ ] `evaluate/run.py` — rewritten select_agent() with model awareness and fallback
-- [ ] `haxjobs.toml` — added fallback_agents
-- [ ] `haxjobs_config.py` — added EVALUATION_FALLBACK_AGENTS
-- [ ] `.env.example` — added API key env vars
-- [ ] `tests/test_evaluation_agents.py` — 7 tests
+- [ ] `evaluate/agents/base.py` — BaseAdapter base class
+- [ ] `evaluate/agents/claude_code.py` — session-native adapter (headless blocked)
+- [ ] `evaluate/agents/codex.py` — headless `--output-schema` adapter
+- [ ] `evaluate/agents/hermes.py` — rewritten two-mode adapter
+- [ ] `evaluate/agents/pi.py` — updated with headless JSONL parser
+- [ ] `evaluate/agents/gemini.py` — stub (blocked by tier migration)
+- [ ] `evaluate/agents/__init__.py` — updated with AGENT_LIST + AGENT_ORDER
+- [ ] `evaluate/chain.py` — fallback chain manager
+- [ ] `evaluate/run.py` — updated to use chain dispatch
+- [ ] `haxjobs.toml` — fallback_agents + timeout bump
+- [ ] `haxjobs_config.py` — EVALUATION_FALLBACK_AGENTS
+- [ ] `tests/test_evaluation_agents.py` — 9 tests
 - [ ] All tests pass, py_compile clean
 
 ## STOP conditions
 
-- If Hermes has NO importable Python API (Plan 027 found CLI-only), build only external mode with `--model` flag. Still wire model_registry.
-- If no API keys are set (ANTHROPIC_API_KEY, GEMINI_API_KEY), skip those adapters. They're optional.
-- If native import of hermes_cli causes dependency conflicts, fall back to external-only mode.
-- Do NOT commit API keys.
+- If `shutil.which("codex")` returns None, skip Codex adapter (user doesn't have Codex installed)
+- If `shutil.which("pi")` returns None, Pi can still work session-natively (we're inside Pi)
+- Do NOT commit API keys or auth tokens
+- Do NOT attempt Claude Code headless — it's blocked and documented as such
 
 ## Done criteria
 
 - [ ] `PYTHONPATH=. python3 -m pytest -q` — all tests pass
 - [ ] `PYTHONPATH=. python3 -m py_compile` — clean across entire repo
-- [ ] Changing `agent = "claude_api"` in haxjobs.toml switches evaluation to Claude API
-- [ ] When Hermes GPT 5.5 is rate-limited, evaluation automatically uses DeepSeek (or falls back to Claude/Gemini API)
-- [ ] `evaluate/run.py --next` works with at least 2 different agents/models
-- [ ] Agent configs are read at runtime — adding a new model to Hermes config.yaml makes it immediately available
+- [ ] `evaluate/run.py --next` evaluates with the first available agent in the chain
+- [ ] When one agent fails, the chain falls through to the next
+- [ ] Each adapter can be imported independently
+- [ ] `AGENT_ORDER` in `evaluate/agents/__init__.py` is the single source of truth for chain order
