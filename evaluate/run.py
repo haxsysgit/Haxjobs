@@ -193,6 +193,22 @@ def _auto_pack(job: dict, result: dict) -> None:
         "cv_html": f"cv_variants/{variant}/cv.html",
     }
 
+    # CV review: generate a per-job improved CV before building the pack
+    reviewed_cv_path = None
+    try:
+        from evaluate.cv_review import review_cv_for_job
+        jd_text = job.get("jd_text", "")
+        if jd_text and len(jd_text) > 100:
+            reviewed_cv = review_cv_for_job(variant, jd_text)
+            pack_dir = Path("packs") / job.get("company", "unknown").replace(" ", "_").lower() / variant
+            pack_dir.mkdir(parents=True, exist_ok=True)
+            reviewed_cv_path = pack_dir / "cv_reviewed.md"
+            reviewed_cv_path.write_text(reviewed_cv)
+            cv_metadata["reviewed_cv"] = str(reviewed_cv_path)
+            print(f"  → CV reviewed for {variant} ({len(reviewed_cv)} chars)")
+    except Exception as e:
+        print(f"  → CV review skipped: {e}")
+
     from packs_builder.job_pack import build_job_pack
     pack_result = build_job_pack(
         job=job,
