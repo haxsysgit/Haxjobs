@@ -27,7 +27,7 @@ From `haxjobs_agent_lab/analysis.md` and analysis of Hermes' `agent/oneshot.py`:
 
 | What | Source | Lines |
 |------|--------|-------|
-| Config loading | Plan 042 design | ~/.haxjobs/config.toml |
+| Config loading | Plan 044 (provider setup) | `haxjobs.features.setup.service.get_config()` from `~/.haxjobs/haxjobs.toml` |
 | Single-turn `run()` | Hermes `oneshot.py:133-155` | Clean: system → user → call → strip_fence → return |
 | `run_structured()` | OpenAI `response_format` | JSON schema enforcement |
 | `_strip_code_fence()` | Hermes `oneshot.py:163-170` | Models wrap JSON in ``` — strip exactly one layer |
@@ -35,30 +35,18 @@ From `haxjobs_agent_lab/analysis.md` and analysis of Hermes' `agent/oneshot.py`:
 
 ## Files
 
-### `src/haxjobs/agent/agent.py` — ~70 lines
+### `src/haxjobs/agent/agent.py` — ~80 lines
+
+> **Reality note**: Config loading imports from `haxjobs.features.setup.service` (plan 044)
+> rather than re-implementing TOML parsing. The env var fallback is a failsafe when
+> `~/.haxjobs/haxjobs.toml` doesn't exist (headless/CI environments).
 
 ```python
 """Minimal agent loop — single-turn. Extended by plan 043 with tools + tiers."""
 import json
 import os
 import re
-import tomllib
-from pathlib import Path
 from openai import OpenAI
-
-
-def _load_provider_config() -> dict:
-    """Load provider config from ~/.haxjobs/config.toml or env vars."""
-    config_path = Path.home() / ".haxjobs" / "config.toml"
-    if config_path.exists():
-        with open(config_path, "rb") as f:
-            return tomllib.load(f)
-    key = os.getenv("DEEPSEEK_API_KEY") or os.getenv("OPENAI_API_KEY")
-    if key:
-        base = os.getenv("HAXJOBS_API_BASE", "https://api.deepseek.com")
-        model = os.getenv("HAXJOBS_MODEL", "deepseek-chat")
-        return {"provider": {"api_key": key, "base_url": base, "model": model}}
-    raise RuntimeError("No provider configured. Run haxjobs start and visit /setup.")
 
 
 def _strip_code_fence(text: str) -> str:
@@ -74,10 +62,35 @@ class Agent:
     """Thin wrapper over OpenAI-compatible chat API."""
 
     def __init__(self, model: str | None = None):
-        cfg = _load_provider_config()
+        cfg = self._load_config()
         p = cfg["provider"]
         self.client = OpenAI(api_key=p["api_key"], base_url=p["base_url"])
         self.model = model or p["model"]
+
+    @staticmethod
+    def _load_config() -> dict:
+        """Load provider config.
+
+        Primary: imports from haxjobs.features.setup.service (plan 044),
+        which reads ~/.haxjobs/haxjobs.toml.
+        Failsafe: env vars for headless/CI environments.
+        """
+        try:
+            from haxjobs.features.setup.service import get_config
+            cfg = get_config()
+            if cfg:
+                return cfg
+        except ImportError:
+            pass
+        key = os.getenv("DEEPSEEK_API_KEY") or os.getenv("OPENAI_API_KEY")
+        if key:
+            base = os.getenv("HAXJOBS_API_BASE", "https://api.deepseek.com")
+            model = os.getenv("HAXJOBS_MODEL", "deepseek-chat")
+            return {"provider": {"api_key": key, "base_url": base, "model": model}}
+        raise RuntimeError(
+            "No provider configured. Run haxjobs start and visit /setup or "
+            "set DEEPSEEK_API_KEY in your environment."
+        )
 
     def run(
         self,
@@ -221,7 +234,7 @@ git commit -m "add bare-minimum native agent: oneshot pattern + template registr
 - [ ] `Agent.run_structured()` returns parsed dict (OpenAI JSON schema)
 - [ ] `_strip_code_fence()` handles ```json, ```, and mixed fences
 - [ ] `get_prompt("evaluate_job", ...)` returns filled (system, user) tuple
-- [ ] Provider config loaded from `~/.haxjobs/config.toml`
+- [ ] Provider config loaded from `~/.haxjobs/haxjobs.toml` via `haxjobs.features.setup.service.get_config()`
 - [ ] Falls back to `DEEPSEEK_API_KEY` env var
 - [ ] 7 tests pass
 - [ ] No tool registry, no multi-turn, no prompt tiers — those are plan 043
