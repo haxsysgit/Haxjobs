@@ -38,7 +38,7 @@ Plan 039 gave us single-turn evaluation. This plan adds multi-turn with tools (a
 ```
 src/haxjobs/agent/
   __init__.py       → re-exports Agent, get_prompt  (from 039)
-  agent.py          → ~120 lines (run, run_structured, run_with_tools from 039 + new)
+  agent.py          → ~120 lines (run, run_with_tools — extends plan 039 Agent)
   prompts.py        → ~30 lines (template registry, from 039)
   prompt.py         → ~80 lines NEW — build_system_prompt with 3 tiers
   registry.py       → ~50 lines NEW — AST auto-discovery, check_fn, dispatch
@@ -354,7 +354,7 @@ def run_with_tools(
         msg = response.choices[0].message
         
         if msg.content and not msg.tool_calls:
-            return _strip_code_fence(msg.content)
+            return msg.content
         
         if not msg.tool_calls:
             return msg.content or ""
@@ -378,7 +378,7 @@ def run_with_tools(
     final = self.client.chat.completions.create(
         model=self.model, messages=messages, temperature=temperature,
     )
-    return _strip_code_fence(final.choices[0].message.content or "")
+    return final.choices[0].message.content or ""
 ```
 
 ## Steps
@@ -395,12 +395,14 @@ Write `prompt.py`, `registry.py`, `tools.py`, `identity.py` as above.
 
 ### Step 3: Extend agent.py
 
-Add `run_with_tools()` method to the existing Agent class. Add imports for `_strip_code_fence` and `dispatch`.
+Add `run_with_tools()` method to the existing Agent class. The `Agent` class already
+imports `evaluate.common.extract_json()` for structured output — callers parse JSON
+from `run()` output directly, no `_strip_code_fence()` needed.
 
 ### Step 4: Update __init__.py
 
 ```python
-from haxjobs.agent.agent import Agent, _strip_code_fence
+from haxjobs.agent.agent import Agent
 from haxjobs.agent.prompts import get_prompt, PromptTemplate, PROMPTS
 from haxjobs.agent.prompt import build_system_prompt
 from haxjobs.agent.identity import load_identity, load_memory, load_user_profile
@@ -453,15 +455,17 @@ git commit -m "add full native agent: AST tool registry, 3-tier prompts, soul.md
 - [ ] `web_search` and `fetch_page` work (mocked in tests, real in pipeline)
 - [ ] Message alternation enforced in multi-turn history
 - [ ] Max turns respected (default 5)
-- [ ] `_strip_code_fence()` applied to all text responses
-- [ ] All 11 new tests pass + all 7 plan-039 tests still pass
-- [ ] Provider config from `~/.haxjobs/config.toml`
+- [ ] Message alternation enforced in multi-turn history
+- [ ] Max turns respected (default 5)
+- [ ] JSON parsing delegated to `evaluate.common.extract_json()` (no `_strip_code_fence`)
+- [ ] All 11 new tests pass + all 11 plan-039 tests still pass
+- [ ] Provider config from `~/.haxjobs/haxjobs.toml`
 
 ## STOP conditions
 
 - AST discovery fails on syntax error in user tool → logged as warning, skipped
 - Tool handler throws → wrapped in JSON error string, returned to model
-- `_strip_code_fence()` strips too much → test with real DeepSeek output that wraps JSON in ```
+- `extract_json()` can't parse the model's output → the model returned non-JSON text. Check the model's response manually.
 
 ## What's still deferred (plan 057 — future)
 

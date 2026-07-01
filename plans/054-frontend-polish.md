@@ -1,6 +1,6 @@
 # Plan 054: Frontend polish — theme, responsive, navigation, empty states
 
-> **Depends on**: 056, 047 | **Priority**: P2 | **Effort**: M | **Risk**: LOW
+> **Depends on**: 042, 047 | **Priority**: P2 | **Effort**: M | **Risk**: LOW
 > **Planned at**: commit `bf83142`, 2026-06-30
 
 ## Why this matters
@@ -19,7 +19,7 @@ All pages are built but the app doesn't feel like a product. This plan adds dark
 5. **Error states**: sonner toast on fetch failure, retry button.
 6. **Navigation progress bar**: thin loading bar on route changes (simple component, no extra dep — use a CSS animation triggered by router events).
 7. **Favicon + title**: replace Vite defaults with HaxJobs branding.
-8. **TypeScript check**: `cd frontend && npx tsc -b --noEmit` → clean
+8. **TypeScript check**: `cd frontend && npx tsc --noEmit` → clean
 
 ## Done criteria
 
@@ -28,4 +28,4 @@ All pages are built but the app doesn't feel like a product. This plan adds dark
 - [ ] Loading skeletons show during data fetches
 - [ ] Empty states show helpful CTAs
 - [ ] API errors show toast with retry
-- [ ] `npx tsc -b --noEmit` → 0 errors
+- [ ] `npx tsc --noEmit` → 0 errors

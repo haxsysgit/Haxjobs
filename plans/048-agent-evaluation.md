@@ -1,11 +1,13 @@
 # Plan 048: Agent-based evaluation — delete subprocess adapters, use native agent
 
 > **Depends on**: 041, 043 | **Priority**: P1 | **Effort**: M | **Risk**: MED (deletes code, changes evaluation path)
-> **Planned at**: commit `bf83142`, 2026-06-30
+> **Reality note**: `Agent.run_structured()` and `json_schema` were removed in plan 039.
+> Use `agent.run()` + `evaluate.common.extract_json()` instead. The Agent returns raw
+> text; `extract_json()` handles fences, box chars, and brace-matching.
 
 ## Why this matters
 
-`evaluate/agents/` spawns agent CLIs as subprocess. That's gone. Instead, evaluation uses the native agent (`haxjobs.agent.Agent.run_structured()`) with the existing `evaluate/common.py` prompt builder. One agent, all providers — DeepSeek today, any provider tomorrow.
+`evaluate/agents/` spawns agent CLIs as subprocess. That's gone. Instead, evaluation uses the native agent (`haxjobs.agent.Agent.run()`) with `evaluate.common.extract_json()`. One agent, all providers — DeepSeek today, any provider tomorrow.
 
 This plan also fills `features/evaluation/` (the API layer for triggering evaluation from the UI).
 
@@ -27,38 +29,30 @@ Remove any references to agent CLI paths or subprocess calls. If `build_prompt()
 ### Step 3: Create evaluate/api.py
 
 ```python
-"""Evaluation via native agent with structured output."""
+"""Evaluation via native agent. Uses extract_json() for structured output."""
 from haxjobs.agent import Agent
-from haxjobs.evaluate.common import build_prompt, EXPECTED_SCHEMA
+from haxjobs.evaluate.common import build_prompt, extract_json
 
 
 def evaluate_job(job: dict, profile: dict) -> dict:
     """Evaluate a job against a profile. Returns validated result dict."""
     agent = Agent()
     prompt = build_prompt(job, profile)
-    result = agent.run_structured(
+    raw = agent.run(
         prompt=prompt,
         system=(
             "You are a job-candidate fit evaluator. "
             "Analyze the job description against the candidate's profile. "
             "Score from 0-100. Be honest — false hope wastes the candidate's time. "
-            "Return valid JSON matching the schema exactly."
+            "Return valid JSON with these fields: "
+            "fit_score (int 0-100), fit_level (int 1-4), fit_verdict (str), "
+            "strongest_matches (str[]), major_gaps (str[]), "
+            "sponsorship_risk (str), summary (str)."
         ),
-        json_schema={
-            "type": "object",
-            "properties": {
-                "fit_score": {"type": "integer", "minimum": 0, "maximum": 100},
-                "fit_level": {"type": "integer", "enum": [1, 2, 3, 4]},
-                "fit_verdict": {"type": "string"},
-                "strongest_matches": {"type": "array", "items": {"type": "string"}},
-                "major_gaps": {"type": "array", "items": {"type": "string"}},
-                "sponsorship_risk": {"type": "string"},
-                "summary": {"type": "string"},
-            },
-            "required": ["fit_score", "fit_level", "fit_verdict", "strongest_matches", "major_gaps", "summary"],
-            "additionalProperties": False,
-        },
     )
+    result = extract_json(raw)
+    if result is None:
+        raise RuntimeError(f"Agent returned non-JSON: {raw[:200]}")
     return result
 ```
 
@@ -90,7 +84,7 @@ uv run pytest -q tests/
 
 - [ ] `evaluate/agents/` directory deleted
 - [ ] `evaluate/chain.py` deleted
-- [ ] `evaluate/api.py` uses `Agent.run_structured()`
+- [ ] `evaluate/api.py` uses `Agent.run()` + `extract_json()` (not `run_structured`)
 - [ ] `features/evaluation/` has working routes
 - [ ] No `subprocess.run()` in evaluate/ code
 - [ ] No direct `openai.chat.completions.create()` — all through agent

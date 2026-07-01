@@ -1,6 +1,6 @@
 # Plan 046: Onboarding frontend — multi-step wizard UI
 
-> **Depends on**: 056, 043 | **Priority**: P1 | **Effort**: M | **Risk**: LOW
+> **Depends on**: 042, 045 | **Priority**: P1 | **Effort**: M | **Risk**: LOW
 > **Planned at**: commit `bf83142`, 2026-06-30
 
 ## Why this matters

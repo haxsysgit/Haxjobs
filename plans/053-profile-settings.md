@@ -1,6 +1,6 @@
 # Plan 053: Profile settings — view and edit profile
 
-> **Depends on**: 055 | **Priority**: P2 | **Effort**: M | **Risk**: LOW
+> **Depends on**: 045, 042 | **Priority**: P2 | **Effort**: M | **Risk**: LOW
 > **Planned at**: commit `bf83142`, 2026-06-30
 
 ## Why this matters

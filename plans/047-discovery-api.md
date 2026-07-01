@@ -1,6 +1,6 @@
 # Plan 047: Discovery API — scraper endpoints, run from UI
 
-> **Depends on**: 041 | **Priority**: P1 | **Effort**: M | **Risk**: LOW
+> **Depends on**: 041, 044 | **Priority**: P1 | **Effort**: M | **Risk**: LOW
 > **Planned at**: commit `bf83142`, 2026-06-30
 
 ## Why this matters

@@ -40,4 +40,4 @@ The dashboard is the main screen. After onboarding, users spend 90% of their tim
 - [ ] Search finds by title/company
 - [ ] Click row → navigate to detail
 - [ ] Evaluate button triggers evaluation
-- [ ] `npx tsc -b --noEmit` passes
+- [ ] `npx tsc --noEmit` passes

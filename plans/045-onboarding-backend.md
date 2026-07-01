@@ -7,7 +7,7 @@
 
 Without onboarding, HaxJobs is a tool for one person who hand-writes their profile JSON. The onboarding wizard makes it a product: upload CV → native agent extracts structured data → guided questions fill gaps → profile.json saved. This plan fills `features/onboarding/`.
 
-Uses the native agent (plan 043) for all LLM calls — no direct API access. The agent reads provider config from `~/.haxjobs/config.toml` (plan 042), so it works with any configured provider (DeepSeek default, OpenAI, custom).
+Uses the native agent (plan 043) for all LLM calls — no direct API access. The agent reads provider config from `~/.haxjobs/haxjobs.toml` (plan 044), so it works with any configured provider (DeepSeek default, OpenAI, custom).
 
 ## Steps
 
@@ -65,38 +65,30 @@ PROFILE_SCHEMA = {
 
 def extract_profile_from_cv(cv_text: str) -> dict:
     """Extract structured profile from CV text using native agent."""
+    from haxjobs.evaluate.common import extract_json
     agent = Agent()
-    return agent.run_structured(
+    raw = agent.run(
         prompt=f"Extract structured profile data from this CV:\n\n{cv_text}",
         system="You extract structured candidate profiles from CVs. "
                 "Return valid JSON matching the schema. "
                 "Infer skills from project descriptions. "
                 "Leave unknown fields as empty strings or empty arrays.",
-        json_schema=PROFILE_SCHEMA,
     )
+    return extract_json(raw) or {}
 
 
 def get_next_question(profile: dict, answered: list) -> dict | None:
     """Ask agent to identify the most important missing field."""
+    from haxjobs.evaluate.common import extract_json
     agent = Agent()
-    result = agent.run_structured(
+    result = agent.run(
         prompt=f"Profile so far:\n{json.dumps(profile, indent=2)}\n\n"
                f"Already asked: {json.dumps(answered)}\n\n"
                f"Identify the single most important missing or low-confidence field. "
-               f"Return {{'field': '...', 'question': '...', 'type': 'text|select|multi'}}",
+               f"Return JSON with keys: field, question, type, done.",
         system="You help fill gaps in job seeker profiles. Ask one targeted question at a time.",
-        json_schema={
-            "type": "object",
-            "properties": {
-                "field": {"type": "string"},
-                "question": {"type": "string"},
-                "type": {"type": "string", "enum": ["text", "select", "multi"]},
-                "done": {"type": "boolean"},
-            },
-            "required": ["field", "question", "type", "done"],
-        },
     )
-    return result
+    return extract_json(result)
 
 
 def apply_answer(profile: dict, question_id: str, answer: str) -> dict:
@@ -131,7 +123,7 @@ def load_profile() -> dict | None:
 
 ### Step 5: Write tests
 
-`tests/test_onboarding.py` — mock `Agent.run_structured()`, test extraction parsing, wizard flow, profile save/load.
+`tests/test_onboarding.py` — mock `Agent.run()`, test extraction parsing, wizard flow, profile save/load.
 
 ### Step 6: Commit
 
@@ -150,5 +142,5 @@ uv run pytest -q tests/
 
 ## STOP conditions
 
-- Agent not configured — user must complete `/setup` first (plan 042). Return clear error.
+- Agent not configured — user must complete `/setup` first (plan 044). Return clear error.
 - PDF text extraction fails — show "paste text" fallback in onboarding UI
