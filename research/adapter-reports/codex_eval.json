@@ -1,0 +1,27 @@
+{
+  "agent": "codex",
+  "elapsed_s": 16.8,
+  "valid": true,
+  "issues": [],
+  "result": {
+    "fit_score": 62,
+    "fit_verdict": "GOOD_FIT",
+    "level": 2,
+    "level_name": "Quick Apply",
+    "strongest_matches": [
+      "Strong Python backend and AI experience that lines up with an AI platform team building ML tooling and deployment paths.",
+      "Hands-on work with AI products and agent infrastructure through Pharmax, Haxaml, FRAME, and model training gives him real exposure to the ML lifecycle from experimentation to production.",
+      "The role sits in London and is focused on engineering in AI infrastructure, which matches his target location and preferred role family."
+    ],
+    "major_gaps": [
+      "The JD puts a lot of weight on Kubernetes, Docker, and distributed platform operations at scale, and that depth is not clearly proven in the profile.",
+      "Infrastructure-as-code and DevSecOps tools like Terraform or CloudFormation are asked for directly, but they are not confirmed in his background.",
+      "The role sounds platform and MLOps heavy rather than pure backend, so he is less aligned if they want someone already strong across multi-cloud AWS, Azure, and GCP environments."
+    ],
+    "sponsorship_risk": "low",
+    "summary": "Arinze looks like a good fit for Faculty's Software Engineer - Platform role, with a score of 62. The biggest reason to apply is his real Python and AI product experience, but the score stays moderate because the job is quite heavy on platform engineering, Kubernetes, IaC, and multi-cloud MLOps.",
+    "decision": "completed",
+    "skip_reason": "",
+    "evaluated_by": "codex"
+  }
+}

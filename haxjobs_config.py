@@ -74,6 +74,7 @@ ROLE_PROFILES: list[dict] = _cfg.get("roles", [])
 # ── Evaluation config (plan 016) ──
 EVALUATION_CONFIG: dict = _cfg.get("evaluation", {})
 EVALUATION_AGENT: str = EVALUATION_CONFIG.get("agent", "hermes")
+EVALUATION_FALLBACK_AGENTS: list[str] = EVALUATION_CONFIG.get("fallback_agents", [])
 AUTO_PACK_LEVELS: frozenset[int] = frozenset(EVALUATION_CONFIG.get("levels", {}).get("auto_pack", [1, 2]))
 MANUAL_REVIEW_LEVELS: frozenset[int] = frozenset(EVALUATION_CONFIG.get("levels", {}).get("manual_review", [3]))
 SKIP_LEVELS: frozenset[int] = frozenset(EVALUATION_CONFIG.get("levels", {}).get("skip", [4]))

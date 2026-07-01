@@ -1,55 +1,72 @@
 """Tests for evaluator agent selection and the evaluate/ package.
 
-Verifies that the configured agent controls adapter selection and that
-parsing/validation work through the new evaluate.common module.
+Verifies agent chain resolution, adapter imports, and base adapter behavior.
+Parsing/validation tests unchanged from original.
 """
 from __future__ import annotations
 
 
-def test_select_hermes_agent():
-    """Configured agent='hermes' selects the Hermes adapter."""
-    from evaluate.run import select_agent
+# ── Agent chain tests ────────────────────────────────────────
 
-    call_agent = select_agent("hermes")
-    assert call_agent is not None
-    assert callable(call_agent)
-
-
-def test_select_hermes_is_default():
-    """Default agent (no explicit name) selects hermes."""
-    from evaluate.run import select_agent
-
-    call_agent = select_agent()
-    assert call_agent is not None
-    assert callable(call_agent)
+def test_chain_imports():
+    """Chain module imports cleanly."""
+    from evaluate.chain import evaluate_one_job, evaluate_batch, _resolve_order
+    assert callable(evaluate_one_job)
+    assert callable(evaluate_batch)
+    assert callable(_resolve_order)
 
 
-def test_unknown_agent_falls_back_to_default():
-    """An unknown agent name falls back to default (pi) instead of crashing."""
-    from evaluate.run import select_agent
+def test_all_adapters_import():
+    """All 5 adapters import and inherit BaseAdapter."""
+    from evaluate.agents import AGENT_LIST
+    from evaluate.agents.base import BaseAdapter
 
-    # 'nonexistent_agent' is not in registry, should fall back to 'pi'
-    fn = select_agent("nonexistent_agent")
-    assert callable(fn)
-    # Verify it loaded pi, not hermes
-    assert "pi" in fn.__module__ or "hermes" in fn.__module__  # either is valid fallback
-
-
-def test_select_agent_pi_directly():
-    """Selecting 'pi' directly returns the pi adapter."""
-    from evaluate.run import select_agent
-    fn = select_agent("pi")
-    assert callable(fn)
-    assert "pi" in fn.__module__
+    assert len(AGENT_LIST) == 5
+    for name, adapter in AGENT_LIST.items():
+        assert isinstance(adapter, BaseAdapter), f"{name} not BaseAdapter"
+        assert adapter.name == name
 
 
-def test_select_agent_hermes_directly():
-    """Selecting 'hermes' directly returns the hermes adapter."""
-    from evaluate.run import select_agent
-    fn = select_agent("hermes")
-    assert callable(fn)
-    assert "hermes" in fn.__module__
+def test_auto_discover_returns_list():
+    """auto_discover returns a list of installed agent names."""
+    from evaluate.agents import auto_discover
 
+    discovered = auto_discover()
+    assert isinstance(discovered, list)
+    # Pi is always available
+    assert "pi" in discovered
+
+
+def test_resolve_order_respects_config():
+    """_resolve_order returns the configured agent chain."""
+    from evaluate.chain import _resolve_order
+    from haxjobs_config import EVALUATION_AGENT
+
+    order = _resolve_order()
+    assert isinstance(order, list)
+    if EVALUATION_AGENT:
+        assert EVALUATION_AGENT in order
+
+
+def test_evaluate_one_job_accepts_agent_order():
+    """evaluate_one_job accepts an explicit agent_order override."""
+    from evaluate.chain import evaluate_one_job
+
+    # Empty order — no agents tried, returns None
+    result = evaluate_one_job(
+        {
+            "title": "Test",
+            "company": "TestCorp",
+            "location": "Remote",
+            "jd_text": "Python role.",
+            "source_url": "http://example.com",
+        },
+        agent_order=[],
+    )
+    assert result is None
+
+
+# ── Parsing / validation tests (unchanged) ──────────────────
 
 def test_extract_json_from_backtick_fence():
     """JSON inside ```json fences is extracted."""
@@ -113,7 +130,7 @@ def test_validate_result_catches_wrong_type():
     from evaluate.common import validate_result
 
     result = {
-        "fit_score": "seventy-five",  # string, not int
+        "fit_score": "seventy-five",
         "fit_verdict": "GOOD_FIT",
         "level": 2,
         "level_name": "Quick Apply",

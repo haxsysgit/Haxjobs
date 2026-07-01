@@ -1,7 +1,7 @@
 """Evaluation orchestrator — agent selection, job evaluation, and CLI.
 
-Selects the configured agent from ``haxjobs.toml`` ``[evaluation].agent``
-and runs evaluation via the appropriate adapter.
+Reads agent chain from ``haxjobs.toml`` ``[evaluation].agent`` + ``fallback_agents``,
+falls back to auto-discovery if config is empty.
 
 Usage:
   python3 -m evaluate.run --next           # Process next pending job
@@ -12,110 +12,18 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Callable
 
 from haxjobs_config import EVALUATION_AGENT, AUTO_PACK_LEVELS
-
-from evaluate.common import build_prompt, extract_json, validate_result
-
-
-# Agent registry: name → module.function
-_AGENT_REGISTRY: dict[str, str] = {
-    "hermes": "evaluate.agents.hermes.call_agent",
-    "pi": "evaluate.agents.pi.call_agent",
-}
-
-# ponytail: fallback chain — tried in order when primary agent returns None.
-# Pi is first fallback because deepseek is more reliable than hermes when rate-limited.
-_DEFAULT_FALLBACK: list[str] = ["pi"]
-
-
-def _load_agent(agent_name: str) -> Callable[..., str | None] | None:
-    """Import and return call_agent for the named agent. None if unavailable."""
-    import importlib
-
-    module_path = _AGENT_REGISTRY.get(agent_name)
-    if not module_path:
-        return None
-    try:
-        mod_path, func_name = module_path.rsplit(".", 1)
-        mod = importlib.import_module(mod_path)
-        return getattr(mod, func_name, None)
-    except (ImportError, AttributeError):
-        return None
-
-
-def select_agent(agent_name: str | None = None) -> Callable[..., str | None]:
-    """Return a ``call_agent(prompt, *, timeout_seconds) -> str`` function.
-
-    Args:
-        agent_name: Agent identifier from config. Defaults to ``EVALUATION_AGENT``.
-
-    Returns:
-        A callable matching the agent adapter interface.
-
-    Raises:
-        ValueError: If no agent is available.
-    """
-    name = (agent_name or EVALUATION_AGENT).strip().lower()
-    fallback_chain = [name] + [a for a in _DEFAULT_FALLBACK if a != name]
-
-    for agent in fallback_chain:
-        fn = _load_agent(agent)
-        if fn:
-            if agent != name:
-                print(f"  (using fallback agent: {agent})")
-            return fn
-
-    raise ValueError(
-        f"No available evaluation agent. Configured: {name!r}, tried: {fallback_chain}. "
-        f"Set [evaluation].agent in haxjobs.toml."
-    )
+from evaluate.chain import evaluate_one_job as chain_evaluate_one_job, _resolve_order
 
 
 def evaluate_one_job(job_data: dict, agent_name: str | None = None) -> dict | None:
-    """Evaluate a single job dict. Returns the parsed result or None on failure."""
-    call_agent = select_agent(agent_name)
-
+    """Evaluate a single job via the configured agent chain."""
     title = job_data.get("title", "Unknown")
     company = job_data.get("company", "Unknown")
-    location = job_data.get("location", "")
-    jd_text = job_data.get("jd_text", "")
-    source_url = job_data.get("source_url", "")
-
     print(f"  Evaluating: {company} — {title[:60]}")
-
-    prompt = build_prompt(title, company, location, jd_text, source_url)
-    raw_output = call_agent(prompt, timeout_seconds=180)
-
-    if not raw_output:
-        print(f"  FAILED: Agent returned no output")
-        return None
-
-    parsed = extract_json(raw_output)
-    if not parsed:
-        err_preview = raw_output[:200].replace('\n', ' ')
-        print(f"  FAILED: Could not extract JSON. Raw: {err_preview}")
-        return None
-
-    issues = validate_result(parsed)
-    if issues:
-        # Try a fixup prompt
-        fix_prompt = f"Your previous JSON had issues: {', '.join(issues)}. Return ONLY valid JSON with all fields."
-        retry_prompt = prompt + "\n\n" + fix_prompt
-        retry_output = call_agent(retry_prompt, timeout_seconds=180)
-        if retry_output:
-            retry_parsed = extract_json(retry_output)
-            if retry_parsed and not validate_result(retry_parsed):
-                parsed = retry_parsed
-            else:
-                print(f"  FAILED: Validation issues after retry: {issues}")
-                return None
-        else:
-            print(f"  FAILED: Validation issues: {issues}")
-            return None
-
-    return parsed
+    agent_order = [agent_name] if agent_name else None
+    return chain_evaluate_one_job(job_data, agent_order=agent_order)
 
 
 def evaluate_from_db(agent_name: str | None = None) -> bool:

@@ -1,0 +1,26 @@
+{
+  "agent": "pi",
+  "elapsed_s": 26.1,
+  "valid": true,
+  "issues": [],
+  "result": {
+    "fit_score": 62,
+    "fit_verdict": "GOOD_FIT",
+    "level": 2,
+    "level_name": "Quick Apply",
+    "strongest_matches": [
+      "AI/ML background with hands-on model training (HuggingFace/PyTorch) and AI agent experience (Archilles, Haxaml) aligns with Faculty's AI-first mission",
+      "Strong Python backend engineering (Vigilis, Bucca Hut, Pharmax) matches the Python/Go requirement",
+      "Building production-grade systems and working with cross-functional teams mirrors the collaborative platform role"
+    ],
+    "major_gaps": [
+      "No professional Docker and Kubernetes orchestration experience, which is central to this platform role",
+      "Missing hands-on Infrastructure-as-Code (Terraform, CloudFormation) and multi-cloud deployment experience"
+    ],
+    "sponsorship_risk": "low",
+    "summary": "Faculty's Software Engineer - Platform role is a good fit for Arinze's Python and AI engineering background, but missing direct Kubernetes and IaaC experience pulls the score down. Worth applying if he can demonstrate infrastructure familiarity.",
+    "decision": "completed",
+    "skip_reason": "",
+    "evaluated_by": "pi"
+  }
+}
