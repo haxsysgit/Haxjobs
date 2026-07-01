@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 export function DashboardPage() {
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold tracking-tight">Dashboard</h2>
+      <h2 className="text-2xl font-heading font-bold tracking-tight">Dashboard</h2>
       <Card>
         <CardHeader>
           <CardTitle>Welcome to HaxJobs</CardTitle>
