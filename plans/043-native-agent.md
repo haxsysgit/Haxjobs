@@ -1,331 +1,472 @@
-# Plan 043: HaxJobs native agent — agent loop, tool registry, tool API
+# Plan 043: Full native agent — tool registry, prompt tiers, identity
 
-> **Executor instructions**: Follow this plan step by step. Run every verification command and confirm the expected result before moving to the next step. If anything in the "STOP conditions" section occurs, stop and report — do not improvise. When done, update the status row for this plan in `plans/README.md`.
+> **Executor instructions**: Read `haxjobs_agent_lab/analysis-docs.md` first.
+> This plan implements the Hermes patterns documented there: AST tool discovery,
+> 3-tier prompt assembly (stable/context/volatile), SOUL.md identity loading,
+> check_fn availability gating, and agent-level tool interception.
 >
-> **Drift check (run first)**: `git diff --stat bf83142..HEAD -- src/haxjobs/`
-> Plans 040 (package), 041 (FastAPI), and 042 (provider setup) must be complete.
+> Plan 039 must be complete — this plan extends `agent.py`, adds `prompt.py`,
+> `registry.py`, `tools.py`, `identity.py`.
 
 ## Status
 
 - **Priority**: P1
 - **Effort**: M
-- **Risk**: MED (foundational — every LLM interaction flows through this)
+- **Risk**: MED (extends existing code, introduces new patterns)
 - **Depends on**: 039, 040, 041, 042
 - **Category**: direction
-- **Planned at**: commit `bf83142`, 2026-06-30
+- **Planned at**: commit `07daac6`, 2026-06-30
 
 ## Why this matters
 
-Plan 039 delivered the bare-minimum agent: `Agent.run()` and `Agent.run_structured()` — single-turn, no tools. This plan adds what makes it a real agent: multi-turn conversation, tool calling, and a tool registry. The old `evaluate/agents/` directory tried to solve this by spawning agent CLIs as subprocess — wrong direction.
+Plan 039 gave us single-turn evaluation. This plan adds multi-turn with tools (agentic scraping), 3-tier prompt assembly (Hermes' prompt stability design), tool auto-discovery (Hermes' AST pattern), and identity loading (SOUL.md). After this plan, the HaxJobs native agent is complete — plans 045 and 048 wire it into onboarding and evaluation.
 
-This plan extends `src/haxjobs/agent/agent.py` with:
-1. Multi-turn loop with tool calling (adds to the `run()` method from 039)
-2. Tool registry (`registry.py`) — decorator-based, any module can register tools
-3. Built-in tools (`tools.py`) — `web_search`, `fetch_page`
+## Design — copied from Hermes docs + source
 
-Nothing from plan 039 gets deleted. This plan extends the Agent class with new methods and adds new modules alongside the existing one.
+| Feature | Copied from | Source |
+|---------|------------|--------|
+| 3-tier prompt assembly | Hermes `agent/prompt_builder.py` | stable/context/volatile tiers |
+| AST tool auto-discovery | Hermes `tools/registry.py` | scan `tools/*.py` for `registry.register()` |
+| `check_fn` availability gating | Hermes registry | tool absent from schemas if check fails |
+| SOUL.md identity loading | Hermes `load_soul_md()` | markdown file, not inline string |
+| Agent-level tool interception | Hermes `handle_function_call()` | todo/memory/delegate bypass registry |
+| Message alternation enforcement | Hermes agent loop | never 2 assistants in a row |
+| `SUMMARY_PREFIX` | Hermes `context_compressor.py` | "compacted content is reference-only" |
 
-## Design
+## Final file structure
 
 ```
 src/haxjobs/agent/
-  __init__.py     # re-exports
-  agent.py        # Agent class: run(), run_with_tools()
-  registry.py     # ToolRegistry: @tool decorator, register, list_tools()
-  tools.py        # Built-in tools: web_search, fetch_page, scrape_url
+  __init__.py       → re-exports Agent, get_prompt  (from 039)
+  agent.py          → ~120 lines (run, run_structured, run_with_tools from 039 + new)
+  prompts.py        → ~30 lines (template registry, from 039)
+  prompt.py         → ~80 lines NEW — build_system_prompt with 3 tiers
+  registry.py       → ~50 lines NEW — AST auto-discovery, check_fn, dispatch
+  tools.py          → ~60 lines NEW — web_search, fetch_page, scrape_careers_page
+  identity.py       → ~30 lines NEW — load soul.md + user.md + memory.md
 ```
 
-### Agent class
+Total: ~370 lines across 7 files (up from ~100 in plan 039).
+
+## New modules
+
+### 1. `prompt.py` — 3-tier system prompt (Hermes design)
 
 ```python
-class Agent:
-    def __init__(self, model: str | None = None):
-        cfg = load_provider_config()  # from ~/.haxjobs/config.toml
-        self.client = OpenAI(
-            api_key=cfg["provider"]["api_key"],
-            base_url=cfg["provider"]["base_url"],
-        )
-        self.model = model or cfg["provider"]["model"]
-        self.max_turns = 10
-        self.context_limit = 128_000  # tokens — safe for most models
+"""3-tier system prompt assembly: stable → context → volatile.
+Copied from Hermes agent/prompt_builder.py design."""
+from datetime import datetime, timezone
 
-    def run(
-        self,
-        prompt: str,
-        system: str | None = None,
-        tools: list[dict] | None = None,
-        max_turns: int | None = None,
-        temperature: float = 0.3,
-    ) -> str:
-        """Run agent with optional tools. Returns final text response."""
-        messages = []
-        if system:
-            messages.append({"role": "system", "content": system})
-        messages.append({"role": "user", "content": prompt})
 
-        tool_map = {}
-        if tools:
-            from haxjobs.agent.registry import get_registry
-            tool_map = {t["function"]["name"]: get_registry().get_tool(t["function"]["name"]) for t in tools}
+def build_system_prompt(
+    identity: str,           # from ~/.haxjobs/soul.md
+    memory: str = "",        # from ~/.haxjobs/memory.md
+    user_profile: str = "",  # from ~/.haxjobs/user.md
+    skills_index: str = "",  # from skills/*/SKILL.md frontmatter
+    context_files: str = "", # from .haxjobs/AGENTS.md etc.
+    platform: str = "web",   # web | cli | cron
+) -> str:
+    """Assemble the cached system prompt from 3 ordered tiers.
+    
+    Tier 1: stable  — identity, tool guidance, skills index, platform hint
+    Tier 2: context — AGENTS.md, project context files  
+    Tier 3: volatile — memory snapshot, user profile, timestamp
+    """
+    parts = [_stable_tier(identity, skills_index, platform)]
+    if context_files:
+        parts.append(_context_tier(context_files))
+    parts.append(_volatile_tier(memory, user_profile))
+    return "\n\n".join(filter(None, parts))
 
-        for _ in range(max_turns or self.max_turns):
-            kwargs = {"model": self.model, "messages": messages, "temperature": temperature}
-            if tools:
-                kwargs["tools"] = tools
 
-            response = self.client.chat.completions.create(**kwargs)
-            msg = response.choices[0].message
+def _stable_tier(identity: str, skills_index: str, platform: str) -> str:
+    platform_hints = {
+        "web": "You are serving results to a web dashboard. Include structured data.",
+        "cli": "You are running from the command line. Be concise.",
+        "cron": "Running unattended. Write results to the database directly.",
+    }
+    sections = [identity]
+    if skills_index:
+        sections.append(f"## Available skills\n{skills_index}")
+    sections.append(platform_hints.get(platform, platform_hints["web"]))
+    return "\n\n".join(sections)
 
-            if msg.tool_calls:
-                messages.append({"role": "assistant", "tool_calls": msg.tool_calls})
-                for tc in msg.tool_calls:
-                    fn = tool_map.get(tc.function.name)
-                    if fn:
-                        import json
-                        args = json.loads(tc.function.arguments)
-                        result = fn(**args)
-                        messages.append({
-                            "role": "tool",
-                            "tool_call_id": tc.id,
-                            "content": str(result),
-                        })
-            else:
-                return msg.content or ""
 
-        return messages[-1].get("content", "") if messages else ""
+def _context_tier(context_files: str) -> str:
+    return f"# Project context\n{context_files}"
 
-    def run_structured(
-        self,
-        prompt: str,
-        system: str | None = None,
-        json_schema: dict | None = None,
-        temperature: float = 0.3,
-    ) -> dict:
-        """Run agent expecting structured JSON output. No tools."""
-        messages = []
-        if system:
-            messages.append({"role": "system", "content": system})
-        messages.append({"role": "user", "content": prompt})
 
-        kwargs = {"model": self.model, "messages": messages, "temperature": temperature}
-        if json_schema:
-            kwargs["response_format"] = {
-                "type": "json_schema",
-                "json_schema": {"name": "response", "schema": json_schema},
-            }
-
-        response = self.client.chat.completions.create(**kwargs)
-        import json
-        return json.loads(response.choices[0].message.content)
+def _volatile_tier(memory: str, user_profile: str) -> str:
+    parts = []
+    if memory:
+        parts.append(f"## Memory\n{memory}")
+    if user_profile:
+        parts.append(f"## User profile\n{user_profile}")
+    parts.append(f"Current time: {datetime.now(timezone.utc).isoformat()}")
+    return "\n\n".join(parts)
 ```
 
-### Tool registry
+### 2. `identity.py` — SOUL.md loading (Hermes pattern)
 
 ```python
-"""Tool registry — decorator-based, any module can register tools."""
+"""Load agent identity from markdown files. Copied from Hermes load_soul_md()."""
+from pathlib import Path
 
-_registry: "ToolRegistry | None" = None
+HAXJOBS_HOME = Path.home() / ".haxjobs"
 
+DEFAULT_IDENTITY = """You are HaxJobs, a job search agent. Your purpose is to help a candidate 
+find and apply to jobs they are qualified for. You evaluate job descriptions 
+against the candidate's profile, score fit from 0-100, identify gaps, and 
+generate application materials.
 
-class ToolRegistry:
-    def __init__(self):
-        self._tools: dict[str, callable] = {}
-        self._schemas: dict[str, dict] = {}
+Be honest — false hope wastes the candidate's time. When a job is a poor fit, 
+say so clearly. When it's a good fit, give specific evidence from the profile.
 
-    def register(self, name: str, description: str, parameters: dict):
-        """Decorator: register a tool function."""
-        def decorator(fn):
-            self._tools[name] = fn
-            self._schemas[name] = {
-                "type": "function",
-                "function": {
-                    "name": name,
-                    "description": description,
-                    "parameters": parameters,
-                },
-            }
-            return fn
-        return decorator
-
-    def get_tool(self, name: str) -> callable | None:
-        return self._tools.get(name)
-
-    def get_schemas(self, names: list[str] | None = None) -> list[dict]:
-        if names:
-            return [self._schemas[n] for n in names if n in self._schemas]
-        return list(self._schemas.values())
+You are part of a deterministic pipeline. Your LLM calls handle the fuzzy parts 
+(evaluation, CV extraction, scraping unstructured sites). Everything else 
+(filtering, classification, pack assembly) is handled by config-driven rules."""
 
 
-def get_registry() -> ToolRegistry:
-    global _registry
-    if _registry is None:
-        _registry = ToolRegistry()
-    return _registry
+def load_identity() -> str:
+    """Load identity from ~/.haxjobs/soul.md, fall back to default."""
+    soul_path = HAXJOBS_HOME / "soul.md"
+    if soul_path.exists():
+        return soul_path.read_text(encoding="utf-8").strip()
+    return DEFAULT_IDENTITY
+
+
+def load_memory() -> str:
+    """Load persistent memory from ~/.haxjobs/memory.md."""
+    path = HAXJOBS_HOME / "memory.md"
+    return path.read_text(encoding="utf-8").strip() if path.exists() else ""
+
+
+def load_user_profile() -> str:
+    """Load user profile from ~/.haxjobs/user.md."""
+    path = HAXJOBS_HOME / "user.md"
+    return path.read_text(encoding="utf-8").strip() if path.exists() else ""
 ```
 
-### Built-in tools
+### 3. `registry.py` — AST auto-discovery (Hermes pattern)
 
 ```python
-"""Built-in tools for the HaxJobs agent."""
+"""Tool registry with AST auto-discovery. Copied from Hermes tools/registry.py."""
+import ast
+import importlib
+from pathlib import Path
+from typing import Any, Callable
 
-from haxjobs.agent.registry import get_registry
-
-_registry = get_registry()
+ToolHandler = Callable[..., str]
 
 
-@_registry.register(
-    name="web_search",
-    description="Search the web for job listings, company careers pages, or hiring information",
-    parameters={
+class ToolEntry:
+    name: str
+    handler: ToolHandler
+    schema: dict
+    check_fn: Callable[[], bool] | None
+    emoji: str
+
+
+_registry: dict[str, ToolEntry] = {}
+
+
+def register(
+    name: str,
+    handler: ToolHandler,
+    schema: dict,
+    *,
+    check_fn: Callable[[], bool] | None = None,
+    emoji: str = "🔧",
+) -> None:
+    """Register a tool. Called at module level in tools/*.py files."""
+    _registry[name] = ToolEntry()
+    _registry[name].name = name
+    _registry[name].handler = handler
+    _registry[name].schema = schema
+    _registry[name].check_fn = check_fn
+    _registry[name].emoji = emoji
+
+
+def get_definitions() -> list[dict]:
+    """Return OpenAI-compatible tool schemas for available tools."""
+    defs = []
+    for entry in _registry.values():
+        if entry.check_fn is not None:
+            try:
+                if not entry.check_fn():
+                    continue  # unavailable — skip from schemas
+            except Exception:
+                continue
+        defs.append({"type": "function", "function": entry.schema})
+    return defs
+
+
+def dispatch(name: str, args: dict) -> str:
+    """Execute a registered tool. Returns result string or error JSON."""
+    if name not in _registry:
+        return '{"error": "Unknown tool: ' + name + '"}'
+    try:
+        return _registry[name].handler(**args)
+    except Exception as e:
+        return '{"error": "Tool ' + name + ' failed: ' + str(e) + '"}'
+
+
+def discover_builtin_tools(tools_dir: str | None = None) -> None:
+    """Scan tools/*.py for top-level register() calls and import them.
+    Uses AST to avoid importing files that don't register anything."""
+    if tools_dir is None:
+        tools_dir = str(Path(__file__).parent / "tools")
+    tools_path = Path(tools_dir)
+    if not tools_path.is_dir():
+        return
+    for path in sorted(tools_path.glob("*.py")):
+        if path.name.startswith("_"):
+            continue
+        source = path.read_text(encoding="utf-8")
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            continue
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == "register"
+            ):
+                importlib.import_module(f"haxjobs.agent.tools.{path.stem}")
+                break
+
+
+def list_tools() -> list[str]:
+    """Return names of all registered tools (for debugging)."""
+    return sorted(_registry.keys())
+```
+
+### 4. `tools.py` — Built-in tools 
+
+```python
+"""Built-in tools for HaxJobs agent: web_search, fetch_page, scrape_careers_page."""
+import json
+import os
+import urllib.request
+import urllib.parse
+import urllib.error
+from haxjobs.agent.registry import register
+
+# Schemas as OpenAI function definitions
+WEB_SEARCH_SCHEMA = {
+    "name": "web_search",
+    "description": "Search the web for job listings or company career pages",
+    "parameters": {
         "type": "object",
         "properties": {
             "query": {"type": "string", "description": "Search query"},
         },
         "required": ["query"],
     },
-)
-def web_search(query: str) -> str:
-    # ponytail: use requests + DuckDuckGo HTML scraping, no API key needed
-    import requests
-    try:
-        resp = requests.get(
-            "https://html.duckduckgo.com/html/",
-            params={"q": query},
-            headers={"User-Agent": "HaxJobs/1.0"},
-            timeout=10,
-        )
-        # Extract result snippets...
-        return resp.text[:4000]
-    except Exception as e:
-        return f"Search failed: {e}"
+}
 
-
-@_registry.register(
-    name="fetch_page",
-    description="Fetch and extract text content from a URL (careers page, job listing, company site)",
-    parameters={
+FETCH_PAGE_SCHEMA = {
+    "name": "fetch_page",
+    "description": "Fetch and extract text content from a URL",
+    "parameters": {
         "type": "object",
         "properties": {
             "url": {"type": "string", "description": "URL to fetch"},
         },
         "required": ["url"],
     },
-)
-def fetch_page(url: str) -> str:
-    import requests
+}
+
+
+def web_search(query: str) -> str:
+    """Search DuckDuckGo HTML (no API key needed)."""
+    url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(query)}"
+    # ponytail: basic search, add SERP API when free tier rate-limits
     try:
-        resp = requests.get(url, headers={"User-Agent": "HaxJobs/1.0"}, timeout=15)
-        # Strip HTML tags for text extraction
-        import re
-        text = re.sub(r"<[^>]+>", " ", resp.text)
-        text = re.sub(r"\s+", " ", text)
-        return text[:8000]
+        with urllib.request.urlopen(url, timeout=15) as resp:
+            return resp.read().decode("utf-8", errors="replace")[:8000]
     except Exception as e:
-        return f"Fetch failed: {e}"
+        return json.dumps({"error": str(e)})
+
+
+def fetch_page(url: str) -> str:
+    """Fetch a URL and return text content."""
+    try:
+        req = urllib.request.Request(
+            url,
+            headers={"User-Agent": "HaxJobs/1.0"},
+        )
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return resp.read().decode("utf-8", errors="replace")[:16000]
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+
+# Register at module level — auto-discovered by registry.discover_builtin_tools()
+register(
+    name="web_search",
+    handler=web_search,
+    schema=WEB_SEARCH_SCHEMA,
+    emoji="🔍",
+)
+
+register(
+    name="fetch_page",
+    handler=fetch_page,
+    schema=FETCH_PAGE_SCHEMA,
+    emoji="📄",
+)
 ```
 
-### Usage pattern — how other modules call the agent
+### 5. Agent extensions (add to existing `agent.py` from 039)
+
+Add these methods to the Agent class:
 
 ```python
-from haxjobs.agent import Agent
-
-agent = Agent()  # reads config from ~/.haxjobs/config.toml
-
-# Structured output (evaluation, CV extraction)
-result = agent.run_structured(
-    prompt="Evaluate this job against the profile...",
-    system="You are a job-candidate fit evaluator...",
-    json_schema={...},
-)
-
-# Tool-using (scraper discovery, job research)
-from haxjobs.agent.registry import get_registry
-tools = get_registry().get_schemas(["web_search", "fetch_page"])
-result = agent.run(
-    prompt="Find the careers page for Monzo and list all engineering roles...",
-    system="You are a job discovery agent...",
-    tools=tools,
-)
+def run_with_tools(
+    self,
+    prompt: str,
+    system: str | None = None,
+    tools: list[dict] | None = None,
+    max_turns: int = 5,
+    temperature: float = 0.3,
+) -> str:
+    """Multi-turn agent loop with tool calling. Max <max_turns> iterations.
+    Enforces message alternation: never two assistant messages in a row."""
+    from haxjobs.agent.registry import dispatch, get_definitions
+    
+    if tools is None:
+        tools = get_definitions()
+    
+    messages = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
+    
+    for _ in range(max_turns):
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            tools=tools if tools else None,
+            temperature=temperature,
+        )
+        msg = response.choices[0].message
+        
+        if msg.content and not msg.tool_calls:
+            return _strip_code_fence(msg.content)
+        
+        if not msg.tool_calls:
+            return msg.content or ""
+        
+        # Append assistant message with tool calls
+        assistant_msg = {"role": "assistant", "content": msg.content or ""}
+        assistant_msg["tool_calls"] = [
+            {"id": tc.id, "type": "function", "function": {"name": tc.function.name, "arguments": tc.function.arguments}}
+            for tc in msg.tool_calls
+        ]
+        messages.append(assistant_msg)
+        
+        # Execute tools and append results
+        for tc in msg.tool_calls:
+            args = json.loads(tc.function.arguments)
+            result = dispatch(tc.function.name, args)
+            messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
+    
+    # Max turns exhausted — ask model for final answer
+    messages.append({"role": "user", "content": "Summarize what you found."})
+    final = self.client.chat.completions.create(
+        model=self.model, messages=messages, temperature=temperature,
+    )
+    return _strip_code_fence(final.choices[0].message.content or "")
 ```
 
 ## Steps
 
-### Step 1: Extend Agent class with multi-turn tool loop
+### Step 1: Verify plan 039 is complete
 
-Add to the existing `src/haxjobs/agent/agent.py` from plan 039. The `__init__`, `run()`, `run_structured()`, and `_load_provider_config()` already exist. Add the tool-calling variant:
+```bash
+uv run python -c "from haxjobs.agent import Agent, get_prompt; print('ok')"
+```
 
-New method `run_with_tools()` added to the Agent class. The existing `run()` and `run_structured()` methods stay unchanged for simple single-turn use.
+### Step 2: Create new modules
 
-**Verify**: `uv run python -c "from haxjobs.agent import Agent; a = Agent(); print(hasattr(a, 'run_with_tools'))"` → True
+Write `prompt.py`, `registry.py`, `tools.py`, `identity.py` as above.
 
-### Step 2: Create registry.py and tools.py
+### Step 3: Extend agent.py
 
-Create `src/haxjobs/agent/registry.py` and `src/haxjobs/agent/tools.py` as shown in the Design section above. Update `__init__.py` to export the new symbols.
+Add `run_with_tools()` method to the existing Agent class. Add imports for `_strip_code_fence` and `dispatch`.
 
-### Step 3: Wire provider config loading reference
-
-Ensure the config loading in agent.py matches plan 039's `_load_provider_config()`:
+### Step 4: Update __init__.py
 
 ```python
-def load_provider_config() -> dict:
-    """Load provider config from ~/.haxjobs/config.toml.
-    Falls back to env vars: DEEPSEEK_API_KEY, OPENAI_API_KEY."""
-    import os
-    from pathlib import Path
-    import tomllib
-
-    config_path = Path.home() / ".haxjobs" / "config.toml"
-    if config_path.exists():
-        with open(config_path, "rb") as f:
-            return tomllib.load(f)
-
-    # Fallback: env vars
-    if os.getenv("DEEPSEEK_API_KEY"):
-        return {
-            "provider": {
-                "name": "deepseek",
-                "api_key": os.getenv("DEEPSEEK_API_KEY"),
-                "base_url": "https://api.deepseek.com",
-                "model": "deepseek-chat",
-            }
-        }
-    raise RuntimeError("No provider configured. Run haxjobs start and visit /setup.")
+from haxjobs.agent.agent import Agent, _strip_code_fence
+from haxjobs.agent.prompts import get_prompt, PromptTemplate, PROMPTS
+from haxjobs.agent.prompt import build_system_prompt
+from haxjobs.agent.identity import load_identity, load_memory, load_user_profile
+from haxjobs.agent.registry import register, dispatch, discover_builtin_tools, get_definitions
+__all__ = ["Agent", "get_prompt", "build_system_prompt", "load_identity", ...]
 ```
 
-### Step 4: Write tests
-
-`tests/test_agent.py`:
-- `test_agent_init_from_config` — loads from temp config.toml
-- `test_agent_init_from_env` — falls back to DEEPSEEK_API_KEY
-- `test_agent_run_structured` — mocks OpenAI call, returns structured dict
-- `test_agent_run_with_tools` — mocks tool call loop
-- `test_tool_registry_register` — decorator stores tool
-- `test_tool_registry_get_schemas` — returns OpenAI-compatible tool schemas
-- `test_builtin_tools_exist` — web_search and fetch_page registered
+### Step 5: Create soul.md + user.md defaults
 
 ```bash
-uv run pytest -q tests/test_agent.py
+mkdir -p ~/.haxjobs
+# soul.md — the DEFAULT_IDENTITY from identity.py is the fallback
+# user.md — written by onboarding (plan 045)
+# memory.md — written by the agent after cycles (plan 057, future)
 ```
 
-### Step 5: Commit
+### Step 6: Write tests
+
+`tests/test_agent_full.py`:
+
+- `test_registry_register_and_dispatch` — register a mock tool, dispatch it
+- `test_registry_check_fn_gates` — tool with failing check_fn excluded from schemas
+- `test_tools_web_search` — mocked URL response
+- `test_tools_fetch_page` — mocked URL response
+- `test_build_system_prompt_tiers` — identity, context, volatile all present and ordered
+- `test_build_system_prompt_no_context` — context files optional
+- `test_load_identity_default` — when soul.md doesn't exist, returns default
+- `test_run_with_tools_single_turn` — model returns text, no tools called
+- `test_run_with_tools_one_tool_cycle` — model calls tool, agent dispatches, gets text
+- `test_message_alternation` — history never has two assistant messages in a row
+- `test_max_turns_exhausted` — loops max_turns times then summarizes
 
 ```bash
-git commit -m "add HaxJobs native agent: loop, tool registry, built-in tools"
+uv run pytest -q tests/test_agent_full.py tests/test_agent_minimal.py
+```
+
+### Step 7: Commit
+
+```bash
+git commit -m "add full native agent: AST tool registry, 3-tier prompts, soul.md identity, multi-turn"
 ```
 
 ## Done criteria
 
-- [ ] `Agent.run()` returns text from mocked LLM
-- [ ] `Agent.run_structured()` returns dict from validated JSON schema
-- [ ] Tool registry stores and retrieves tools by name
-- [ ] `web_search` and `fetch_page` registered as built-in tools
-- [ ] Provider config loaded from `~/.haxjobs/config.toml`
-- [ ] Falls back to `DEEPSEEK_API_KEY` env var
-- [ ] 5+ tests pass
-- [ ] `openai` already in deps from plan 039
+- [ ] `run_with_tools()` executes tool calls and returns final text
+- [ ] Registry auto-discovers tools from `tools/*.py` at import time
+- [ ] `check_fn` gates tool availability (failing check → tool excluded from schemas)
+- [ ] `build_system_prompt()` assembles stable→context→volatile in order
+- [ ] `load_identity()` reads `~/.haxjobs/soul.md`, falls back to default
+- [ ] `web_search` and `fetch_page` work (mocked in tests, real in pipeline)
+- [ ] Message alternation enforced in multi-turn history
+- [ ] Max turns respected (default 5)
+- [ ] `_strip_code_fence()` applied to all text responses
+- [ ] All 11 new tests pass + all 7 plan-039 tests still pass
+- [ ] Provider config from `~/.haxjobs/config.toml`
 
 ## STOP conditions
 
-- `from openai import OpenAI` fails — `uv add openai` didn't run
-- Tool decorator causes import-time side effects — ensure registry is lazy-initialized
-- DeepSeek API returns different tool call format than OpenAI — test with real call if mocked tests pass but real fails
+- AST discovery fails on syntax error in user tool → logged as warning, skipped
+- Tool handler throws → wrapped in JSON error string, returned to model
+- `_strip_code_fence()` strips too much → test with real DeepSeek output that wraps JSON in ```
+
+## What's still deferred (plan 057 — future)
+
+- Skill directory convention: `~/.haxjobs/skills/evaluate-job/SKILL.md`
+- Skill loader with frontmatter parsing (name, description, tools whitelist)
+- Skills index injection into system prompt
+- Context compression (SUMMARY_PREFIX for multi-turn scraping past 5 turns)
+- Provider fallback chain (DeepSeek down → try OpenAI)
