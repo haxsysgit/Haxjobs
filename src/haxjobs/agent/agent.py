@@ -1,18 +1,29 @@
 """Minimal agent loop — single-turn. Extended by plan 043 with tools + tiers."""
+import json
 import os
+
+import haxjobs.agent.tools  # noqa: F401 - registers built-in job-search tools
 from openai import OpenAI
 
 
 class Agent:
     """Thin wrapper over OpenAI-compatible chat API."""
 
-    def __init__(self, model: str | None = None, timeout: int = 60):
+    def __init__(
+        self,
+        model: str | None = None,
+        timeout: int = 60,
+        tools: list[str] | None = None,
+        exclude_tools: list[str] | None = None,
+    ):
         cfg = self._load_config()
         p = cfg["provider"]
         self.client = OpenAI(
             api_key=p["api_key"], base_url=p["base_url"], timeout=timeout
         )
         self.model = model or p["model"]
+        self.tools = tools
+        self.exclude_tools = exclude_tools
 
     @staticmethod
     def _load_config() -> dict:
@@ -63,3 +74,65 @@ class Agent:
             max_tokens=max_tokens,
         )
         return response.choices[0].message.content or ""
+
+    def run_with_tools(
+        self,
+        prompt: str,
+        system: str | None = None,
+        max_turns: int = 5,
+        temperature: float = 0.3,
+        max_tokens: int = 4096,
+    ) -> str:
+        """Run a short OpenAI tool-call loop for discovery/research tasks."""
+        from haxjobs.agent.registry import dispatch, get_schemas
+
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+        schemas = get_schemas(self.tools, self.exclude_tools)
+
+        for _ in range(max_turns):
+            kwargs = {
+                "model": self.model,
+                "messages": messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+            }
+            if schemas:
+                kwargs["tools"] = schemas
+            response = self.client.chat.completions.create(**kwargs)
+            msg = response.choices[0].message
+            tool_calls = getattr(msg, "tool_calls", None)
+            if not tool_calls:
+                return msg.content or ""
+
+            messages.append({
+                "role": "assistant",
+                "content": msg.content or "",
+                "tool_calls": [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments,
+                        },
+                    }
+                    for tc in tool_calls
+                ],
+            })
+            for tc in tool_calls:
+                try:
+                    args = json.loads(tc.function.arguments or "{}")
+                except json.JSONDecodeError as e:
+                    result = json.dumps({"error": f"Invalid tool arguments: {e}"})
+                else:
+                    result = dispatch(tc.function.name, args)
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tc.id,
+                    "content": result,
+                })
+
+        return "Max tool turns reached. Run again with a narrower task."

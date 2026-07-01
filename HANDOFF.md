@@ -1,27 +1,48 @@
 # Handoff
 
-**Plans 038, 040, 041, 042 are DONE.** Commits: `6d65912` (040), `6929976` (041), `17e25af` (042), `72b15ff` (mark).
+**Current repo:** `/home/hax/haxjobs`
 
-- 038: README shows "Under construction" warning
-- 040: Repo restructured as `uv` + `hatchling` package under `src/haxjobs/`
-- 041: FastAPI backend — feature-based structure, 7 feature modules, 9 API paths
-- 042: Frontend shell — Vite + React 19 + TypeScript + shadcn/ui v4, sidebar layout, 4 routes
+## Completed product-wave plans
 
-**42/44 were swapped** — frontend shell runs before provider setup (UI needs to exist first).
+- **038** — under-construction signal
+- **040** — `uv` + hatchling package under `src/haxjobs/`; repo-root `haxjobs.toml` preserved
+- **041** — FastAPI backend at `uv run haxjobs start` on `localhost:8241`
+- **042** — Vite + React 19 + shadcn/ui frontend shell, Spotify theme, Lato body + Benne headings
+- **044** — provider setup UI/API, credentials in `~/.haxjobs/haxjobs.toml`
+- **039** — bare native `Agent.run()` wrapper + prompt registry
+- **043** — full native agent harness: Pi-style registry/dispatch, job-search tools, prompt tiers, identity files
 
+## Plan 043 deliverable
+
+Files added/extended under `src/haxjobs/agent/`:
+
+- `registry.py` — `ToolDef`, `register()`, `get_schemas()`, `dispatch()`
+- `tools.py` — v1 tools only: `web_search`, `fetch_page`, read-only `db_query`
+- `prompt.py` — stable → context → volatile `build_system_prompt()`
+- `identity.py` — `~/.haxjobs/soul.md`, `memory.md`, `user.md` loaders with safe default identity
+- `agent.py` — keeps `run()` unchanged; adds `run_with_tools(max_turns=5)`
+
+Explicitly **not** added: Pi coding-agent tools (`read`, `write`, `edit`, `bash`, `grep`, `find`, `ls`). HaxJobs remains a job-search automation harness, not a coding agent.
+
+## Verification
+
+Latest Plan 043 checks:
+
+```bash
+PYTHONPATH=src:. .venv/bin/python -m pytest -q tests/test_agent_full.py tests/test_agent_minimal.py
+# 22 passed
+
+PYTHONPATH=src:. .venv/bin/python -m pytest -q tests/
+# 277 passed
+
+PYTHONPATH=src:. .venv/bin/python -m py_compile src/haxjobs/agent/*.py tests/test_agent_full.py
+# clean
 ```
-uv run haxjobs start   →  http://localhost:8241   (API + frontend)
-cd frontend && npm run dev  →  http://localhost:5173  (dev with HMR)
-```
 
-Frontend: Dashboard, Jobs, Setup, Profile — all placeholder pages. shadcn sidebar layout with `react-router-dom`. 255 tests pass.
+## Next
 
-**Deviations from plan 042:**
-- `react-router-dom` instead of `@tanstack/react-router` (plan's code patterns match react-router-dom exactly, tanstack needs file-based routing setup)
-- shadcn v4 `render` prop instead of v3 `asChild` (breaking API change)
-- 8 shadcn components instead of 17 (only what the shell actually uses)
-- `npx tsc --noEmit` instead of `npx tsc -b --noEmit` (Vite template doesn't use project references)
+**Plan 045** — Onboarding backend: CV upload, native-agent extraction, wizard API.
 
-**Next: Plan 044** — Provider setup (backend API + frontend SetupPage).
+## Dirty working tree note
 
-**Working dir:** `/home/hax/haxjobs`
+`src/haxjobs/cv_variants/backend_python/_test_output.pdf` is a pre-existing generated PDF modification and should not be included in code commits.

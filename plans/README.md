@@ -12,9 +12,9 @@ Each executor: read the plan fully, honor STOP conditions, update status row.
 | 040 | Restructure repo into installable package (uv + hatchling) | P1 | M | 038 | DONE |
 | 041 | FastAPI backend — feature-based structure, serve frontend | P1 | M | 040 | ✅ DONE |
 | 042 | Frontend shell — React + Vite + shadcn/ui (minimal deps) | P1 | M | 040, 041 | ✅ DONE |
-| 043 | Full native agent — job-search tools, prompt tiers, identity | P1 | M | 039, 040, 041, 044 | TODO ← NEXT |
+| 043 | Full native agent — job-search tools, prompt tiers, identity | P1 | M | 039, 040, 041, 044 | ✅ DONE |
 | 044 | Provider setup — first-run API key + model config | P1 | S | 040, 041, 042 | ✅ DONE |
-| 045 | Onboarding backend — CV upload, agent extraction, wizard API | P1 | M | 041, 043 | TODO |
+| 045 | Onboarding backend — CV upload, agent extraction, wizard API | P1 | M | 041, 043 | TODO ← NEXT |
 | 046 | Onboarding frontend — multi-step wizard UI | P1 | M | 042, 045 | TODO |
 | 047 | Discovery API — scraper endpoints, run from UI | P1 | M | 041 | TODO |
 | 048 | Agent-based evaluation — delete subprocess adapters, use native agent | P1 | M | 041, 043 | TODO |
@@ -66,8 +66,8 @@ Each executor: read the plan fully, honor STOP conditions, update status row.
 4. **042** — frontend shell
 5. **044** — provider setup
 6. **039** — bare agent (DONE)
-7. **043** — full agent (extends 039; NEXT)
-8. **045** — onboarding backend
+7. **043** — full agent (DONE)
+8. **045** — onboarding backend (NEXT)
 9. **046** — onboarding frontend
 10. **047** — discovery API
 11. **048** — native-agent evaluation
