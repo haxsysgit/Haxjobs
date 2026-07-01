@@ -1,131 +1,77 @@
-"""Pagination tests — tested at each layer independently."""
+"""Pagination tests — use shared test_db fixture, not inline schema."""
 import json
-import sqlite3
+
 from unittest.mock import patch
 
 
-def _fresh_conn():
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys=ON")
-    conn.executescript("""
-        CREATE TABLE IF NOT EXISTS jobs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            external_id TEXT UNIQUE,
-            title TEXT NOT NULL,
-            company TEXT NOT NULL,
-            location TEXT DEFAULT '',
-            jd_text TEXT DEFAULT '',
-            source_url TEXT DEFAULT '',
-            source TEXT DEFAULT 'unknown',
-            source_quality TEXT DEFAULT 'unknown',
-            status TEXT DEFAULT 'pending',
-            role_family TEXT DEFAULT 'unknown',
-            role_family_confidence REAL DEFAULT 0,
-            recommended_cv_variant TEXT DEFAULT 'unknown',
-            role_family_terms TEXT DEFAULT '[]',
-            pack_status TEXT DEFAULT 'none',
-            pack_dir TEXT DEFAULT '',
-            outreach_status TEXT DEFAULT 'none',
-            pack_review_status TEXT DEFAULT 'none',
-            pack_review_notes TEXT DEFAULT '',
-            pack_reviewed_at TEXT,
-            classified_at TEXT,
-            discovered_at TEXT NOT NULL DEFAULT (datetime('now')),
-            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-        );
-        CREATE TABLE IF NOT EXISTS evaluations (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            job_id INTEGER NOT NULL UNIQUE,
-            fit_score INTEGER NOT NULL,
-            fit_verdict TEXT NOT NULL,
-            level INTEGER NOT NULL,
-            level_name TEXT NOT NULL,
-            strongest_matches TEXT DEFAULT '[]',
-            major_gaps TEXT DEFAULT '[]',
-            sponsorship_risk TEXT DEFAULT 'medium',
-            summary TEXT DEFAULT '',
-            decision TEXT DEFAULT 'completed',
-            skip_reason TEXT DEFAULT '',
-            role_type TEXT DEFAULT '',
-            evaluated_by TEXT DEFAULT 'hermes',
-            evaluated_at TEXT NOT NULL DEFAULT (datetime('now')),
-            FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE
-        );
-        CREATE TABLE IF NOT EXISTS decisions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            job_id INTEGER NOT NULL,
-            decision TEXT NOT NULL,
-            reason TEXT DEFAULT '',
-            decided_at TEXT NOT NULL DEFAULT (datetime('now')),
-            FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE
-        );
-    """)
-    conn.commit()
-    # Seed 25 jobs
+def _seed_pagination_data():
+    """Seed 25 jobs (10 pending, 10 evaluated, 5 skipped)."""
+    from db.jobs import insert_job, update_job_status
+    from db.evaluations import save_evaluation
+
     for i in range(25):
-        status = "pending" if i < 10 else "evaluated" if i < 20 else "skipped"
-        cur = conn.execute("""
-            INSERT INTO jobs (title, company, location, source, status, discovered_at)
-            VALUES (?, ?, ?, ?, ?, datetime('now', ? || ' minutes'))
-        """, (f"Job {i}", f"Company {i}", "London", "test", status, str(-i)))
-        job_id = cur.lastrowid
-        if status == "evaluated":
-            conn.execute("""
-                INSERT INTO evaluations (job_id, fit_score, fit_verdict, level, level_name,
-                    strongest_matches, major_gaps, sponsorship_risk, summary, decision)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (job_id, 80 - i, "GOOD_FIT", 2, "Quick Apply",
-                  json.dumps([]), json.dumps([]), "low", f"Summary {i}", "completed"))
-    conn.commit()
-    return conn
+        job_id = insert_job(
+            title=f"Job {i}", company=f"Company {i}", location="London",
+            source="test",
+        )
+        if i < 10:
+            pass  # pending is default
+        elif i < 20:
+            # mark evaluated and insert evaluation
+            save_evaluation(job_id, {
+                "fit_score": 80 - i, "fit_verdict": "GOOD_FIT",
+                "level": 2, "level_name": "Quick Apply",
+                "strongest_matches": [], "major_gaps": [],
+                "sponsorship_risk": "low", "summary": f"Summary {i}",
+                "decision": "completed",
+            })
+        else:
+            update_job_status(job_id, "skipped")
 
 
-def test_db_pagination_returns_limited_results():
-    """get_jobs_with_evaluations respects limit parameter."""
+def _seed_simple_jobs(n=10):
+    from db.jobs import insert_job
+    for i in range(n):
+        insert_job(title=f"J{i}", company=f"C{i}", location="London", source="test")
+
+
+def test_db_pagination_returns_limited_results(test_db):
+    """get_jobs_with_evaluations respects limit/offset."""
+    _seed_pagination_data()
+
     import db.evaluations as db_evals
-
-    def make_conn():
-        return _fresh_conn()
-
-    with patch.object(db_evals, "get_db", side_effect=make_conn):
-        page = db_evals.get_jobs_with_evaluations(limit=10, offset=0)
-        assert len(page) == 10
-        page2 = db_evals.get_jobs_with_evaluations(limit=10, offset=10)
-        assert len(page2) == 10
-        ids1 = {r["id"] for r in page}
-        ids2 = {r["id"] for r in page2}
-        assert ids1.isdisjoint(ids2)
+    page = db_evals.get_jobs_with_evaluations(limit=10, offset=0)
+    assert len(page) == 10
+    page2 = db_evals.get_jobs_with_evaluations(limit=10, offset=10)
+    assert len(page2) == 10
+    ids1 = {r["id"] for r in page}
+    ids2 = {r["id"] for r in page2}
+    assert ids1.isdisjoint(ids2)
 
 
-def test_db_pagination_with_status_filter():
+def test_db_pagination_with_status_filter(test_db):
+    _seed_pagination_data()
+
     import db.evaluations as db_evals
-
-    def make_conn():
-        return _fresh_conn()
-
-    with patch.object(db_evals, "get_db", side_effect=make_conn):
-        result = db_evals.get_jobs_with_evaluations(status_filter="pending", limit=5, offset=0)
-        assert len(result) <= 5
-        for r in result:
-            assert r["status"] == "pending"
+    result = db_evals.get_jobs_with_evaluations(status_filter="pending", limit=5, offset=0)
+    assert len(result) <= 5
+    for r in result:
+        assert r["status"] == "pending"
 
 
-def test_db_no_limit_returns_all():
+def test_db_no_limit_returns_all(test_db):
+    _seed_pagination_data()
+
     import db.evaluations as db_evals
-
-    def make_conn():
-        return _fresh_conn()
-
-    with patch.object(db_evals, "get_db", side_effect=make_conn):
-        result = db_evals.get_jobs_with_evaluations()
-        assert len(result) == 25
+    result = db_evals.get_jobs_with_evaluations()
+    assert len(result) == 25
 
 
-def test_list_jobs_passes_params_to_db_layer():
+def test_list_jobs_passes_params_to_db_layer(test_db):
     """list_jobs forwards status_filter, offset, limit to get_jobs_with_evaluations."""
-    import db.evaluations as db_evals
+    _seed_simple_jobs(1)
 
+    import db.evaluations as db_evals
     fake_raw = [{
         "id": 1, "title": "T", "company": "C", "location": "", "source": "test",
         "source_quality": "direct", "role_family": "backend_python",
@@ -152,7 +98,7 @@ def test_list_jobs_passes_params_to_db_layer():
         assert len(result) == 1
 
 
-def test_list_jobs_backward_compat_no_args():
+def test_list_jobs_backward_compat_no_args(test_db):
     """list_jobs() with no args still works (backward compat)."""
     import db.evaluations as db_evals
 
