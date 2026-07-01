@@ -4,7 +4,7 @@
 
 [paths]
 # Root — everything derives from here
-home = "/home/hax/haxjobs-private-dev"
+home = "/home/hax/haxjobs"
 
 [paths.state]
 dir = "state"
