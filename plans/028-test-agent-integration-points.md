@@ -1,257 +1,382 @@
-# Plan 028: Test agent integration — native APIs, model switching, real evaluation
+# Plan 028: Test agent integration points for HaxJobs evaluator adapters
 
-> **Executor**: This plan tests the integration points found in Plan 027. The key difference from the shallow approach: we test NATIVE integration (direct function calls) first, then external (subprocess/API) as fallback. We also test model switching and rate-limit recovery.
->
-> **Drift check**: `test -f research/agent-integration-points.md && grep -c "### " research/agent-integration-points.md` — confirms Plan 027 research exists with per-agent sections.
+> **Executor**: This is a validation plan, not production adapter implementation. Your job is to prove which agent integration paths actually work on this machine, save raw evidence, and recommend the build order for Plan 029. Do not edit production source code.
 
 ## Status
 
 - **Priority**: P1
-- **Effort**: M (3-5 hours, mostly waiting for model responses)
-- **Risk**: MED (rate limits may block live tests; native APIs may not exist)
-- **Depends on**: Plan 027 (research report at `research/agent-integration-points.md`)
-- **Category**: testing
-- **Planned at**: commit `354429b`, 2026-06-29
+- **Effort**: M (2-4 hours, mostly waiting for agent responses)
+- **Risk**: MED (auth/rate limits may block live tests)
+- **Depends on**: Plan 027 completed research in `adapter_research/`
+- **Category**: testing / integration validation
+- **Planned at**: commit `499d9ee`, 2026-07-01
+
+## Drift check
+
+Run before doing any work:
+
+```bash
+test -d adapter_research \
+  && test -f adapter_research/00_summary.md \
+  && test -f adapter_research/01_hermes_agent.md \
+  && test -f adapter_research/02_codex.md \
+  && test -f adapter_research/03_claude_code.md \
+  && test -d adapter_research/hermes_sources \
+  && find adapter_research/hermes_sources -type f | wc -l
+```
+
+Expected: command exits 0 and prints a non-zero source count. If `adapter_research/` is missing, STOP and report: Plan 027 artifacts are not available in this worktree.
 
 ## Why this matters
 
-Plan 027 told us WHAT the deep integration points are. Plan 028 proves they work. The testing is ordered by priority:
+Plan 027 identified possible ways for HaxJobs to call coding agents. Plan 028 proves which ones are real enough for production/public release, not just working on Arinze's current machine:
 
-1. **Hermes native API** (P0) — the user's daily driver, most important
-2. **Model switching** (P0) — prove we can switch from GPT 5.5 to DeepSeek when rate-limited
-3. **Direct APIs** (P1) — Claude API, Gemini API — reliable fallbacks that don't depend on any agent binary
-4. **Other CLI agents** (P2) — Codex, Claude Code, Gemini CLI — if installed
-5. **Pi native integration** (P2) — extension/skill approach
+1. Can HaxJobs discover the agent via PATH/config instead of hardcoded `/home/hax/...` paths?
+2. Can HaxJobs call the agent headlessly without an interactive user?
+3. Can it select a model explicitly?
+4. Can it return clean JSON or schema-constrained output?
+5. What does failure look like when auth, model, quota, or rate limits break?
+6. What portable install/config/env requirements must Plan 029 document for public users?
+7. Which adapters should Plan 029 build first?
 
-## Test tiers
+The output of this plan is `research/test-results/`, not code under `evaluate/`. Treat local absolute paths as evidence only; production adapter recommendations must use `shutil.which()`, env vars, `Path.home()`, or documented config discovery.
 
-### Tier 1: Import test (30 seconds per agent)
+## Current research facts to use
 
-Can we import the agent's Python API at all?
+Use `adapter_research/` as the source of truth. Current known local tools from Plan 027 are examples, not production assumptions:
 
-```python
-# Hermes native
-from hermes_cli.xxx import yyy  # Exact import from Plan 027
-print("NATIVE IMPORT: OK")
+- Hermes: local binary may be `hermes`; native source may live under `Path.home() / ".hermes/hermes-agent"`; native Python entry point found in `agent/oneshot.py` as `run_oneshot()`.
+- Claude Code: binary may be `claude`; has `claude -p` CLI and documented `claude_agent_sdk` Python SDK. SDK may or may not be installed locally.
+- Codex: binary may be `codex`; version 0.139.0 locally; `codex exec` supports `--output-schema`, `--json`, `--model`, `--ephemeral`, `--skip-git-repo-check`, and `--output-last-message`.
+- Pi: binary may be `pi`; supports headless one-shot `pi -p <prompt> --mode json --no-tools --model <model>`.
+- Gemini CLI: binary may be `gemini`; supports `-p/--prompt`, `-m/--model`, and `-o/--output-format text|json|stream-json`.
+- OpenCode: binary may be `opencode`; supports `opencode run --format json -m provider/model`.
+- Cursor: binary may be `cursor`; use `cursor agent -p --output-format json --mode plan --trust`, not top-level `cursor --help`.
+- GitHub Copilot CLI: binary may be `copilot`; supports `-p/--prompt`, `--model`, `--output-format json`, `--allow-all-tools`, and `--yolo`.
+- Cline: not installed locally. Do not test it unless `command -v cline` succeeds.
 
-# Pi extension
-# (TypeScript — verify pi can load the extension)
+For every agent, record both local evidence and the portable discovery rule Plan 029 should implement.
+
+## In scope
+
+You may create only:
+
+```text
+research/test-results/
+  SUMMARY.md
+  test-matrix.md
+  portability.md         # public-release discovery/config notes per adapter
+  _scripts/              # optional tiny helper scripts for repeatable smoke tests
+  <agent>/               # raw stdout/stderr/metadata per test
 ```
 
-**Pass**: import succeeds. **Fail**: ModuleNotFoundError, dependency conflict.
+You may read:
 
-### Tier 2: Config reading test (1 minute per agent)
+- `adapter_research/**`
+- `evaluate/common.py`
+- `db/schema.py`
+- `haxjobs_config.py`
+- local agent help/config files, but never print secrets
 
-Can we read the agent's config and enumerate available models?
+## Out of scope
 
-```python
-# Hermes: read config.yaml, list models
-from hermes_cli.config import load_config
-cfg = load_config()
-print("MODELS:", [m["name"] for m in cfg.get("models", [])])
-print("PROVIDERS:", [p["provider"] for p in cfg.get("providers", [])])
+Do not edit:
+
+- `evaluate/**`
+- `db/**`
+- `discovery/**`
+- `haxjobs.toml`
+- `.env` or any auth/config file containing secrets
+- `plans/README.md` (the reviewer maintains the index)
+
+Do not install dependencies. If an SDK is missing, mark that test `BLOCKED: package not installed` and continue with that agent's CLI mode.
+
+## Test prompt and schema
+
+Use this tiny smoke prompt for every agent:
+
+```text
+Return only valid JSON matching this object: {"status":"ok","agent":"<agent>","model":"<model>"}. Do not include markdown.
 ```
 
-**Pass**: Returns non-empty model list. **Fail**: config unreadable, no models found.
-
-### Tier 3: Smoke test — trivial prompt (2-5 minutes per agent per model)
-
-Send the simplest possible prompt to each available model, verify response.
-
-```python
-prompt = 'Return EXACTLY: {"status":"ok","model":"<model_name>"}'
-
-# Native mode (Hermes)
-from hermes_cli.xxx import yyy
-result = yyy(prompt)
-print("RESULT:", result[:200])
-assert "ok" in result
-
-# External mode (Hermes CLI)
-subprocess.run(["hermes", "chat", "--yolo", "-Q", "-q", "--model", "deepseek", prompt])
-
-# Direct API (Claude)
-import urllib.request, json
-req = urllib.request.Request("https://api.anthropic.com/v1/messages", ...)
-response = json.loads(urllib.request.urlopen(req).read())
-```
-
-**Pass**: Valid response within 60s. **Record**: latency, model used, clean JSON? Markdown wrapping?
-
-### Tier 4: Model switching test (5 minutes)
-
-Prove the KEY use case: when model A rate-limits, model B takes over.
-
-```python
-models = ["gpt-5.5", "deepseek"]  # from config
-for model in models:
-    result = call_model(prompt, model=model)
-    if result and not is_rate_limited(result):
-        print(f"USING: {model}")
-        break
-```
-
-**Test scenario A** (preferred): Hermes is currently rate-limited on GPT 5.5. Verify DeepSeek works.
-**Test scenario B** (if not rate-limited): Record that both models work. The fallback logic is still proven.
-
-### Tier 5: Real evaluation test (5-15 minutes per agent)
-
-Run the FULL HaxJobs evaluation prompt against a real job and verify:
-- Response is valid JSON
-- All 9 evaluation fields present (fit_score, fit_verdict, level, level_name, strongest_matches, major_gaps, sponsorship_risk, summary, decision)
-- Score is in plausible range (0-100)
-- Level is in [1,2,3,4]
+Use this real-evaluation target for at least one working agent:
 
 ```bash
-# Generate the evaluation prompt
-PYTHONPATH=. python3 -c "
-from evaluate.common import build_prompt, build_profile_blurb
+PYTHONPATH=. python3 - <<'PY'
 from db.schema import init, get_db
+from evaluate.common import build_prompt
+
 init()
 conn = get_db()
-job = conn.execute('SELECT * FROM jobs WHERE id=4').fetchone()  # job #4 has a real JD
+row = conn.execute("""
+    SELECT * FROM jobs
+    WHERE length(coalesce(description, '')) > 500
+    ORDER BY id DESC
+    LIMIT 1
+""").fetchone()
 conn.close()
-prompt = build_prompt(dict(job))
-with open('/tmp/eval_prompt.txt', 'w') as f:
-    f.write(prompt)
-print(f'Prompt: {len(prompt)} chars')
-"
-
-# Test with each agent/mode
+if not row:
+    raise SystemExit('STOP: no job with a real JD found')
+prompt = build_prompt(dict(row))
+open('research/test-results/eval_prompt.txt', 'w').write(prompt)
+print(f"job_id={row['id']} prompt_chars={len(prompt)}")
+PY
 ```
 
-### Tier 6: Pi integration feasibility (15 minutes, interactive)
+Expected: prints a job id and prompt length, and writes `research/test-results/eval_prompt.txt`.
 
-If Plan 027 found that Pi's extension API supports custom tools:
-1. Write a minimal Pi extension `~/.pi/agent/extensions/haxjobs-test.ts` that registers a test tool
-2. Verify `/reload` loads it
-3. Verify the tool can be called from within Pi
+The real evaluation response must contain parseable JSON with these fields:
 
-If Plan 027 found Pi skills as the better path:
-1. Write a minimal skill `~/.pi/agent/skills/haxjobs/SKILL.md`
-2. Verify it appears in available skills
-3. Verify Pi can follow evaluation instructions from the skill
-
-## Test matrix
-
-Create this table and fill it in as you test:
-
-```
-research/test-results/test-matrix.md
+```text
+fit_score, fit_verdict, level, level_name, strongest_matches,
+major_gaps, sponsorship_risk, summary, decision
 ```
 
-| Agent | Mode | Import? | Config? | Smoke? | Model switch? | Real eval? | Latency | JSON clean? | Notes |
-|-------|------|---------|---------|--------|--------------|-----------|---------|-------------|-------|
-| Hermes | native | ✓ | ✓ (2 models) | ✓ deepseek | ✓ (gpt→deepseek) | ? | ? | ? | |
-| Hermes | external | N/A | N/A | ✓ gpt-5.5 | ? | ? | ? | ? | |
-| Claude | API | N/A | N/A | ✓ sonnet | N/A | ? | ? | ? | |
-| Gemini | API | N/A | N/A | ✓ flash | N/A | ? | ? | ? | |
-| ... | ... | ... | ... | ... | ... | ... | ... | ... | |
+## Required tests, in order
 
-Each ✓ must be backed by raw output saved in `research/test-results/<agent>/`.
+### 1. Inventory
 
-## Test artifacts
-
-```
-research/test-results/
-├── SUMMARY.md                  # Overall verdict table + recommendations
-├── hermes/
-│   ├── native_import.txt       # Import test output
-│   ├── native_config.txt       # Model list from config
-│   ├── native_smoke_gpt55.txt  # Smoke test with GPT 5.5
-│   ├── native_smoke_deepseek.txt
-│   ├── native_eval.txt         # Real evaluation output
-│   └── external_eval.txt       # CLI subprocess evaluation (comparison)
-├── claude_api/
-│   ├── smoke.txt
-│   └── eval.txt
-├── gemini_api/
-│   ├── smoke.txt
-│   └── eval.txt
-├── codex/  (if installed)
-├── pi/     (if feasible)
-└── test-matrix.md
-```
-
-## Priority order
-
-Test in this order — stop when you have enough working options:
-
-1. **Hermes native** — highest value. If we can import hermes_cli and call models directly, that's a massive win.
-2. **Hermes model switching** — prove DeepSeek works when GPT 5.5 is rate-limited.
-3. **Claude API** — most reliable external fallback. Always available, no agent binary needed.
-4. **Gemini API** — free tier, good budget fallback.
-5. **Other installed CLI agents** (Codex, Claude Code, Gemini CLI) — nice to have.
-6. **Pi integration** — different category entirely, lower priority than getting evaluation working.
-
-## Verification commands
+Create `research/test-results/inventory.txt` with versions and availability. Use PATH discovery, not absolute paths:
 
 ```bash
-# Hermes native import test
-cd /home/hax/.hermes/hermes-agent && python3 -c "
-import sys; sys.path.insert(0, '.')
-from hermes_cli.config import load_config
-cfg = load_config()
-print('Config keys:', list(cfg.keys())[:5])
-" 2>&1
-
-# Hermes model list
-cd /home/hax/.hermes/hermes-agent && python3 -c "
-import sys; sys.path.insert(0, '.')
-from hermes_cli.config import load_config
-cfg = load_config()
-for m in cfg.get('models', []):
-    print(f\"  {m.get('name','?')} → {m.get('provider','?')}\")
-" 2>&1
-
-# Claude API smoke test (REQUIRES ANTHROPIC_API_KEY env var)
-python3 -c "
-import os, json, urllib.request
-key = os.environ.get('ANTHROPIC_API_KEY', '')
-print('Key present:', bool(key))
-if key:
-    data = json.dumps({'model':'claude-3-5-sonnet-20241022','max_tokens':100,'messages':[{'role':'user','content':'Return EXACTLY {\"ok\":true}'}]}).encode()
-    req = urllib.request.Request('https://api.anthropic.com/v1/messages', data=data, headers={'x-api-key':key,'anthropic-version':'2023-06-01','content-type':'application/json'})
-    resp = json.loads(urllib.request.urlopen(req, timeout=30).read())
-    print(resp['content'][0]['text'][:200])
-" 2>&1
-
-# Gemini API smoke test (REQUIRES GEMINI_API_KEY env var)
-python3 -c "
-import os, json, urllib.request
-key = os.environ.get('GEMINI_API_KEY', '')
-print('Key present:', bool(key))
-if key:
-    url = f'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={key}'
-    data = json.dumps({'contents':[{'parts':[{'text':'Return EXACTLY {\"ok\":true}'}]}],'generationConfig':{'responseMimeType':'application/json'}}).encode()
-    req = urllib.request.Request(url, data=data, headers={'Content-Type':'application/json'})
-    resp = json.loads(urllib.request.urlopen(req, timeout=30).read())
-    print(resp['candidates'][0]['content']['parts'][0]['text'][:200])
-" 2>&1
+set +e
+for bin in hermes claude codex pi gemini opencode cursor copilot cline; do
+  echo "===== $bin ====="
+  if command -v "$bin" >/dev/null 2>&1; then
+    echo "path=$(command -v "$bin")"
+    timeout 10s "$bin" --version 2>&1 | head -20
+  else
+    echo "missing"
+  fi
+  echo
+ done
 ```
+
+Expected: record what is present on this machine, but do not fail the whole plan because an optional public adapter is missing.
+
+### 2. Hermes native API
+
+Try the native Python path first using `Path.home()`, not a hardcoded home directory:
+
+```bash
+mkdir -p research/test-results/hermes
+python3 - <<'PY' > research/test-results/hermes/native_import.txt 2>&1
+import sys
+from pathlib import Path
+repo = Path.cwd()
+hermes_src = Path.home() / '.hermes' / 'hermes-agent'
+print('hermes_src_exists', hermes_src.exists())
+if not hermes_src.exists():
+    raise SystemExit('IMPORT_BLOCKED: ~/.hermes/hermes-agent missing')
+sys.path.insert(0, str(hermes_src))
+from agent.oneshot import run_oneshot
+print('IMPORT_OK run_oneshot', callable(run_oneshot))
+PY
+```
+
+Then run one smoke call if import succeeds. Use a timeout. Save stdout/stderr to `research/test-results/hermes/native_smoke.txt`.
+
+STOP for Hermes native only if import conflicts or hangs. Continue to Hermes CLI.
+
+### 3. Hermes CLI fallback
+
+Run a smoke prompt through headless Hermes (`hermes -z` if available; otherwise use the CLI mode documented in `adapter_research/01_hermes_agent.md`). Save raw output to `research/test-results/hermes/cli_smoke.txt`.
+
+If Hermes reports rate limit / usage limit / HTTP 429 / payment required, save that output and mark Hermes live tests blocked. Continue to other agents.
+
+### 4. Claude Code
+
+First test SDK import only:
+
+```bash
+mkdir -p research/test-results/claude_code
+python3 - <<'PY' > research/test-results/claude_code/sdk_import.txt 2>&1
+try:
+    import claude_agent_sdk
+    print('IMPORT_OK', claude_agent_sdk.__file__)
+except Exception as e:
+    print('IMPORT_BLOCKED', type(e).__name__, str(e))
+PY
+```
+
+Then test CLI mode with `claude -p` and JSON/schema flags if `claude --help` confirms the flags. Save raw output to `research/test-results/claude_code/cli_smoke.txt`.
+
+If auth is missing, record the auth error. Do not print token/config contents.
+
+### 5. Codex
+
+Codex is high value because `--output-schema` can remove JSON parsing fragility.
+
+Create a small schema file under `research/test-results/codex/eval_schema.json`, then run:
+
+```bash
+mkdir -p research/test-results/codex
+codex exec \
+  --skip-git-repo-check \
+  --ephemeral \
+  --sandbox read-only \
+  --output-schema research/test-results/codex/eval_schema.json \
+  --output-last-message research/test-results/codex/smoke_last_message.json \
+  'Return {"status":"ok","agent":"codex","model":"default"}' \
+  > research/test-results/codex/smoke_stdout.jsonl \
+  2> research/test-results/codex/smoke_stderr.txt
+```
+
+If auth/rate limit blocks it, save the failure and continue.
+
+### 6. Pi headless
+
+Run Pi in no-tools JSON mode:
+
+```bash
+mkdir -p research/test-results/pi
+pi -p 'Return only JSON: {"status":"ok","agent":"pi"}' --mode json --no-tools \
+  > research/test-results/pi/smoke_stdout.txt \
+  2> research/test-results/pi/smoke_stderr.txt
+```
+
+Also test explicit model selection with the configured primary model if known from `pi --help` or existing HaxJobs Pi adapter notes. Save output separately.
+
+### 7. Gemini CLI
+
+Run:
+
+```bash
+mkdir -p research/test-results/gemini_cli
+gemini -p 'Return only JSON: {"status":"ok","agent":"gemini"}' -o json \
+  > research/test-results/gemini_cli/smoke_stdout.json \
+  2> research/test-results/gemini_cli/smoke_stderr.txt
+```
+
+### 8. OpenCode
+
+Run:
+
+```bash
+mkdir -p research/test-results/opencode
+opencode run --format json 'Return only JSON: {"status":"ok","agent":"opencode"}' \
+  > research/test-results/opencode/smoke_stdout.jsonl \
+  2> research/test-results/opencode/smoke_stderr.txt
+```
+
+### 9. Cursor Agent
+
+Run only the agent subcommand:
+
+```bash
+mkdir -p research/test-results/cursor
+cursor agent -p 'Return only JSON: {"status":"ok","agent":"cursor"}' \
+  --output-format json \
+  --mode plan \
+  --trust \
+  > research/test-results/cursor/smoke_stdout.json \
+  2> research/test-results/cursor/smoke_stderr.txt
+```
+
+### 10. Copilot CLI
+
+Run:
+
+```bash
+mkdir -p research/test-results/copilot
+copilot -p 'Return only JSON: {"status":"ok","agent":"copilot"}' \
+  --output-format json \
+  > research/test-results/copilot/smoke_stdout.jsonl \
+  2> research/test-results/copilot/smoke_stderr.txt
+```
+
+### 11. Real evaluation
+
+Pick the two best working paths from the smoke tests. At least one must complete a real HaxJobs evaluation using `research/test-results/eval_prompt.txt`.
+
+Save each raw output as:
+
+```text
+research/test-results/<agent>/real_eval_stdout.txt
+research/test-results/<agent>/real_eval_stderr.txt
+```
+
+Then create a tiny parser check:
+
+```bash
+PYTHONPATH=. python3 - <<'PY'
+from evaluate.common import extract_json, validate_result
+from pathlib import Path
+
+for path in Path('research/test-results').glob('*/real_eval_stdout.txt'):
+    raw = path.read_text(errors='replace')
+    data = extract_json(raw)
+    ok = False
+    err = ''
+    try:
+        validate_result(data)
+        ok = True
+    except Exception as exc:
+        err = f'{type(exc).__name__}: {exc}'
+    print(path, 'VALID' if ok else f'INVALID {err}')
+PY
+```
+
+Save this output to `research/test-results/validation.txt`.
+
+## Model switching proof
+
+Do not fake rate limits. Prove model switching in one of these acceptable ways:
+
+1. Real fallback: primary model fails with rate-limit/quota/auth and a secondary model succeeds. Save both outputs.
+2. Availability fallback: two explicit models both work; document that fallback can switch between them, but no live rate limit occurred.
+3. Blocked: only one model/auth path works. Document the exact blocker.
+
+For each tested agent, record whether model selection is explicit and working.
 
 ## Deliverables
 
-- `research/test-results/SUMMARY.md` — overall verdict with working options ordered by reliability
-- `research/test-results/test-matrix.md` — completed matrix with all test results
-- Per-agent directories with raw output
-- Clear recommendation for Plan 029: which adapters to build, in what order, with what integration mode (native preferred, external fallback)
-- `plans/README.md` updated
+Write `research/test-results/test-matrix.md`:
+
+```markdown
+| Agent | Mode | Available? | Model selection? | Smoke JSON? | Real eval? | Failure shape | Verdict |
+|---|---|---|---|---|---|---|---|
+```
+
+Write `research/test-results/portability.md` with one short section per adapter:
+
+- portable binary discovery rule (`shutil.which("codex")`, SDK import, or `Path.home()` config lookup)
+- required env vars or auth state, without values
+- public install requirement if missing locally
+- whether cron/headless use is realistic
+- any local-only assumption that Plan 029 must avoid
+
+Write `research/test-results/SUMMARY.md` with:
+
+1. Working adapters ranked for Plan 029.
+2. Which path should be primary.
+3. Which path should be fallback.
+4. Which agents to defer.
+5. Exact blockers for skipped tests.
+6. Recommended Plan 029 build order.
+7. Public-release notes: what must be config-driven, optional, or documented for users installing HaxJobs outside this machine.
+
+Keep it direct. This is for implementation, not a docs showcase.
 
 ## STOP conditions
 
-- If Hermes has NO importable Python API, move to external mode testing. Don't force native if it doesn't exist.
-- If ALL Hermes models are rate-limited, skip live Hermes tests — test with direct APIs (Claude, Gemini) and note "Hermes tests blocked by rate limit, retry after reset."
-- If an API key is not set, skip that test and mark "BLOCKED: needs API key env var."
-- If an import causes dependency conflicts, skip and mark "BLOCKED: import conflict."
-- Do NOT commit API keys, tokens, or secrets to the repo. Use env vars only.
+- If `adapter_research/` is missing, STOP.
+- If a command asks for interactive login, stop that agent test and record `BLOCKED: needs login`.
+- If a command tries to edit files outside `research/test-results/`, stop that agent test.
+- If any output includes secrets, do not save the secret. Replace it with `[REDACTED]` in the artifact and mention only the file/credential type.
+- If all agents are blocked by auth/rate limits, still write `SUMMARY.md` and `test-matrix.md` with the blockers.
 
 ## Done criteria
 
-- [ ] Hermes config parsed — at least 2 models identified
-- [ ] At least ONE model tested successfully with a real evaluation prompt (any agent, any mode)
-- [ ] Model switching logic proven (or documented as "both models available, switch code ready")
-- [ ] `research/test-results/SUMMARY.md` with clear go-forward list for Plan 029
-- [ ] At least 2 integration paths confirmed working (e.g., Hermes external + Claude API)
-- [ ] Raw output saved for every test
-- [ ] `plans/README.md` updated
+- [ ] `research/test-results/inventory.txt` exists.
+- [ ] `research/test-results/test-matrix.md` exists and covers Hermes, Claude Code, Codex, Pi, Gemini CLI, OpenCode, Cursor, Copilot, and Cline-if-installed.
+- [ ] `research/test-results/SUMMARY.md` ranks the Plan 029 adapter build order.
+- [ ] `research/test-results/portability.md` documents public-release discovery/config requirements and flags local-only assumptions to avoid.
+- [ ] At least one real HaxJobs evaluation prompt was attempted and raw output saved.
+- [ ] At least two integration paths have smoke-test artifacts, unless auth/rate limits block them all.
+- [ ] `research/test-results/validation.txt` records whether real eval output passed `evaluate.common.validate_result()`.
+- [ ] No production source files changed.
+
+## Git workflow
+
+Commit only the `research/test-results/` artifacts in the executor worktree if the reviewer requested commits. Do not update `plans/README.md`; the reviewer maintains it.

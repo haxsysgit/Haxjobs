@@ -1,0 +1,7 @@
+Fetch date: 2026-07-01
+Title: Gemini CLI docs
+Original URL: https://geminicli.com/docs/cli
+Final URL: https://geminicli.com/docs/cli/
+Content-Type: text/html; charset=utf-8
+
+ Redirecting to: /docs Redirecting from /docs/cli/ to /docs 

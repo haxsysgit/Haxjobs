@@ -1,0 +1,39 @@
+Fetched: 2026-06-30T21:09:02+01:00
+URL: https://github.com/openai/codex
+Title: GitHub - openai/codex: Lightweight coding agent that runs in your terminal
+
+Repository: openai/codex
+Visibility: Public
+Stars observed: 94.6k
+Forks observed: 14k
+Latest commit observed on page: 0208281, 3 hours ago, [codex] Update safety notice wording (#30645)
+License observed: Apache-2.0
+Languages observed: Rust 96.5%, Python 2.7%, Starlark 0.2%, TypeScript 0.2%, Shell 0.1%, PowerShell 0.1%, Other 0.2%
+Folders observed: .codex, .devcontainer, .github, .vscode, bazel, codex-cli, codex-rs, docs, patches, scripts, sdk, third_party, tools
+
+README excerpt:
+Codex CLI is a coding agent from OpenAI that runs locally on your computer.
+
+If you want Codex in your code editor (VS Code, Cursor, Windsurf), install in your IDE.
+If you want the desktop app experience, run codex app or visit the Codex App page.
+If you are looking for the cloud-based agent from OpenAI, Codex Web, go to chatgpt.com/codex.
+
+Quickstart:
+Mac/Linux:
+curl -fsSL https://chatgpt.com/codex/install.sh | sh
+
+Windows:
+powershell -ExecutionPolicy ByPass -c "irm https://chatgpt.com/codex/install.ps1 | iex"
+
+Package managers:
+npm install -g @openai/codex
+brew install --cask codex
+
+Then run:
+codex
+
+Auth:
+Run codex and select Sign in with ChatGPT. OpenAI recommends ChatGPT auth for Plus, Pro, Business, Edu, or Enterprise plan usage. API-key usage is possible but requires additional setup.
+
+Repo description:
+Lightweight coding agent that runs in your terminal.

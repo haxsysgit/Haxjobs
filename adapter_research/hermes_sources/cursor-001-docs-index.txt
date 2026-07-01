@@ -1,0 +1,7 @@
+Fetch date: 2026-07-01
+Title: Cursor docs
+Original URL: https://docs.cursor.com/
+Final URL: https://cursor.com/docs
+Content-Type: text/html; charset=utf-8
+
+ Cursor Docs — Agent, Rules, MCP, Skills &amp; CLI 

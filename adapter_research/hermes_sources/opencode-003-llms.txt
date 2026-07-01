@@ -1,0 +1,4 @@
+Fetch date: 2026-07-01
+Title: OpenCode llms index
+Original URL: https://opencode.ai/llms.txt
+Fetch failed: HTTPError: HTTP Error 404: Not Found
