@@ -49,15 +49,19 @@ Cron pipeline on Archilles (no interactive session):
 - Must have auth configured (API keys, OAuth)
 - Model specified via CLI flags
 
-## Build order
+## Config-driven — no hardcoded agent preferences
 
-| # | Adapter | Session-native | Headless | What to build |
-|---|---|---|---|---|
-| 1 | **Claude Code** | ⭐ plugin/hook | ❌ credit gate | `evaluate/agents/claude_code.py` — session-native only for now |
-| 2 | **Codex** | extension | ✅ `--output-schema` | `evaluate/agents/codex.py` — headless primary |
-| 3 | **Hermes** | plugin | ✅ `-z` | `evaluate/agents/hermes.py` — rewrite for both modes |
-| 4 | **Pi** | ⭐ skill | ✅ `--mode json` | `evaluate/agents/pi.py` — already built, add JSONL parser |
-| 5 | **Gemini CLI** | — | ❌ tier | deferred until tier migration resolved |
+HaxJobs never picks agents for the user. The chain order comes from `haxjobs.toml`:
+
+```toml
+[evaluation]
+agent = "pi"                       # Primary
+fallback_agents = ["codex", "hermes"]  # Tried in order if primary fails
+```
+
+If `agent` is empty or missing, HaxJobs auto-discovers installed agents via `shutil.which()` and uses all available ones. But config always wins over auto-discovery.
+
+This means: no adapter is "#1" or "#4." The user's config IS the order. All 5 adapters are built equally — the chain just follows config.
 
 ## Files to create/modify
 
@@ -136,10 +140,26 @@ class BaseAdapter:
 ### New file: `evaluate/chain.py`
 
 ```python
-"""Fallback chain — tries agents in order until one returns a valid result."""
+"""Fallback chain — reads agent order from config, falls back to auto-discovery.
 
+Config drives everything. No hardcoded preferences.
+"""
+
+from haxjobs_config import EVALUATION_AGENT, EVALUATION_FALLBACK_AGENTS
 from evaluate.common import build_prompt
-from evaluate.agents import AGENT_LIST
+from evaluate.agents import AGENT_LIST, auto_discover
+
+
+def _resolve_order() -> list[str]:
+    """Return agent chain order: config first, auto-discovery if config is empty."""
+    order = []
+    if EVALUATION_AGENT:
+        order.append(EVALUATION_AGENT)
+    order.extend(EVALUATION_FALLBACK_AGENTS)
+    if not order:
+        # No config — auto-discover installed agents
+        order = auto_discover()
+    return order
 
 
 def evaluate_one_job(job: dict, *, agent_order: list[str] | None = None) -> dict | None:
@@ -149,7 +169,7 @@ def evaluate_one_job(job: dict, *, agent_order: list[str] | None = None) -> dict
         job.get("jd_text", ""), job.get("source_url", ""),
     )
 
-    order = agent_order or ["claude_code", "codex", "hermes", "pi"]
+    order = agent_order or _resolve_order()
 
     for agent_name in order:
         adapter = AGENT_LIST.get(agent_name)
@@ -453,9 +473,11 @@ Each adapter implements BaseAdapter with:
 - evaluate_session(job) — FREE, uses host agent's session model
 - evaluate_headless(job) — Cron, subprocess CLI
 
-Adapters are tried in AGENT_ORDER until one returns a valid result.
+Agent order is config-driven via haxjobs.toml [evaluation].agent + fallback_agents.
+If unconfigured, auto_discover() finds installed agents via PATH probes.
 """
 
+import shutil
 from evaluate.agents.base import BaseAdapter
 
 from evaluate.agents.claude_code import ClaudeCodeAdapter
@@ -472,19 +494,39 @@ AGENT_LIST: dict[str, BaseAdapter] = {
     "gemini": GeminiAdapter(),
 }
 
-# Default chain order: session-native first, headless fallback
-AGENT_ORDER = ["claude_code", "codex", "hermes", "pi"]
+
+def auto_discover() -> list[str]:
+    """Return agent names that are installed and ready (headless or session-native).
+
+    Used only when haxjobs.toml [evaluation].agent is not set.
+    Discovers via PATH probes and adapter capability checks.
+    """
+    available = []
+    # Adapters that can work headless (cron-safe)
+    if shutil.which("codex"):
+        available.append("codex")
+    if shutil.which("hermes"):
+        available.append("hermes")
+    # Pi is always available when running inside Pi (session-native)
+    # For headless, check PATH
+    if shutil.which("pi"):
+        available.append("pi")
+    # Claude Code only useful session-natively (headless blocked by credit)
+    # Don't auto-discover it — user must opt in via config
+    # Gemini blocked by tier migration — don't auto-discover
+    return available
 ```
 
 ### Update: `evaluate/run.py`
 
-Replace `select_agent()` with chain-based dispatch:
+Replace `select_agent()` with chain-based dispatch. No hardcoded agent preferences — the chain reads from `haxjobs.toml` or auto-discovers:
 
 ```python
 from evaluate.chain import evaluate_one_job, evaluate_batch
 
-# Old: select_agent() — delete, replaced by chain
-# New: evaluate_one_job() handles all agent selection and fallback
+# Old: select_agent() — delete, was hardcoded to EVALUATION_AGENT
+# New: evaluate_one_job() reads config order or auto-discovers
+# evaluate_from_db() and main() call evaluate_one_job() directly
 ```
 
 ## Steps
@@ -545,7 +587,7 @@ PYTHONPATH=. python3 -c "from evaluate.agents.gemini import GeminiAdapter; a=Gem
 
 ### Step 7: Update `evaluate/agents/__init__.py`
 
-Wire AGENT_LIST and AGENT_ORDER.
+Wire AGENT_LIST and auto_discover(). No hardcoded order — config drives the chain.
 
 ### Step 8: Create `evaluate/chain.py`
 
@@ -559,13 +601,18 @@ Replace `select_agent()` dispatch with chain-based `evaluate_one_job()`.
 
 ```toml
 [evaluation]
-agent = "claude_code"       # Primary — uses Claude Code session when available
-fallback_agents = ["codex", "hermes", "pi"]
-timeout_seconds = 300       # Codex needs more time (300s vs 180s)
+# Primary agent — if unset, HaxJobs auto-discovers installed agents via PATH probes.
+# Supported: pi, codex, hermes, claude_code, gemini
+agent = "pi"
+# Fallback chain — tried in order if the primary agent fails (rate-limit, unavailable, blocked).
+# Only agents listed here (plus the primary) are ever invoked.
+# If unset and agent is also unset, auto-discovery kicks in.
+fallback_agents = ["codex", "hermes"]
+timeout_seconds = 300
 ```
 
 ```python
-EVALUATION_FALLBACK_AGENTS: list[str] = EVALUATION_CONFIG.get("fallback_agents", ["codex", "hermes", "pi"])
+EVALUATION_FALLBACK_AGENTS: list[str] = EVALUATION_CONFIG.get("fallback_agents", [])
 ```
 
 ### Step 11: Add tests — `tests/test_evaluation_agents.py`
@@ -619,14 +666,16 @@ def test_gemini_adapter_exists():
 
 
 def test_agent_list_has_five_adapters():
-    from evaluate.agents import AGENT_LIST, AGENT_ORDER
+    from evaluate.agents import AGENT_LIST, auto_discover
     assert len(AGENT_LIST) == 5
     assert "claude_code" in AGENT_LIST
     assert "codex" in AGENT_LIST
     assert "hermes" in AGENT_LIST
     assert "pi" in AGENT_LIST
     assert "gemini" in AGENT_LIST
-    assert len(AGENT_ORDER) == 4  # gemini not in default order (blocked)
+    # auto_discover returns list, not hardcoded
+    discovered = auto_discover()
+    assert isinstance(discovered, list)
 
 
 def test_chain_evaluates_with_fallback():
@@ -668,9 +717,9 @@ PYTHONPATH=. python3 -m py_compile \
 # Chain works (no live calls, just import + dispatch)
 PYTHONPATH=. python3 -c "
 from evaluate.chain import evaluate_one_job
-from evaluate.agents import AGENT_LIST, AGENT_ORDER
+from evaluate.agents import AGENT_LIST, auto_discover
 print('Agents:', list(AGENT_LIST.keys()))
-print('Default order:', AGENT_ORDER)
+print('Discovered:', auto_discover())
 print('Chain OK')
 "
 ```
@@ -683,7 +732,7 @@ print('Chain OK')
 - [ ] `evaluate/agents/hermes.py` — rewritten two-mode adapter
 - [ ] `evaluate/agents/pi.py` — updated with headless JSONL parser
 - [ ] `evaluate/agents/gemini.py` — stub (blocked by tier migration)
-- [ ] `evaluate/agents/__init__.py` — updated with AGENT_LIST + AGENT_ORDER
+- [ ] `evaluate/agents/__init__.py` — updated with AGENT_LIST + auto_discover()
 - [ ] `evaluate/chain.py` — fallback chain manager
 - [ ] `evaluate/run.py` — updated to use chain dispatch
 - [ ] `haxjobs.toml` — fallback_agents + timeout bump
@@ -705,4 +754,4 @@ print('Chain OK')
 - [ ] `evaluate/run.py --next` evaluates with the first available agent in the chain
 - [ ] When one agent fails, the chain falls through to the next
 - [ ] Each adapter can be imported independently
-- [ ] `AGENT_ORDER` in `evaluate/agents/__init__.py` is the single source of truth for chain order
+- [ ] Chain order comes from `haxjobs.toml` [evaluation].agent + fallback_agents. auto_discover() only fires when config is empty.
