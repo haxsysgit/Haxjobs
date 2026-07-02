@@ -36,6 +36,8 @@ coverage/
 # Reusable CV variant metadata is tracked, but generated/promoted CV files stay private.
 /cv_variants/*/*.pdf
 /cv_variants/*/*.html
+/src/haxjobs/cv_variants/*/*.pdf
+/src/haxjobs/cv_variants/*/*.html
 
 # Editor/os
 .DS_Store
