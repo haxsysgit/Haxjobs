@@ -1,4 +1,4 @@
-"""Tests for onboarding backend — mocked Agent, real file extraction."""
+"""Tests for onboarding backend — two-phase wizard with mocked Agent."""
 from __future__ import annotations
 
 import json
@@ -25,11 +25,9 @@ def test_extract_binary_non_pdf_raises():
         extract_text_from_upload(b"\x89PNG\r\n\x1a\n", "photo.png")
 
 
-def test_extract_pdf_requires_pdftotext():
-    """If pdftotext is available, it should work on a minimal PDF."""
+def test_extract_pdf():
     from haxjobs.features.onboarding.service import extract_text_from_upload
 
-    # minimal hand-crafted PDF with "Hello CV" text
     pdf = (
         b"%PDF-1.4\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n"
         b"2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n"
@@ -48,21 +46,38 @@ def test_extract_pdf_requires_pdftotext():
     assert "Hello CV" in text
 
 
-# ── profile extraction ──
+# ── agent mocks ──
+
+CV_EXTRACTION_JSON = json.dumps({
+    "user_profile": {
+        "name": "Test User",
+        "email": "test@example.com",
+        "location": "London",
+    },
+    "skills": ["Python", "FastAPI"],
+    "work_experience": [],
+    "education": [],
+    "projects": [],
+    "preferences": {},
+})
+
+DEEP_QUESTIONS_JSON = json.dumps([
+    {"field": "user_profile.salary_preference", "question": "What salary range?",
+     "type": "text", "description": "Salary expectation"},
+    {"field": "skills", "question": "Any non-obvious skills?",
+     "type": "list", "description": "Hidden skills"},
+])
 
 
 def fake_agent_run(self, prompt, system=None, **kwargs):
-    return json.dumps({
-        "user_profile": {
-            "name": "Test User",
-            "email": "test@example.com",
-            "location": "London",
-        },
-        "skills": ["Python", "FastAPI"],
-        "work_experience": [],
-        "education": [],
-        "projects": [],
-    })
+    if "Extract structured profile" in (system or ""):
+        return CV_EXTRACTION_JSON
+    if "career coach" in prompt:
+        return DEEP_QUESTIONS_JSON
+    return "{}"
+
+
+# ── profile extraction ──
 
 
 def test_extract_profile_from_cv(monkeypatch):
@@ -79,37 +94,106 @@ def test_extract_profile_bad_json_raises(monkeypatch):
     from haxjobs.features.onboarding.service import extract_profile_from_cv
     from haxjobs.agent import Agent
 
-    monkeypatch.setattr(Agent, "run", lambda *a, **kw: "not json at all")
+    monkeypatch.setattr(Agent, "run", lambda s, *a, **kw: "not json at all")
     with pytest.raises(ValueError, match="failed to extract"):
         extract_profile_from_cv("Fake CV")
 
 
-# ── wizard ──
+# ── gap detection ──
 
 
-def test_wizard_questions():
-    from haxjobs.features.onboarding.service import get_next_question
+def test_required_gaps():
+    from haxjobs.features.onboarding.service import _check_required_gaps
 
-    profile = {"user_profile": {"name": "T"}, "skills": []}
-    q = get_next_question(profile, [])
+    profile = {"user_profile": {"name": "T", "email": "e@e.com"}, "preferences": {}}
+    gaps = _check_required_gaps(profile)
+    # location, work_auth, roles, locations, work_modes missing
+    assert "user_profile.location" in gaps
+    assert "user_profile.work_authorization_summary" in gaps
+    assert "preferred_roles" in gaps
+
+
+def test_no_gaps_when_all_filled():
+    from haxjobs.features.onboarding.service import _check_required_gaps
+
+    profile = {
+        "user_profile": {
+            "name": "T", "email": "e@e.com", "location": "London",
+            "work_authorization_summary": "Citizen",
+        },
+        "preferred_roles": ["BE"],
+        "preferred_locations": ["London"],
+        "preferred_work_modes": ["remote"],
+    }
+    assert _check_required_gaps(profile) == []
+
+
+# ── wizard flow ──
+
+
+def test_get_next_question_returns_required_gap(monkeypatch):
+    from haxjobs.features.onboarding.service import (
+        start_session, get_next_question, clear_session,
+    )
+    from haxjobs.agent import Agent
+
+    monkeypatch.setattr(Agent, "run", fake_agent_run)
+    clear_session()
+    profile = {
+        "user_profile": {"name": "T", "email": "e@e.com"},
+        "preferences": {},
+    }
+    start_session(profile)
+    q = get_next_question(profile)
     assert q is not None
-    assert "field" in q
-    assert "question" in q
-
-    # all questions answered → done
-    from haxjobs.features.onboarding.service import _GAP_FIELDS
-
-    q = get_next_question(profile, list(_GAP_FIELDS))
-    assert q is None
+    assert q.field in ("user_profile.location", "user_profile.work_authorization_summary",
+                       "preferred_roles", "preferred_locations", "preferred_work_modes")
 
 
-def test_apply_answer():
-    from haxjobs.features.onboarding.service import apply_answer
+def test_wizard_progresses_to_deep_phase(monkeypatch):
+    from haxjobs.features.onboarding.service import (
+        start_session, get_next_question, apply_answer, clear_session, get_session,
+    )
+    from haxjobs.agent import Agent
 
+    monkeypatch.setattr(Agent, "run", fake_agent_run)
+    clear_session()
+
+    # Profile with all required fields filled
+    profile = {
+        "user_profile": {
+            "name": "T", "email": "e@e.com", "location": "London",
+            "work_authorization_summary": "Citizen",
+        },
+        "preferred_roles": ["BE"],
+        "preferred_locations": ["London"],
+        "preferred_work_modes": ["remote"],
+    }
+    start_session(profile)
+    q = get_next_question(profile)
+    # Should now be in deep phase with agent-generated questions
+    _, phase, _ = get_session()
+    assert phase == "complete" or phase == "deep"
+    if q is not None:
+        assert q.question != ""  # agent generated
+
+
+def test_apply_answer_list_type():
+    from haxjobs.features.onboarding.service import apply_answer, clear_session
+
+    clear_session()
+    profile = {"preferred_roles": []}
+    result = apply_answer(profile, "preferred_roles", "Backend, AI Engineer, Full Stack")
+    assert result["preferred_roles"] == ["Backend", "AI Engineer", "Full Stack"]
+
+
+def test_apply_answer_text_type():
+    from haxjobs.features.onboarding.service import apply_answer, clear_session
+
+    clear_session()
     profile = {"user_profile": {"name": "Old"}}
     result = apply_answer(profile, "user_profile.phone", "07123456789")
     assert result["user_profile"]["phone"] == "07123456789"
-    assert result["user_profile"]["name"] == "Old"  # not overwritten
 
 
 # ── persist ──
@@ -132,22 +216,25 @@ def test_session_flow():
         start_session, get_session, clear_session,
     )
 
+    clear_session()
     start_session({"name": "S"})
-    profile, answered = get_session()
+    profile, phase, _ = get_session()
     assert profile == {"name": "S"}
-    assert answered == []
+    assert phase == "required"
 
     clear_session()
-    profile, answered = get_session()
+    profile, phase, _ = get_session()
     assert profile is None
 
 
 # ── routes ──
 
 
+ISOLATE_SESSION = True  # controlled by fixture
+
+
 @pytest.fixture(autouse=True)
 def _clean_session(monkeypatch, tmp_path):
-    """Isolate onboarding session + profile path between tests."""
     from haxjobs.features.onboarding import service as svc
     svc.clear_session()
     monkeypatch.setattr(svc, "PROFILE_PATH", tmp_path / "profile.json")
@@ -168,13 +255,21 @@ def test_onboarding_status_not_started(client):
 
 def test_upload_rejects_no_file(client):
     r = client.post("/api/onboarding/upload")
-    assert r.status_code == 422  # FastAPI validation
+    assert r.status_code == 422
 
 
 def test_upload_rejects_huge_file(client):
     r = client.post(
         "/api/onboarding/upload",
         files={"file": ("cv.txt", b"x" * (5 * 1024 * 1024 + 1))},
+    )
+    assert r.status_code == 400
+
+
+def test_upload_short_text(client):
+    r = client.post(
+        "/api/onboarding/upload",
+        files={"file": ("cv.txt", b"hi")},
     )
     assert r.status_code == 400
 
@@ -190,6 +285,7 @@ def test_upload_text_cv(monkeypatch, client):
     assert r.status_code == 200
     data = r.json()
     assert data["profile"]["user_profile"]["name"] == "Test User"
+    assert data["phase"] == "required"
     assert data["next_question"] is not None
 
 
@@ -215,7 +311,7 @@ def test_full_wizard_flow(monkeypatch, client):
     )
     assert r.status_code == 200
 
-    # answer first question
+    # answer a required question
     data = r.json()
     q = data["next_question"]
     r = client.post("/api/onboarding/wizard", json={

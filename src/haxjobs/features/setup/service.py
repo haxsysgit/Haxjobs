@@ -10,7 +10,7 @@ PRESETS = {
     "deepseek": {
         "name": "DeepSeek",
         "base_url": "https://api.deepseek.com",
-        "models": ["deepseek-chat", "deepseek-reasoner"],
+        "models": ["deepseek-v4-flash", "deepseek-v4-pro"],
     },
     "openai": {
         "name": "OpenAI",

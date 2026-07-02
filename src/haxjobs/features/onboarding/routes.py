@@ -31,9 +31,10 @@ def onboarding_status() -> OnboardingStatusResponse:
     profile = load_profile()
     if profile:
         return OnboardingStatusResponse(stage="complete", has_profile=True)
-    pending, _ = get_session()
+    pending, phase, _ = get_session()
     if pending:
-        return OnboardingStatusResponse(stage="wizard_in_progress", has_profile=True)
+        stage = phase if phase != "complete" else "complete"
+        return OnboardingStatusResponse(stage=stage, has_profile=True)
     return OnboardingStatusResponse(stage="not_started", has_profile=False)
 
 
@@ -63,29 +64,36 @@ async def onboarding_upload(file: UploadFile = File(...)) -> CVUploadResponse:
         raise HTTPException(502, f"Agent call failed: {e}")
 
     start_session(profile)
-    next_q = get_next_question(profile, [])
-    return CVUploadResponse(profile=profile, next_question=next_q)
+    next_q = get_next_question(profile)
+    _, phase, remaining = get_session()
+    return CVUploadResponse(
+        profile=profile,
+        next_question=next_q,
+        questions_remaining=remaining,
+        phase=phase,
+    )
 
 
 @router.post("/onboarding/wizard")
 def onboarding_wizard(answer: WizardAnswer) -> WizardResponse:
-    profile, answered = get_session()
+    profile, _, _ = get_session()
     if profile is None:
         raise HTTPException(400, "No active onboarding session. Upload a CV first.")
 
     apply_answer(profile, answer.question_id, answer.answer)
-    answered.append(answer.question_id)
-    next_q = get_next_question(profile, answered)
+    next_q = get_next_question(profile)
+    _, phase, remaining = get_session()
     return WizardResponse(
         profile=profile,
         next_question=next_q,
-        stage="complete" if next_q is None else "wizard_in_progress",
+        questions_remaining=remaining,
+        phase=phase,
     )
 
 
 @router.post("/onboarding/complete")
 def onboarding_complete() -> dict:
-    profile, _ = get_session()
+    profile, _, _ = get_session()
     if profile is None:
         raise HTTPException(400, "No active onboarding session.")
 

@@ -2,6 +2,8 @@
 import os
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from haxjobs.agent import Agent, get_prompt, PromptTemplate, PROMPTS
 
 
@@ -51,17 +53,12 @@ def test_setup_service_integration(monkeypatch):
 
 def test_agent_no_config(monkeypatch):
     """Agent._load_config() raises RuntimeError when no config at all."""
-    # Simulate setup service unavailable + no env vars
-    monkeypatch.setattr(
-        "haxjobs.features.setup.service", None, raising=True
-    )
+    import haxjobs.features.setup.service as svc
+    monkeypatch.setattr(svc, "get_config", lambda: None)
     for var in ("DEEPSEEK_API_KEY", "OPENAI_API_KEY", "HAXJOBS_API_BASE", "HAXJOBS_MODEL"):
         monkeypatch.delenv(var, raising=False)
-    try:
+    with pytest.raises(RuntimeError, match="No provider configured"):
         Agent._load_config()
-        assert False, "should have raised"
-    except RuntimeError as e:
-        assert "No provider configured" in str(e)
 
 
 def test_agent_init_with_timeout(monkeypatch):
