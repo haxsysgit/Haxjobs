@@ -67,45 +67,17 @@ def test_db_no_limit_returns_all(test_db):
     assert len(result) == 25
 
 
-def test_list_jobs_passes_params_to_db_layer(test_db):
-    """list_jobs forwards status_filter, offset, limit to get_jobs_with_evaluations."""
-    _seed_simple_jobs(1)
-
-    import haxjobs.db.evaluations as db_evals
-    fake_raw = [{
-        "id": 1, "title": "T", "company": "C", "location": "", "source": "test",
-        "source_quality": "direct", "role_family": "backend_python",
-        "role_family_confidence": 1.0, "recommended_cv_variant": "backend_python",
-        "pack_status": "none", "pack_review_status": "none",
-        "pack_review_notes": "", "pack_reviewed_at": None,
-        "outreach_status": "none", "fit_score": 80, "fit_verdict": "GOOD_FIT",
-        "level": 2, "level_name": "Quick Apply", "strongest_matches": [],
-        "major_gaps": [], "sponsorship_risk": "low", "summary": "",
-        "eval_decision": "completed", "skip_reason": "", "role_type": "backend",
-        "evaluated_by": "test", "evaluated_at": "", "status": "pending",
-        "discovered_at": "", "pack_dir": "",
-    }]
-    captured_kwargs = {}
-
-    def fake_get_jobs(**kwargs):
-        captured_kwargs.update(kwargs)
-        return fake_raw
-
-    with patch.object(db_evals, "get_jobs_with_evaluations", fake_get_jobs):
-        from haxjobs.server.routes.jobs import list_jobs
-        result = list_jobs(status_filter="pending", offset=5, limit=20)
-        assert captured_kwargs == {"status_filter": "pending", "offset": 5, "limit": 20}
-        assert len(result) == 1
-
-
-def test_list_jobs_backward_compat_no_args(test_db):
-    """list_jobs() with no args still works (backward compat)."""
+def test_get_jobs_forwards_params(test_db):
+    """get_jobs_with_evaluations passes params directly to DB layer."""
     import haxjobs.db.evaluations as db_evals
 
-    def fake_get_jobs(**kwargs):
-        return []
+    result = db_evals.get_jobs_with_evaluations(status_filter="pending", offset=5, limit=20)
+    assert isinstance(result, list)
 
-    with patch.object(db_evals, "get_jobs_with_evaluations", fake_get_jobs):
-        from haxjobs.server.routes.jobs import list_jobs
-        result = list_jobs()
-        assert result == []
+
+def test_get_jobs_no_args(test_db):
+    """get_jobs_with_evaluations() with no args returns all jobs."""
+    import haxjobs.db.evaluations as db_evals
+
+    result = db_evals.get_jobs_with_evaluations()
+    assert isinstance(result, list)

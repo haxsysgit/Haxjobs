@@ -3,6 +3,13 @@
 > **Depends on**: 049, 050, 051, 052, 053 | **Priority**: P2 | **Effort**: M | **Risk**: LOW
 > **Planned at**: commit `bf83142`, 2026-06-30
 
+> ⚠️ **PLANS ARE NOT FINAL** — review against current project reality before implementing.
+> Every plan was drafted at a point in time. File paths, function signatures, dependency
+> versions, and architecture decisions may have changed since. If the plan says
+> `run_structured()` but the codebase has `run() + extract_json()`, follow the codebase.
+> If the plan references a deleted file, skip that step. Use these plans as guidance,
+> not gospel.
+
 ## Why this matters
 
 All pages are built but the app doesn't feel like a product. This plan adds dark mode, responsive layout, loading skeletons, empty states with CTAs, error handling, and navigation polish.
@@ -20,6 +27,16 @@ All pages are built but the app doesn't feel like a product. This plan adds dark
 6. **Navigation progress bar**: thin loading bar on route changes (simple component, no extra dep — use a CSS animation triggered by router events).
 7. **Favicon + title**: replace Vite defaults with HaxJobs branding.
 8. **TypeScript check**: `cd frontend && npx tsc --noEmit` → clean
+
+## Deliverable report (required)
+
+After implementation, the executor must produce a compact report:
+
+- **What changed**: files created, modified, deleted
+- **Deliverables**: endpoints, pages, CLI commands the user can now use
+- **How to verify**: the exact commands that prove it works
+- **Deviations from plan**: what the plan said vs what was actually done
+- **What was skipped**: and the reason (YAGNI, blocked, deferred)
 
 ## Done criteria
 

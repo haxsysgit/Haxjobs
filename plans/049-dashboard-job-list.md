@@ -3,6 +3,13 @@
 > **Depends on**: 041, 042, 047, 048 | **Priority**: P1 | **Effort**: L | **Risk**: LOW
 > **Planned at**: commit `bf83142`, 2026-06-30
 
+> ⚠️ **PLANS ARE NOT FINAL** — review against current project reality before implementing.
+> Every plan was drafted at a point in time. File paths, function signatures, dependency
+> versions, and architecture decisions may have changed since. If the plan says
+> `run_structured()` but the codebase has `run() + extract_json()`, follow the codebase.
+> If the plan references a deleted file, skip that step. Use these plans as guidance,
+> not gospel.
+
 ## Why this matters
 
 The dashboard is the main screen. After onboarding, users spend 90% of their time here — browsing jobs ranked by fit, filtering, and clicking into details.
@@ -31,6 +38,16 @@ The dashboard is the main screen. After onboarding, users spend 90% of their tim
 11. Show counts: "47 jobs, 23 evaluated, 5 applied"
 
 **shadcn components**: DataTable (column-header, pagination, toolbar, faceted-filter, view-options), Badge, Button, Input
+
+## Deliverable report (required)
+
+After implementation, the executor must produce a compact report:
+
+- **What changed**: files created, modified, deleted
+- **Deliverables**: endpoints, pages, CLI commands the user can now use
+- **How to verify**: the exact commands that prove it works
+- **Deviations from plan**: what the plan said vs what was actually done
+- **What was skipped**: and the reason (YAGNI, blocked, deferred)
 
 ## Done criteria
 

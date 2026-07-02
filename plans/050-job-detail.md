@@ -3,6 +3,13 @@
 > **Depends on**: 048, 049 | **Priority**: P1 | **Effort**: M | **Risk**: LOW
 > **Planned at**: commit `bf83142`, 2026-06-30
 
+> ⚠️ **PLANS ARE NOT FINAL** — review against current project reality before implementing.
+> Every plan was drafted at a point in time. File paths, function signatures, dependency
+> versions, and architecture decisions may have changed since. If the plan says
+> `run_structured()` but the codebase has `run() + extract_json()`, follow the codebase.
+> If the plan references a deleted file, skip that step. Use these plans as guidance,
+> not gospel.
+
 ## Why this matters
 
 When a user clicks a job, they need full context: job description, evaluation (why this score? what matches? what gaps?), and application pack. This is the decision-making screen.
@@ -24,6 +31,16 @@ When a user clicks a job, they need full context: job description, evaluation (w
 **shadcn components**: Tabs, Card, Badge, Button, Separator, Skeleton (loading state)
 
 Custom `ScoreGauge` component: simple SVG radial showing score 0-100 with color (green ≥70, yellow ≥50, gray <50).
+
+## Deliverable report (required)
+
+After implementation, the executor must produce a compact report:
+
+- **What changed**: files created, modified, deleted
+- **Deliverables**: endpoints, pages, CLI commands the user can now use
+- **How to verify**: the exact commands that prove it works
+- **Deviations from plan**: what the plan said vs what was actually done
+- **What was skipped**: and the reason (YAGNI, blocked, deferred)
 
 ## Done criteria
 

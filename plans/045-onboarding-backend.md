@@ -3,6 +3,13 @@
 > **Depends on**: 041, 043 | **Priority**: P1 | **Effort**: M | **Risk**: LOW
 > **Planned at**: commit `bf83142`, 2026-06-30
 
+> ⚠️ **PLANS ARE NOT FINAL** — review against current project reality before implementing.
+> Every plan was drafted at a point in time. File paths, function signatures, dependency
+> versions, and architecture decisions may have changed since. If the plan says
+> `run_structured()` but the codebase has `run() + extract_json()`, follow the codebase.
+> If the plan references a deleted file, skip that step. Use these plans as guidance,
+> not gospel.
+
 ## Why this matters
 
 Without onboarding, HaxJobs is a tool for one person who hand-writes their profile JSON. The onboarding wizard makes it a product: upload CV → native agent extracts structured data → guided questions fill gaps → profile.json saved. This plan fills `features/onboarding/`.
@@ -139,6 +146,16 @@ uv run pytest -q tests/
 - [ ] Profile persists to `~/.haxjobs/profile.json`
 - [ ] Tests pass with mocked Agent
 - [ ] No direct `openai.chat.completions.create()` calls — all through agent
+
+## Deliverable report (required)
+
+After implementation, the executor must produce a compact report:
+
+- **What changed**: files created, modified, deleted
+- **Deliverables**: endpoints, pages, CLI commands the user can now use
+- **How to verify**: the exact commands that prove it works
+- **Deviations from plan**: what the plan said vs what was actually done
+- **What was skipped**: and the reason (YAGNI, blocked, deferred)
 
 ## STOP conditions
 

@@ -3,6 +3,13 @@
 > **Depends on**: 041 | **Priority**: P1 | **Effort**: M | **Risk**: LOW
 > **Planned at**: commit `bf83142`, 2026-06-30
 
+> ⚠️ **PLANS ARE NOT FINAL** — review against current project reality before implementing.
+> Every plan was drafted at a point in time. File paths, function signatures, dependency
+> versions, and architecture decisions may have changed since. If the plan says
+> `run_structured()` but the codebase has `run() + extract_json()`, follow the codebase.
+> If the plan references a deleted file, skip that step. Use these plans as guidance,
+> not gospel.
+
 ## Why this matters
 
 Discovery runs via CLI (`pipeline_db.py discover-run`). Should be triggerable from dashboard and show results streaming. This plan fills `features/discovery/` — wraps existing scraper code in API endpoints.
@@ -34,6 +41,16 @@ Plan 043 adds agentic discovery tools (`web_search`, `fetch_page`, read-only `db
 - [ ] New jobs appear in DB after discovery
 - [ ] Dashboard has discover button
 - [ ] If agentic discovery is enabled, its tool allowlist excludes `bash`, `write`, and `edit`
+
+## Deliverable report (required)
+
+After implementation, the executor must produce a compact report:
+
+- **What changed**: files created, modified, deleted
+- **Deliverables**: endpoints, pages, CLI commands the user can now use
+- **How to verify**: the exact commands that prove it works
+- **Deviations from plan**: what the plan said vs what was actually done
+- **What was skipped**: and the reason (YAGNI, blocked, deferred)
 
 ## STOP conditions
 

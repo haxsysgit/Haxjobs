@@ -5,6 +5,13 @@
 > Use `agent.run()` + `evaluate.common.extract_json()` instead. The Agent returns raw
 > text; `extract_json()` handles fences, box chars, and brace-matching.
 
+> ⚠️ **PLANS ARE NOT FINAL** — review against current project reality before implementing.
+> Every plan was drafted at a point in time. File paths, function signatures, dependency
+> versions, and architecture decisions may have changed since. If the plan says
+> `run_structured()` but the codebase has `run() + extract_json()`, follow the codebase.
+> If the plan references a deleted file, skip that step. Use these plans as guidance,
+> not gospel.
+
 ## Why this matters
 
 `evaluate/agents/` spawns agent CLIs as subprocess. That's gone. Instead, evaluation uses the native agent (`haxjobs.agent.Agent.run()`) with `evaluate.common.extract_json()`. One agent, all providers — DeepSeek today, any provider tomorrow.
@@ -92,6 +99,16 @@ uv run pytest -q tests/
 - [ ] No `subprocess.run()` in evaluate/ code
 - [ ] No direct `openai.chat.completions.create()` — all through agent
 - [ ] All tests pass
+
+## Deliverable report (required)
+
+After implementation, the executor must produce a compact report:
+
+- **What changed**: files created, modified, deleted
+- **Deliverables**: endpoints, pages, CLI commands the user can now use
+- **How to verify**: the exact commands that prove it works
+- **Deviations from plan**: what the plan said vs what was actually done
+- **What was skipped**: and the reason (YAGNI, blocked, deferred)
 
 ## STOP conditions
 

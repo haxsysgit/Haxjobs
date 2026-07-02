@@ -3,6 +3,13 @@
 > **Depends on**: 042, 045 | **Priority**: P1 | **Effort**: M | **Risk**: LOW
 > **Planned at**: commit `bf83142`, 2026-06-30
 
+> ⚠️ **PLANS ARE NOT FINAL** — review against current project reality before implementing.
+> Every plan was drafted at a point in time. File paths, function signatures, dependency
+> versions, and architecture decisions may have changed since. If the plan says
+> `run_structured()` but the codebase has `run() + extract_json()`, follow the codebase.
+> If the plan references a deleted file, skip that step. Use these plans as guidance,
+> not gospel.
+
 ## Why this matters
 
 The onboarding backend (043) has endpoints. This plan builds the wizard UI: file upload with drag-and-drop, progress during extraction, step-by-step questions, profile preview. First thing a new user sees.
@@ -28,6 +35,16 @@ The onboarding backend (043) has endpoints. This plan builds the wizard UI: file
 - [ ] Wizard steps flow logically without page reload
 - [ ] Profile preview shows all extracted fields
 - [ ] Save writes and redirects
+
+## Deliverable report (required)
+
+After implementation, the executor must produce a compact report:
+
+- **What changed**: files created, modified, deleted
+- **Deliverables**: endpoints, pages, CLI commands the user can now use
+- **How to verify**: the exact commands that prove it works
+- **Deviations from plan**: what the plan said vs what was actually done
+- **What was skipped**: and the reason (YAGNI, blocked, deferred)
 
 ## STOP conditions
 
