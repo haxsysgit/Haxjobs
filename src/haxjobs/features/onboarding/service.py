@@ -14,9 +14,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from haxjobs.agent import Agent, get_prompt
+from haxjobs.config import STATE_DIR
 from haxjobs.evaluate.common import extract_json
 
-PROFILE_PATH = Path.home() / ".haxjobs" / "profile.json"
+PROFILE_PATH = STATE_DIR / "profile.json"
 SCHEMA_PATH = Path(__file__).resolve().parent.parent.parent / "profile" / "profile_schema.json"
 
 # In-memory session state

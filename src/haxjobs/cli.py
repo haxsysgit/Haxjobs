@@ -45,27 +45,24 @@ def cmd_dev_reset(args):
     """Reset onboarding state for development — keeps provider config."""
     from pathlib import Path
     from urllib import request
+    from haxjobs.config import STATE_DIR
 
-    home = Path.home() / ".haxjobs"
-    preserved = {"haxjobs.toml"}
+    # Clear project runtime state
     removed = []
-
-    for p in sorted(home.glob("*")) if home.exists() else []:
-        if p.name in preserved:
-            continue
-        if p.is_file():
-            p.unlink()
-        elif p.is_dir():
-            import shutil
-
-            shutil.rmtree(p)
-        removed.append(p.name)
-
+    if STATE_DIR.exists():
+        for p in sorted(STATE_DIR.glob("*")):
+            if p.name == "haxjobs.db":
+                continue  # ponytail: preserve DB, just clear profile
+            if p.is_file():
+                p.unlink()
+            elif p.is_dir():
+                import shutil
+                shutil.rmtree(p)
+            removed.append(p.name)
     if removed:
-        print(f"Removed: {', '.join(removed)}")
+        print(f"State reset: {', '.join(removed)}")
     else:
-        print("No files to remove.")
-    print(f"Preserved: {', '.join(preserved)}")
+        print("State: nothing to clear")
 
     # Also clear in-memory session if server is running
     try:
@@ -73,18 +70,17 @@ def cmd_dev_reset(args):
             f"http://{args.host}:{args.port}/api/onboarding/reset",
             method="POST",
         )
-        resp = request.urlopen(req, timeout=2)
-        print("Server session: cleared via POST")
+        request.urlopen(req, timeout=2)
+        print("Server session: cleared")
     except Exception:
-        # Fallback: try GET (newer server code accepts both)
         try:
-            resp2 = request.urlopen(
+            request.urlopen(
                 f"http://{args.host}:{args.port}/api/onboarding/reset",
                 timeout=2,
             )
-            print("Server session: cleared via GET")
+            print("Server session: cleared")
         except Exception:
-            print("Server session: not running or needs restart — run: haxjobs dev restart")
+            print("Server session: not running (run: haxjobs dev restart)")
 
 
 def cmd_dev_status(args):
@@ -122,18 +118,18 @@ def cmd_dev_restart(args):
                 print(f"Killed pid {m.group(1)}")
 
     # Reset filesystem state (skip API call since we just killed the server)
-    home = Path.home() / ".haxjobs"
-    preserved = {"haxjobs.toml"}
+    from haxjobs.config import STATE_DIR
     removed = []
-    for p in sorted(home.glob("*")) if home.exists() else []:
-        if p.name in preserved:
-            continue
-        if p.is_file():
-            p.unlink()
-        elif p.is_dir():
-            import shutil
-            shutil.rmtree(p)
-        removed.append(p.name)
+    if STATE_DIR.exists():
+        for p in sorted(STATE_DIR.glob("*")):
+            if p.name == "haxjobs.db":
+                continue
+            if p.is_file():
+                p.unlink()
+            elif p.is_dir():
+                import shutil
+                shutil.rmtree(p)
+            removed.append(p.name)
     if removed:
         print(f"State reset: {', '.join(removed)}")
 
