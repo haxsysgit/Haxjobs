@@ -1,0 +1,565 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://haxjobs.local/profile.schema.json",
+  "title": "HaxJobs User Profile",
+  "description": "The canonical user profile driving job discovery, evaluation, CV generation, cover letters, and the learning engine.",
+  "type": "object",
+  "required": ["schema_version", "updated_at", "personal", "skills", "preferences"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Semantic version of this profile schema. Bump when structure changes.",
+      "examples": ["1.0.0"]
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of last modification."
+    },
+
+    "personal": {
+      "type": "object",
+      "description": "Core identity and contact. Deterministic extraction from CV header.",
+      "required": ["name", "email", "location"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Full legal name as it appears on CV.",
+          "extraction": "deterministic",
+          "priority": "required"
+        },
+        "preferred_headline": {
+          "type": "string",
+          "description": "Self-described role, e.g. 'Python Backend Engineer | AI & Automation'.",
+          "extraction": "agent"
+        },
+        "email": {
+          "type": "string", "format": "email",
+          "extraction": "deterministic",
+          "priority": "required"
+        },
+        "phone": {
+          "type": "string",
+          "extraction": "deterministic"
+        },
+        "location": {
+          "type": "string",
+          "description": "City, Country or City, State — used for location filtering.",
+          "extraction": "deterministic",
+          "priority": "required"
+        },
+        "linkedin_url": {
+          "type": "string", "format": "uri",
+          "extraction": "deterministic"
+        },
+        "github_url": {
+          "type": "string", "format": "uri",
+          "extraction": "deterministic"
+        },
+        "portfolio_url": {
+          "type": "string", "format": "uri",
+          "extraction": "deterministic"
+        },
+        "summary": {
+          "type": "string",
+          "description": "2-3 sentence professional summary. Agent-written from extracted data.",
+          "extraction": "agent"
+        }
+      }
+    },
+
+    "work_experience": {
+      "type": "array",
+      "description": "Employment history. Deterministic from CV — company names, titles, date ranges extracted with regex. Highlights filled by agent.",
+      "items": {
+        "type": "object",
+        "required": ["company", "title", "start_date"],
+        "properties": {
+          "company": { "type": "string" },
+          "title": { "type": "string" },
+          "location": { "type": "string" },
+          "start_date": { "type": "string", "description": "YYYY-MM or YYYY" },
+          "end_date": { "type": "string", "description": "YYYY-MM, YYYY, or 'present'" },
+          "is_current": { "type": "boolean", "default": false },
+          "description": {
+            "type": "string",
+            "description": "1-2 line role summary. Agent-written."
+          },
+          "highlights": {
+            "type": "array",
+            "description": "Achievements with metrics. Agent-expanded from CV bullets.",
+            "items": { "type": "string" }
+          },
+          "technologies": {
+            "type": "array",
+            "description": "Tech used in this role. Deterministic from CV context.",
+            "items": { "type": "string" }
+          },
+          "relevance_tags": {
+            "type": "array",
+            "description": "Which role types this experience supports: backend, ai, fullstack, etc. Agent-assigned.",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+
+    "education": {
+      "type": "array",
+      "description": "Academic history. Deterministic extraction.",
+      "items": {
+        "type": "object",
+        "required": ["institution", "degree"],
+        "properties": {
+          "institution": { "type": "string" },
+          "degree": { "type": "string", "description": "e.g. 'BSc Computer Science'" },
+          "field": { "type": "string", "description": "e.g. 'Computer Science'" },
+          "start_date": { "type": "string" },
+          "end_date": { "type": "string" },
+          "location": { "type": "string" },
+          "grade": { "type": "string", "description": "e.g. 'First Class Honours', '3.8 GPA'" },
+          "highlights": {
+            "type": "array",
+            "description": "Dissertation, awards, relevant coursework.",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+
+    "skills": {
+      "type": "object",
+      "description": "Categorized skills with proficiency. Each skill appears once in its primary category. Deterministic from CV + agent enrichment.",
+      "properties": {
+        "languages": {
+          "type": "array",
+          "description": "Programming languages: Python, Java, TypeScript, etc.",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string" },
+              "proficiency": {
+                "type": "string",
+                "enum": ["beginner", "intermediate", "advanced", "expert"]
+              },
+              "years": { "type": "number", "description": "Years of experience." }
+            }
+          }
+        },
+        "frameworks": {
+          "type": "array",
+          "description": "Frameworks & libraries: FastAPI, React, Django, PyTorch, etc.",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string" },
+              "proficiency": { "type": "string", "enum": ["beginner", "intermediate", "advanced", "expert"] },
+              "years": { "type": "number" }
+            }
+          }
+        },
+        "databases": {
+          "type": "array",
+          "description": "PostgreSQL, Redis, MongoDB, etc.",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string" },
+              "proficiency": { "type": "string", "enum": ["beginner", "intermediate", "advanced", "expert"] },
+              "years": { "type": "number" }
+            }
+          }
+        },
+        "devops": {
+          "type": "array",
+          "description": "Docker, Linux, Nginx, CI/CD, AWS, etc.",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string" },
+              "proficiency": { "type": "string", "enum": ["beginner", "intermediate", "advanced", "expert"] },
+              "years": { "type": "number" }
+            }
+          }
+        },
+        "ai_ml": {
+          "type": "array",
+          "description": "AI/ML: HuggingFace, PyTorch, RAGAS, agent infrastructure, model training.",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string" },
+              "proficiency": { "type": "string", "enum": ["beginner", "intermediate", "advanced", "expert"] },
+              "years": { "type": "number" }
+            }
+          }
+        },
+        "tools": {
+          "type": "array",
+          "description": "Git, pytest, VS Code, Docker Compose, etc.",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string" },
+              "proficiency": { "type": "string", "enum": ["beginner", "intermediate", "advanced", "expert"] },
+              "years": { "type": "number" }
+            }
+          }
+        },
+        "soft_skills": {
+          "type": "array",
+          "description": "Communication, leadership, mentoring, etc. Agent-inferred or user-provided.",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string" },
+              "proficiency": { "type": "string", "enum": ["beginner", "intermediate", "advanced", "expert"] }
+            }
+          }
+        }
+      }
+    },
+
+    "projects": {
+      "type": "array",
+      "description": "Personal, open-source, and academic projects. Deterministic names/urls from CV, descriptions and highlights agent-expanded.",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "url": { "type": "string", "format": "uri" },
+          "technologies": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "highlights": {
+            "type": "array",
+            "description": "Key achievements or interesting technical challenges.",
+            "items": { "type": "string" }
+          },
+          "relevance_tags": {
+            "type": "array",
+            "description": "Role types this project supports: backend, ai, fullstack, agent, automation, etc.",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+
+    "certifications": {
+      "type": "array",
+      "description": "Professional certifications. Deterministic extraction.",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" },
+          "issuer": { "type": "string" },
+          "date": { "type": "string" },
+          "url": { "type": "string", "format": "uri" }
+        }
+      }
+    },
+
+    "languages": {
+      "type": "array",
+      "description": "Human languages spoken. Agent-inferred or user-provided.",
+      "items": {
+        "type": "object",
+        "required": ["language"],
+        "properties": {
+          "language": { "type": "string", "description": "e.g. 'English', 'Igbo'" },
+          "proficiency": { "type": "string", "enum": ["native", "fluent", "advanced", "intermediate", "basic"] }
+        }
+      }
+    },
+
+    "work_authorization": {
+      "type": "object",
+      "description": "Visa/sponsorship status. Critical for job filtering. Agent-asked, not extracted.",
+      "required": ["status"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "description": "Current authorization status."
+        },
+        "visa_type": {
+          "type": "string",
+          "description": "e.g. 'UK Student Visa', 'Graduate Visa', 'Skilled Worker'"
+        },
+        "visa_expiry": {
+          "type": "string",
+          "format": "date",
+          "description": "When current visa expires."
+        },
+        "requires_sponsorship_now": {
+          "type": "boolean",
+          "description": "Does the candidate need sponsorship to start work immediately?"
+        },
+        "requires_sponsorship_future": {
+          "type": "boolean",
+          "description": "Will they need sponsorship in the future (e.g. after Graduate visa expires)?"
+        },
+        "sponsorship_needed_date": {
+          "type": "string",
+          "format": "date",
+          "description": "When sponsorship would be needed."
+        },
+        "summary": {
+          "type": "string",
+          "description": "Plain-English explanation of work authorization situation."
+        }
+      }
+    },
+
+    "preferences": {
+      "type": "object",
+      "description": "Job search preferences. Drive discovery filtering and evaluation scoring.",
+      "required": ["preferred_roles", "preferred_locations"],
+      "properties": {
+        "preferred_roles": {
+          "type": "array",
+          "description": "Target job titles: 'Backend Engineer', 'AI Engineer', etc.",
+          "items": { "type": "string" }
+        },
+        "preferred_locations": {
+          "type": "array",
+          "description": "Cities/regions: 'London', 'Remote UK', etc.",
+          "items": { "type": "string" }
+        },
+        "preferred_work_modes": {
+          "type": "array",
+          "description": "remote, hybrid, onsite",
+          "items": { "type": "string" }
+        },
+        "salary_range": {
+          "type": "object",
+          "properties": {
+            "min": { "type": "number" },
+            "max": { "type": "number" },
+            "currency": { "type": "string", "default": "GBP" },
+            "flexibility": {
+              "type": "string",
+              "description": "One-sentence note about salary flexibility."
+            }
+          }
+        },
+        "experience_levels": {
+          "type": "array",
+          "description": "Target levels: intern, graduate, entry-level, junior, mid-level.",
+          "items": { "type": "string" }
+        },
+        "excluded_levels": {
+          "type": "array",
+          "description": "Levels to skip: senior, lead, principal, director, etc.",
+          "items": { "type": "string" }
+        },
+        "preferred_industries": {
+          "type": "array",
+          "description": "e.g. 'fintech', 'healthtech', 'AI/ML', 'SaaS'",
+          "items": { "type": "string" }
+        },
+        "excluded_industries": {
+          "type": "array",
+          "description": "e.g. 'defense', 'gambling', 'crypto'",
+          "items": { "type": "string" }
+        },
+        "preferred_company_sizes": {
+          "type": "array",
+          "description": "startup, sme, mid-market, enterprise, big-tech",
+          "items": { "type": "string" }
+        },
+        "excluded_companies": {
+          "type": "array",
+          "description": "Company names or patterns to skip entirely.",
+          "items": { "type": "string" }
+        },
+        "availability": {
+          "type": "string",
+          "description": "e.g. 'Immediate', '1 month notice', 'Available from September 2026'"
+        }
+      }
+    },
+
+    "cv_tailoring": {
+      "type": "object",
+      "description": "Per-role-variant instructions for CV generation. Tells the CV builder which experiences/skills/projects to emphasize or de-emphasize for each role type.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "emphasize_experiences": {
+            "type": "array",
+            "description": "Indices into work_experience array.",
+            "items": { "type": "integer" }
+          },
+          "deemphasize_experiences": {
+            "type": "array",
+            "items": { "type": "integer" }
+          },
+          "emphasize_projects": {
+            "type": "array",
+            "description": "Indices into projects array.",
+            "items": { "type": "integer" }
+          },
+          "emphasize_skill_categories": {
+            "type": "array",
+            "description": "Skill categories to highlight: languages, frameworks, ai_ml, etc.",
+            "items": { "type": "string" }
+          },
+          "headline_override": {
+            "type": "string",
+            "description": "Override the preferred_headline for this role variant."
+          },
+          "summary_override": {
+            "type": "string",
+            "description": "Override the personal.summary for this role variant."
+          }
+        }
+      }
+    },
+
+    "learning": {
+      "type": "object",
+      "description": "Populated by the learning engine from user decisions over time. Empty on first onboard.",
+      "properties": {
+        "preferred_company_patterns": {
+          "type": "array",
+          "description": "Companies the user has applied to or shown interest in. Used to weight discovery.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "company": { "type": "string" },
+              "pattern": { "type": "string", "description": "What about this company was appealing." },
+              "weight": { "type": "number", "description": "0-1, higher = more interest." }
+            }
+          }
+        },
+        "salary_signal": {
+          "type": "object",
+          "description": "Salary trends from applied/reviewed jobs.",
+          "properties": {
+            "median_applied": { "type": "number" },
+            "median_skipped": { "type": "number" },
+            "currency": { "type": "string" }
+          }
+        },
+        "role_refinements": {
+          "type": "array",
+          "description": "Role preferences refined from user decisions.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "role": { "type": "string" },
+              "apply_count": { "type": "integer" },
+              "skip_count": { "type": "integer" },
+              "derived_preference": { "type": "string", "enum": ["strong", "moderate", "weak", "avoid"] }
+            }
+          }
+        },
+        "keyword_effectiveness": {
+          "type": "object",
+          "description": "Which keywords in JDs correlate with successful applications. Populated after outreach results.",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "occurrences": { "type": "integer" },
+              "response_rate": { "type": "number" }
+            }
+          }
+        }
+      }
+    },
+
+    "confirmed_profile_facts": {
+      "type": "array",
+      "description": "User-verified claims with safe/avoid wording for CV generation.",
+      "items": {
+        "type": "object",
+        "required": ["category", "claim", "safe_wording", "confidence"],
+        "properties": {
+          "category": { "type": "string", "enum": ["experience", "education", "skill", "project", "tooling", "other"] },
+          "claim": { "type": "string" },
+          "safe_wording": { "type": "string" },
+          "avoid_wording": { "type": "string", "description": "Things the CV generator must never say." },
+          "confidence": { "type": "string", "enum": ["confirmed", "pending_review"] },
+          "evidence_source": { "type": "string" }
+        }
+      }
+    },
+
+    "evaluation_context": {
+      "type": "object",
+      "description": "Injected into every evaluation prompt. Guardrails and scoring rules.",
+      "properties": {
+        "behavioral_guardrails": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "scoring_guidance": {
+          "type": "object",
+          "description": "Per-role-type scoring rules.",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+
+    "company_notes": {
+      "type": "object",
+      "description": "Per-company behavioral notes for the evaluator.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "pattern": { "type": "string" },
+          "match_type": { "type": "string" },
+          "note": { "type": "string" },
+          "created_at": { "type": "string", "format": "date" },
+          "source": { "type": "string" }
+        }
+      }
+    },
+
+    "saved_answers": {
+      "type": "array",
+      "description": "Reusable Q&A for application forms and cover letters.",
+      "items": {
+        "type": "object",
+        "required": ["question_key", "answer"],
+        "properties": {
+          "question_key": { "type": "string" },
+          "answer": { "type": "string" },
+          "sensitivity": {
+            "type": "string",
+            "enum": ["normal", "review_before_use", "legal_sensitive"]
+          }
+        }
+      }
+    },
+
+    "platform_accounts": {
+      "type": "array",
+      "description": "External platform connections: LinkedIn, GitHub, etc.",
+      "items": {
+        "type": "object",
+        "required": ["platform"],
+        "properties": {
+          "platform": { "type": "string" },
+          "account_status": { "type": "string" },
+          "profile_url": { "type": "string" },
+          "job_search_enabled": { "type": "boolean" },
+          "outreach_drafting_enabled": { "type": "boolean" },
+          "auto_send_messages": { "type": "boolean" },
+          "notes": { "type": "string" }
+        }
+      }
+    }
+  }
+}

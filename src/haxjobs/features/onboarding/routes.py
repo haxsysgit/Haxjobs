@@ -5,6 +5,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from .schemas import (
     CVUploadResponse,
+    FieldQuestion,
     OnboardingStatusResponse,
     WizardAnswer,
     WizardResponse,
@@ -12,11 +13,11 @@ from .schemas import (
 from .service import (
     apply_answer,
     clear_session,
-    extract_profile_from_cv,
     extract_text_from_upload,
     get_next_question,
     get_session,
     load_profile,
+    process_cv,
     save_profile,
     start_session,
 )
@@ -24,6 +25,7 @@ from .service import (
 router = APIRouter(tags=["onboarding"])
 
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
+MIN_CV_LENGTH = 100  # minimum chars for meaningful extraction
 
 
 @router.get("/onboarding/status")
@@ -33,8 +35,7 @@ def onboarding_status() -> OnboardingStatusResponse:
         return OnboardingStatusResponse(stage="complete", has_profile=True)
     pending, phase, _ = get_session()
     if pending:
-        stage = phase if phase != "complete" else "complete"
-        return OnboardingStatusResponse(stage=stage, has_profile=True)
+        return OnboardingStatusResponse(stage=phase, has_profile=True)
     return OnboardingStatusResponse(stage="not_started", has_profile=False)
 
 
@@ -51,24 +52,29 @@ async def onboarding_upload(file: UploadFile = File(...)) -> CVUploadResponse:
     except ValueError as e:
         raise HTTPException(400, str(e))
 
-    if len(text) < 50:
+    if len(text) < MIN_CV_LENGTH:
         raise HTTPException(400, "CV text too short — couldn't extract meaningful content")
 
     try:
-        profile = extract_profile_from_cv(text)
+        profile, questions = process_cv(text)
     except RuntimeError as e:
         raise HTTPException(503, f"Provider not configured: {e}")
     except ValueError as e:
-        raise HTTPException(400, f"Profile extraction failed: {e}")
+        raise HTTPException(400, f"CV processing failed: {e}")
     except Exception as e:
         raise HTTPException(502, f"Agent call failed: {e}")
 
-    start_session(profile)
+    start_session(profile, questions)
     next_q = get_next_question(profile)
     _, phase, remaining = get_session()
+
+    next_question = None
+    if next_q:
+        next_question = FieldQuestion(**next_q)  # type: ignore[arg-type]
+
     return CVUploadResponse(
         profile=profile,
-        next_question=next_q,
+        next_question=next_question,
         questions_remaining=remaining,
         phase=phase,
     )
@@ -83,9 +89,14 @@ def onboarding_wizard(answer: WizardAnswer) -> WizardResponse:
     apply_answer(profile, answer.question_id, answer.answer)
     next_q = get_next_question(profile)
     _, phase, remaining = get_session()
+
+    next_question = None
+    if next_q:
+        next_question = FieldQuestion(**next_q)  # type: ignore[arg-type]
+
     return WizardResponse(
         profile=profile,
-        next_question=next_q,
+        next_question=next_question,
         questions_remaining=remaining,
         phase=phase,
     )
