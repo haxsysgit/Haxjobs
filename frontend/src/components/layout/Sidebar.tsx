@@ -1,4 +1,5 @@
-import { NavLink, useLocation } from "react-router-dom"
+import { Link, useLocation } from "react-router-dom"
+import { useEffect, useState } from "react"
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem,
@@ -15,6 +16,9 @@ const items = [
 
 export function AppSidebar() {
   const location = useLocation()
+  const [activePath, setActivePath] = useState(location.pathname)
+
+  useEffect(() => setActivePath(location.pathname), [location.pathname])
 
   return (
     <Sidebar>
@@ -23,16 +27,16 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => {
-                const isActive = item.url === "/" ? location.pathname === "/" : location.pathname.startsWith(item.url)
+                const isActive = item.url === "/" ? activePath === "/" : activePath.startsWith(item.url)
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
                       isActive={isActive}
                       render={
-                        <NavLink to={item.url} end={item.url === "/"}>
+                        <Link to={item.url} onClick={() => setActivePath(item.url)}>
                           <item.icon />
                           <span>{item.title}</span>
-                        </NavLink>
+                        </Link>
                       }
                     />
                   </SidebarMenuItem>

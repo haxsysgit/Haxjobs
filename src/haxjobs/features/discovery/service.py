@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import threading
+from collections.abc import Callable
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -12,7 +13,17 @@ from haxjobs.db.discovered_jobs import (
 )
 from haxjobs.db.schema import get_db, init
 from haxjobs.discovery.hooks import should_accept_discovered_job
-from haxjobs.discovery.scrapers.orchestrator import is_error_result, run_all_scrapers
+from haxjobs.discovery.scrapers.ashby import scrape_ashby
+from haxjobs.discovery.scrapers.lever import scrape_lever
+from haxjobs.discovery.scrapers.orchestrator import scrape_greenhouse
+
+ScraperRunner = Callable[[], dict[str, dict[str, int]]]
+
+SCRAPERS: list[tuple[str, ScraperRunner]] = [
+    ("greenhouse", scrape_greenhouse),
+    ("ashby", scrape_ashby),
+    ("lever", scrape_lever),
+]
 
 _lock = threading.Lock()
 _status = {
@@ -22,6 +33,7 @@ _status = {
     "new": 0,
     "promoted": 0,
     "errors": [],
+    "scrapers": [],
     "started_at": "",
     "finished_at": "",
 }
@@ -40,6 +52,7 @@ def run_discovery() -> str:
             "new": 0,
             "promoted": 0,
             "errors": [],
+            "scrapers": [_scraper_status(name) for name, _ in SCRAPERS],
             "started_at": _now(),
             "finished_at": "",
         })
@@ -71,35 +84,33 @@ def get_new_jobs(since: str = "") -> list[dict]:
 def _run_worker() -> None:
     try:
         init()
-        results = run_all_scrapers()
-        found, new, errors = _summarize(results)
+        for name, runner in SCRAPERS:
+            _set_scraper(name, status="running")
+            try:
+                counts = _summarize_scraper(runner())
+                _set_scraper(name, status="done", **counts)
+                _add_totals(counts)
+            except Exception as exc:  # ponytail: isolate one bad scraper from the run.
+                message = str(exc)
+                _set_scraper(name, status="error", errors=1, message=message)
+                _add_error(f"{name}: {message}")
         promoted = _promote_new_jobs()
         with _lock:
-            _status.update({"found": found, "new": new, "promoted": promoted, "errors": errors})
-    except Exception as exc:  # ponytail: one process-wide run, surface failure in status.
-        with _lock:
-            _status["errors"] = [str(exc)]
+            _status["promoted"] = promoted
+    except Exception as exc:  # ponytail: process-wide guard, status is enough for UI.
+        _add_error(str(exc))
     finally:
         with _lock:
             _status["running"] = False
             _status["finished_at"] = _now()
 
 
-def _summarize(results: dict) -> tuple[int, int, list[str]]:
-    found = 0
-    new = 0
-    errors: list[str] = []
-    for scraper_name, scraper_result in results.items():
-        if is_error_result(scraper_result):
-            errors.append(f"{scraper_name}: {scraper_result['error']}")
-            continue
-        for company, counts in scraper_result.items():
-            found += int(counts.get("found", 0))
-            new += int(counts.get("new", 0))
-            error_count = int(counts.get("errors", 0))
-            if error_count:
-                errors.append(f"{scraper_name}/{company}: {error_count} errors")
-    return found, new, errors
+def _summarize_scraper(result: dict[str, dict[str, int]]) -> dict[str, int]:
+    counts = {"found": 0, "matched": 0, "new": 0, "errors": 0}
+    for company_result in result.values():
+        for key in counts:
+            counts[key] += int(company_result.get(key, 0))
+    return counts
 
 
 def _promote_new_jobs() -> int:
@@ -113,6 +124,34 @@ def _promote_new_jobs() -> int:
         if promote_discovered_job(job["id"]):
             promoted += 1
     return promoted
+
+
+def _set_scraper(name: str, **updates) -> None:
+    with _lock:
+        scrapers = list(_status["scrapers"])
+        _status["scrapers"] = [
+            {**item, **updates} if item["name"] == name else item
+            for item in scrapers
+        ]
+
+
+def _add_totals(counts: dict[str, int]) -> None:
+    with _lock:
+        _status["found"] = int(_status["found"]) + counts["found"]
+        _status["new"] = int(_status["new"]) + counts["new"]
+        if counts["errors"]:
+            errors = list(_status["errors"])
+            errors.append(f"scraper reported {counts['errors']} item errors")
+            _status["errors"] = errors
+
+
+def _add_error(message: str) -> None:
+    with _lock:
+        _status["errors"] = [*list(_status["errors"]), message]
+
+
+def _scraper_status(name: str) -> dict:
+    return {"name": name, "status": "pending", "found": 0, "matched": 0, "new": 0, "errors": 0, "message": ""}
 
 
 def _now() -> str:
