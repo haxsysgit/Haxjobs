@@ -329,12 +329,23 @@ def _generate_agent_questions(cv_text: str, profile: dict) -> list[dict]:
 # ── wizard flow ──
 
 
-def process_cv(cv_text: str) -> tuple[dict, list[dict]]:
-    """Full pipeline: deterministic → agent extraction → agent questions."""
+def process_cv(cv_text: str) -> tuple[dict, list[dict], list[dict]]:
+    """Full pipeline: deterministic → agent extraction → agent questions.
+
+    Returns (profile, questions, extraction_phases).
+    """
+    phases = [{"phase": "reading", "label": "Reading your CV…", "done": True}]
+
     profile = _extract_deterministic(cv_text)
+    phases.append({"phase": "extracting", "label": "Extracting skills & contact…", "done": True})
+
     profile = _run_agent_extraction(cv_text, profile)
+    phases.append({"phase": "agent_enriching", "label": "Enriching with AI…", "done": True})
+
     questions = _generate_agent_questions(cv_text, profile)
-    return profile, questions
+    phases.append({"phase": "generating_questions", "label": "Profile draft ready", "done": True})
+
+    return profile, questions, phases
 
 
 def get_next_question(profile: dict) -> dict | None:

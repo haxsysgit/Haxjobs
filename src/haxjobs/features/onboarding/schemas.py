@@ -17,6 +17,11 @@ class CVUploadResponse(BaseModel):
     next_question: FieldQuestion | None = None
     questions_remaining: int = 0
     phase: str = "wizard"
+    extraction_phases: list[dict] = []  # [{phase: "reading", done: true}, ...]
+
+
+class TextUploadRequest(BaseModel):
+    text: str
 
 
 class WizardAnswer(BaseModel):

@@ -41,6 +41,35 @@ def cmd_agent_ask(args):
     print(text)
 
 
+def cmd_dev_reset(args):
+    """Reset onboarding state for development — keeps provider config."""
+    from pathlib import Path
+
+    home = Path.home() / ".haxjobs"
+    preserved = {"haxjobs.toml"}
+    removed = []
+    skipped = []
+
+    for p in sorted(home.glob("*")) if home.exists() else []:
+        if p.name in preserved:
+            skipped.append(p.name)
+            continue
+        if p.is_file():
+            p.unlink()
+        elif p.is_dir():
+            import shutil
+
+            shutil.rmtree(p)
+        removed.append(p.name)
+
+    if removed:
+        print(f"Removed: {', '.join(removed)}")
+    else:
+        print("Nothing to remove.")
+    if skipped:
+        print(f"Preserved: {', '.join(skipped)}")
+
+
 def main(argv: list[str] | None = None):
     parser = argparse.ArgumentParser(
         prog="haxjobs", description="Self-hosted job search platform"
@@ -62,6 +91,11 @@ def main(argv: list[str] | None = None):
     ask.add_argument("--tools", help="Comma-separated tools: web_search,fetch_page,db_query")
     ask.add_argument("--max-turns", type=int, default=5)
     ask.set_defaults(func=cmd_agent_ask)
+
+    dev = sub.add_parser("dev", help="Development utilities")
+    dev_sub = dev.add_subparsers(dest="dev_command")
+    reset_cmd = dev_sub.add_parser("reset", help="Reset onboarding state (keeps provider config)")
+    reset_cmd.set_defaults(func=cmd_dev_reset)
 
     args = parser.parse_args(argv)
     if not hasattr(args, "func"):

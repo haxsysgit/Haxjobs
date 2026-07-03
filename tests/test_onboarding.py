@@ -208,10 +208,11 @@ def test_process_cv(monkeypatch):
     from haxjobs.agent import Agent
     monkeypatch.setattr(Agent, "run", _fake_agent_run)
     from haxjobs.features.onboarding.service import process_cv
-    profile, questions = process_cv(SAMPLE_CV)
+    profile, questions, phases = process_cv(SAMPLE_CV)
     assert profile["personal"]["email"] == "elenasuluarinze@gmail.com"
     assert len(questions) > 0
     assert questions[0]["field"]
+    assert len(phases) == 4
 
 
 # ── wizard ──
@@ -224,7 +225,7 @@ def test_get_next_question(monkeypatch):
         process_cv, start_session, get_next_question, clear_session,
     )
     clear_session()
-    profile, questions = process_cv(SAMPLE_CV)
+    profile, questions, phases = process_cv(SAMPLE_CV)
     start_session(profile, questions)
     q = get_next_question(profile)
     assert q is not None

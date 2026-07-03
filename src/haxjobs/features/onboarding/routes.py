@@ -7,6 +7,7 @@ from .schemas import (
     CVUploadResponse,
     FieldQuestion,
     OnboardingStatusResponse,
+    TextUploadRequest,
     WizardAnswer,
     WizardResponse,
 )
@@ -56,7 +57,7 @@ async def onboarding_upload(file: UploadFile = File(...)) -> CVUploadResponse:
         raise HTTPException(400, "CV text too short — couldn't extract meaningful content")
 
     try:
-        profile, questions = process_cv(text)
+        profile, questions, phases = process_cv(text)
     except RuntimeError as e:
         raise HTTPException(503, f"Provider not configured: {e}")
     except ValueError as e:
@@ -77,6 +78,39 @@ async def onboarding_upload(file: UploadFile = File(...)) -> CVUploadResponse:
         next_question=next_question,
         questions_remaining=remaining,
         phase=phase,
+        extraction_phases=phases,
+    )
+
+
+@router.post("/onboarding/extract-text")
+def onboarding_extract_text(body: TextUploadRequest) -> CVUploadResponse:
+    text = body.text.strip()
+    if len(text) < MIN_CV_LENGTH:
+        raise HTTPException(400, "CV text too short — couldn't extract meaningful content")
+
+    try:
+        profile, questions, phases = process_cv(text)
+    except RuntimeError as e:
+        raise HTTPException(503, f"Provider not configured: {e}")
+    except ValueError as e:
+        raise HTTPException(400, f"CV processing failed: {e}")
+    except Exception as e:
+        raise HTTPException(502, f"Agent call failed: {e}")
+
+    start_session(profile, questions)
+    next_q = get_next_question(profile)
+    _, phase, remaining = get_session()
+
+    next_question = None
+    if next_q:
+        next_question = FieldQuestion(**next_q)  # type: ignore[arg-type]
+
+    return CVUploadResponse(
+        profile=profile,
+        next_question=next_question,
+        questions_remaining=remaining,
+        phase=phase,
+        extraction_phases=phases,
     )
 
 
