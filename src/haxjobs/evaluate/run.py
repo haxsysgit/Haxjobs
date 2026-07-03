@@ -1,7 +1,6 @@
 """Evaluation orchestrator — agent selection, job evaluation, and CLI.
 
-Reads agent chain from ``haxjobs.toml`` ``[evaluation].agent`` + ``fallback_agents``,
-falls back to auto-discovery if config is empty.
+Uses the native HaxJobs agent directly.
 
 Usage:
   python3 -m evaluate.run --next           # Process next pending job
@@ -13,17 +12,32 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from haxjobs.agent import Agent
 from haxjobs.config import EVALUATION_AGENT, AUTO_PACK_LEVELS
-from haxjobs.evaluate.chain import evaluate_one_job as chain_evaluate_one_job, _resolve_order
+from haxjobs.evaluate.common import build_prompt, extract_json, validate_result
 
 
 def evaluate_one_job(job_data: dict, agent_name: str | None = None) -> dict | None:
-    """Evaluate a single job via the configured agent chain."""
+    """Evaluate a single job via the native agent."""
     title = job_data.get("title", "Unknown")
     company = job_data.get("company", "Unknown")
     print(f"  Evaluating: {company} — {title[:60]}")
-    agent_order = [agent_name] if agent_name else None
-    return chain_evaluate_one_job(job_data, agent_order=agent_order)
+    prompt = build_prompt(
+        title=title,
+        company=company,
+        location=job_data.get("location", ""),
+        jd_text=job_data.get("jd_text", ""),
+        source_url=job_data.get("source_url", ""),
+    )
+    parsed = extract_json(Agent().run(prompt, temperature=0.2))
+    if not parsed:
+        print("  FAILED: agent returned no JSON")
+        return None
+    issues = validate_result(parsed)
+    if issues:
+        print("  FAILED: " + "; ".join(issues))
+        return None
+    return parsed
 
 
 def evaluate_from_db(agent_name: str | None = None) -> bool:
