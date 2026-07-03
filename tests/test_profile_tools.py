@@ -183,9 +183,10 @@ def test_profile_tools_registered():
     assert "profile_read" in TOOLS
     assert "profile_write" in TOOLS
     assert "profile_schema" in TOOLS
+    assert "profile_gaps" in TOOLS
 
     # Verify schemas are valid OpenAI function format
-    for name in ("profile_read", "profile_write", "profile_schema"):
+    for name in ("profile_read", "profile_write", "profile_schema", "profile_gaps"):
         tool = TOOLS[name]
         assert tool.schema["name"] == name
         assert "parameters" in tool.schema
@@ -202,3 +203,27 @@ def test_profile_tools_dispatch(tmp_profile):
     dispatch("profile_write", {"field_path": "personal.location", "value": "Bristol"})
     result2 = dispatch("profile_read", {"field_path": "personal.location"})
     assert json.loads(result2)["personal.location"] == "Bristol"
+
+
+# ── profile_gaps ──
+
+
+def test_profile_gaps_all_filled(tmp_profile):
+    from haxjobs.agent.tools import profile_gaps
+
+    result = profile_gaps()
+    assert "required_filled" in result
+    assert "required_missing" in result
+    # Our fixture fills name, email, location, roles, locations, work_modes
+    # but not work_authorization.summary
+    assert "work_authorization.summary" in result["required_missing"]
+    assert result["total_roles"] == 1
+    assert result["roles_with_achievements"] == 0  # fixture has no explicit achievements yet
+
+
+def test_profile_gaps_no_profile(monkeypatch, tmp_path):
+    from haxjobs.agent import tools as t
+
+    monkeypatch.setattr(t, "PROFILE_PATH", tmp_path / "nonexistent.json")
+    result = t.profile_gaps()
+    assert "error" in result

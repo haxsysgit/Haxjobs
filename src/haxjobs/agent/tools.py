@@ -343,3 +343,115 @@ register(
     },
     profile_schema,
 )
+
+
+# ponytail: required fields are a copy of what's in the schema — keep in sync manually
+REQUIRED_FIELDS = [
+    "personal.name",
+    "personal.email",
+    "personal.location",
+    "work_authorization.summary",
+    "preferences.preferred_roles",
+    "preferences.preferred_locations",
+    "preferences.preferred_work_modes",
+]
+
+
+def profile_gaps() -> dict[str, Any]:
+    """Return which required fields are missing and which enrichments are weak."""
+    profile = _load_profile()
+    if profile is None:
+        return {"error": "No profile found. Complete onboarding first."}
+
+    filled: list[str] = []
+    missing: list[str] = []
+    for field in REQUIRED_FIELDS:
+        val = _get_nested(profile, field)
+        if val is None or val == "" or val == []:
+            missing.append(field)
+        else:
+            filled.append(field)
+
+    # Skill stats
+    total_skills = 0
+    skills_with_evidence = 0
+    for cat in ("languages", "frameworks", "databases", "devops", "ai_ml", "tools"):
+        for s in profile.get("skills", {}).get(cat, []) or []:
+            total_skills += 1
+            if s.get("evidence"):
+                skills_with_evidence += 1
+
+    # Achievement stats
+    roles = profile.get("work_experience") or []
+    total_roles = len(roles)
+    roles_with_achievements = sum(1 for r in roles if r.get("achievements"))
+
+    # Employment gaps
+    gaps = _detect_gaps(profile)
+
+    return {
+        "required_filled": filled,
+        "required_missing": missing,
+        "total_skills": total_skills,
+        "skills_with_evidence": skills_with_evidence,
+        "total_roles": total_roles,
+        "roles_with_achievements": roles_with_achievements,
+        "employment_gaps": gaps,
+    }
+
+
+def _detect_gaps(profile: dict) -> list[dict]:
+    roles = profile.get("work_experience") or []
+    if len(roles) < 2:
+        return []
+    sorted_roles = sorted(
+        [r for r in roles if r.get("start_date")],
+        key=lambda r: r["start_date"],
+    )
+    gaps = []
+    for i in range(len(sorted_roles) - 1):
+        prev_end = sorted_roles[i].get("end_date", "")
+        next_start = sorted_roles[i + 1]["start_date"]
+        if not prev_end or prev_end == "present":
+            continue
+        months = _months_between(prev_end, next_start)
+        if months and months >= 6:
+            gaps.append({
+                "between": f"{sorted_roles[i]['company']} → {sorted_roles[i+1]['company']}",
+                "start": prev_end,
+                "end": next_start,
+                "duration_months": months,
+            })
+    return gaps
+
+
+def _months_between(d1: str, d2: str) -> int | None:
+    """Approximate months between two YYYY-MM or YYYY strings."""
+    from datetime import datetime  # noqa: F811
+
+    def _ym(s: str) -> tuple[int, int]:
+        parts = s.split("-")
+        return int(parts[0]), int(parts[1]) if len(parts) > 1 else 1
+
+    try:
+        y1, m1 = _ym(d1)
+        y2, m2 = _ym(d2)
+    except (ValueError, IndexError):
+        return None
+    return (y2 - y1) * 12 + (m2 - m1)
+
+
+register(
+    "profile_gaps",
+    {
+        "name": "profile_gaps",
+        "description": (
+            "Return a summary of profile gaps: which required fields are still empty, "
+            "how many skills lack evidence, how many roles lack achievements, "
+            "and detected employment gaps. Use this at the start of the enrichment loop "
+            "to decide what to ask about."
+        ),
+        "parameters": {"type": "object", "properties": {}, "required": []},
+    },
+    profile_gaps,
+)

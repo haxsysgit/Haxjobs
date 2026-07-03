@@ -4,7 +4,7 @@
   "title": "HaxJobs User Profile",
   "description": "The canonical user profile driving job discovery, evaluation, CV generation, cover letters, and the learning engine.",
   "type": "object",
-  "required": ["schema_version", "updated_at", "personal", "skills", "preferences"],
+  "required": ["schema_version", "updated_at", "personal", "skills", "preferences", "profile_health"],
   "properties": {
     "schema_version": {
       "type": "string",
@@ -85,10 +85,15 @@
             "type": "string",
             "description": "1-2 line role summary. Agent-written."
           },
-          "highlights": {
+          "achievements": {
             "type": "array",
-            "description": "Achievements with metrics. Agent-expanded from CV bullets.",
+            "description": "Achievement bullets with metrics where available. NOT — answer: what improved? by how much? Required in strict mode (min 1 per role), preferred in lenient, optional in carefree.",
             "items": { "type": "string" }
+          },
+          "environment": {
+            "type": "string",
+            "enum": ["prototype", "internal_tool", "staging", "production", "enterprise_production", "unknown"],
+            "description": "Deployment context. Only meaningful for tech/engineering roles. For non-tech (hospitality, retail, healthcare), leave as unknown. Agent-asked in strict mode only."
           },
           "technologies": {
             "type": "array",
@@ -133,88 +138,30 @@
       "properties": {
         "languages": {
           "type": "array",
-          "description": "Programming languages: Python, Java, TypeScript, etc.",
-          "items": {
-            "type": "object",
-            "required": ["name"],
-            "properties": {
-              "name": { "type": "string" },
-              "proficiency": {
-                "type": "string",
-                "enum": ["beginner", "intermediate", "advanced", "expert"]
-              },
-              "years": { "type": "number", "description": "Years of experience." }
-            }
-          }
+          "items": { "$ref": "#/$defs/skill_entry" }
         },
         "frameworks": {
           "type": "array",
-          "description": "Frameworks & libraries: FastAPI, React, Django, PyTorch, etc.",
-          "items": {
-            "type": "object",
-            "required": ["name"],
-            "properties": {
-              "name": { "type": "string" },
-              "proficiency": { "type": "string", "enum": ["beginner", "intermediate", "advanced", "expert"] },
-              "years": { "type": "number" }
-            }
-          }
+          "items": { "$ref": "#/$defs/skill_entry" }
         },
         "databases": {
           "type": "array",
-          "description": "PostgreSQL, Redis, MongoDB, etc.",
-          "items": {
-            "type": "object",
-            "required": ["name"],
-            "properties": {
-              "name": { "type": "string" },
-              "proficiency": { "type": "string", "enum": ["beginner", "intermediate", "advanced", "expert"] },
-              "years": { "type": "number" }
-            }
-          }
+          "items": { "$ref": "#/$defs/skill_entry" }
         },
         "devops": {
           "type": "array",
-          "description": "Docker, Linux, Nginx, CI/CD, AWS, etc.",
-          "items": {
-            "type": "object",
-            "required": ["name"],
-            "properties": {
-              "name": { "type": "string" },
-              "proficiency": { "type": "string", "enum": ["beginner", "intermediate", "advanced", "expert"] },
-              "years": { "type": "number" }
-            }
-          }
+          "items": { "$ref": "#/$defs/skill_entry" }
         },
         "ai_ml": {
           "type": "array",
-          "description": "AI/ML: HuggingFace, PyTorch, RAGAS, agent infrastructure, model training.",
-          "items": {
-            "type": "object",
-            "required": ["name"],
-            "properties": {
-              "name": { "type": "string" },
-              "proficiency": { "type": "string", "enum": ["beginner", "intermediate", "advanced", "expert"] },
-              "years": { "type": "number" }
-            }
-          }
+          "items": { "$ref": "#/$defs/skill_entry" }
         },
         "tools": {
           "type": "array",
-          "description": "Git, pytest, VS Code, Docker Compose, etc.",
-          "items": {
-            "type": "object",
-            "required": ["name"],
-            "properties": {
-              "name": { "type": "string" },
-              "proficiency": { "type": "string", "enum": ["beginner", "intermediate", "advanced", "expert"] },
-              "years": { "type": "number" }
-            }
-          }
+          "items": { "$ref": "#/$defs/skill_entry" }
         },
         "soft_skills": {
           "type": "array",
-          "description": "Communication, leadership, mentoring, etc. Agent-inferred or user-provided.",
           "items": {
             "type": "object",
             "required": ["name"],
@@ -386,6 +333,12 @@
         "availability": {
           "type": "string",
           "description": "e.g. 'Immediate', '1 month notice', 'Available from September 2026'"
+        },
+        "profile_depth": {
+          "type": "string",
+          "enum": ["strict", "lenient", "carefree"],
+          "default": "lenient",
+          "description": "How aggressively the agent questions during onboarding and enrichment. strict = evidence for skills, metrics for achievements, gap explanations. lenient = asks once, accepts. carefree = skips deep questions, accepts responsibilities as achievements."
         }
       }
     },
@@ -558,6 +511,82 @@
           "outreach_drafting_enabled": { "type": "boolean" },
           "auto_send_messages": { "type": "boolean" },
           "notes": { "type": "string" }
+        }
+      }
+    },
+
+    "profile_health": {
+      "type": "object",
+      "description": "Computed at save time. Tells the dashboard and agent how complete the profile is. Drives onboarding progress bar segments.",
+      "properties": {
+        "completion_pct": {
+          "type": "number", "minimum": 0, "maximum": 100,
+          "description": "Weighted score: required fields carry more weight."
+        },
+        "required_fields_filled": {
+          "type": "array", "items": { "type": "string" },
+          "description": "Dot-paths of required fields that are filled."
+        },
+        "required_fields_missing": {
+          "type": "array", "items": { "type": "string" },
+          "description": "Dot-paths of required fields still empty."
+        },
+        "total_skills": { "type": "integer" },
+        "skills_with_evidence": {
+          "type": "integer",
+          "description": "How many hard skills have evidence (all categories except soft_skills)."
+        },
+        "roles_with_achievements": {
+          "type": "integer",
+          "description": "Work experience entries with at least one metric-tagged achievement."
+        },
+        "total_roles": { "type": "integer" },
+        "employment_gaps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "start": { "type": "string" },
+              "end": { "type": "string" },
+              "duration_months": { "type": "number" },
+              "explanation": { "type": "string" }
+            }
+          }
+        },
+        "red_flags": {
+          "type": "array", "items": { "type": "string" },
+          "description": "Actionable: buzzword-only skills, no achievements, unexplained gaps, stale skills."
+        },
+        "depth_mode": {
+          "type": "string", "enum": ["strict", "lenient", "carefree"],
+          "description": "Drives agent questioning intensity. strict = evidence/achievements/gaps required. lenient = asks once. carefree = skips deep questions."
+        },
+        "last_health_check": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+
+  "$defs": {
+    "skill_entry": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" },
+        "proficiency": {
+          "type": "string",
+          "enum": ["beginner", "intermediate", "advanced", "expert"]
+        },
+        "years": {
+          "type": "number",
+          "description": "Years of experience with this skill."
+        },
+        "evidence": {
+          "type": "string",
+          "description": "Where and how this skill was used. e.g. '4 years production backend at Acme; built 3 microservices'. Required in strict mode, optional in lenient, skipped in carefree."
+        },
+        "last_used": {
+          "type": "string",
+          "description": "YYYY-MM or YYYY. When this skill was last actively used."
         }
       }
     }
