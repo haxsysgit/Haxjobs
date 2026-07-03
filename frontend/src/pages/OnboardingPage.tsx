@@ -634,7 +634,7 @@ export default function OnboardingPage() {
   const { data: status } = useQuery({
     queryKey: ["onboarding-status"],
     queryFn: getStatus,
-    staleTime: 10_000,
+    staleTime: 0,  // ponytail: never cache — redirects depend on live status
   })
 
   const uploadMutation = useMutation({
