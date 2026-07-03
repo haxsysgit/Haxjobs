@@ -12,7 +12,7 @@ def _csv(value: str | None) -> list[str] | None:
 def cmd_start(args):
     """Start the HaxJobs server."""
     from haxjobs.server.main import run
-    run(host=args.host, port=args.port, open_browser=not args.no_browser)
+    run(host=args.host, port=args.port, open_browser=not args.no_browser, reload=args.reload)
 
 
 def cmd_agent_ask(args):
@@ -97,6 +97,11 @@ def cmd_dev_status(args):
         resp = request.urlopen(req, timeout=2)
         data = json.loads(resp.read())
         print(f"Server status: {data.get('stage', 'unknown')}")
+
+        resp = request.urlopen(f"http://{args.host}:{args.port}/api/discovery/status", timeout=2)
+        discovery = json.loads(resp.read())
+        connected = isinstance(discovery.get("running"), bool) and isinstance(discovery.get("scrapers"), list)
+        print(f"Discovery API: {'connected' if connected else 'stale'}")
     except Exception:
         print("Server status: not running")
 
@@ -108,7 +113,7 @@ def cmd_dev_restart(args):
 
     # Kill existing
     killed = False
-    for line in os.popen("ss -tlnp 'sport = :8241'").readlines():
+    for line in os.popen(f"ss -tlnp 'sport = :{args.port}'").readlines():
         if "pid=" in line:
             import re
             m = re.search(r"pid=(\d+)", line)
@@ -137,7 +142,17 @@ def cmd_dev_restart(args):
     print("Starting dev server…")
     os.chdir(args.project_root or os.getcwd())
     subprocess.Popen(
-        [sys.executable, "-m", "haxjobs.server.main", "--no-browser"],
+        [
+            sys.executable,
+            "-m",
+            "haxjobs.server.main",
+            "--no-browser",
+            "--reload",
+            "--host",
+            args.host,
+            "--port",
+            str(args.port),
+        ],
         env={**os.environ, "PYTHONPATH": "src:."},
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -156,6 +171,7 @@ def main(argv: list[str] | None = None):
     start.add_argument("--host", default="127.0.0.1")
     start.add_argument("--port", type=int, default=8241)
     start.add_argument("--no-browser", action="store_true", help="Don't open browser")
+    start.add_argument("--reload", action="store_true", help="Reload backend on code changes")
     start.set_defaults(func=cmd_start)
 
     agent = sub.add_parser("agent", help="Use the native HaxJobs agent")

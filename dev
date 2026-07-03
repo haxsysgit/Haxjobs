@@ -35,7 +35,7 @@ case "$CMD" in
     cd "$ROOT/frontend" && npm run build -- --logLevel warn 2>&1 | tail -1
     cd "$ROOT"
     echo "==> start server"
-    PYTHONPATH=src:. "$ROOT/.venv/bin/python" -m haxjobs.server.main --no-browser
+    PYTHONPATH=src:. "$ROOT/.venv/bin/python" -m haxjobs.server.main --no-browser --reload
     ;;
   test)
     echo "==> tests"

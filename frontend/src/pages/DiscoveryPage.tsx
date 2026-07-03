@@ -33,7 +33,14 @@ export function DiscoveryPage() {
 
   async function refreshStatus() {
     const response = await fetch("/api/discovery/status")
-    if (response.ok) setStatus(await response.json())
+    if (!response.ok) return
+    const data = await response.json()
+    if (!isDiscoveryStatus(data)) {
+      setError("Discovery API is stale. Restart dev server with ./dev restart.")
+      return
+    }
+    setError("")
+    setStatus(data)
   }
 
   async function runDiscovery() {
@@ -41,7 +48,11 @@ export function DiscoveryPage() {
     setLoading(true)
     try {
       const response = await fetch("/api/discovery/run", { method: "POST" })
-      if (!response.ok) throw new Error("Could not start discovery")
+      if (!response.ok) {
+        throw new Error(response.status === 404 || response.status === 405
+          ? "Discovery API is stale. Restart dev server with ./dev restart."
+          : "Could not start discovery")
+      }
       await refreshStatus()
     } catch (exc) {
       setError(exc instanceof Error ? exc.message : "Could not start discovery")
@@ -108,6 +119,16 @@ export function DiscoveryPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+function isDiscoveryStatus(value: unknown): value is DiscoveryStatus {
+  return Boolean(
+    value &&
+    typeof value === "object" &&
+    "running" in value &&
+    "scrapers" in value &&
+    Array.isArray((value as DiscoveryStatus).scrapers)
   )
 }
 
