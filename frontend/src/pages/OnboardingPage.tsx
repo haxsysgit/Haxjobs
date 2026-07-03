@@ -138,14 +138,14 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
         <h1 className="text-3xl font-heading tracking-tight">Let&apos;s build your profile</h1>
         <p className="text-muted-foreground max-w-md mx-auto leading-relaxed">
           HaxJobs needs to understand your skills, experience, and what you&apos;re
-          looking for — so it can find the right jobs and tailor applications to you.
+          looking for. So it can find the right jobs and tailor applications to you.
         </p>
         <div className="bg-muted/40 rounded-xl p-5 text-left max-w-sm mx-auto space-y-3 text-sm mt-6">
           <p className="font-medium text-foreground">This takes about 2 minutes:</p>
           <ol className="space-y-2 list-decimal list-inside text-muted-foreground">
-            <li>Upload or paste your CV — we extract everything we can</li>
+            <li>Upload or paste your CV. We extract everything we can</li>
             <li>We enrich it with AI to fill in gaps</li>
-            <li>You review, edit, and confirm — your edits always win</li>
+            <li>You review, edit, and confirm. Your edits always win</li>
           </ol>
         </div>
         <Button onClick={onNext} size="lg" className="mt-4 min-w-[200px]">
@@ -164,7 +164,7 @@ function SourceStep({ onSelect }: { onSelect: (source: Source) => void }) {
       <StepProgress step={1} total={4} />
       <h2 className="text-xl font-heading text-center mb-2">Where&apos;s your CV?</h2>
       <p className="text-sm text-muted-foreground text-center mb-8">
-        We&apos;ll extract your profile automatically — you review and edit before saving.
+        We&apos;ll extract your profile automatically. You review and edit before saving.
       </p>
 
       <div className="grid grid-cols-2 gap-4">
@@ -216,7 +216,7 @@ function UploadStep({
 
   const handleFile = useCallback((f: File) => {
     if (f.size > 5 * 1024 * 1024) {
-      toast.error("File too large — max 5 MB")
+      toast.error("File too large. Max 5 MB")
       return
     }
     setFile(f)
@@ -239,7 +239,7 @@ function UploadStep({
 
       <h2 className="text-xl font-heading mb-1">Upload your CV</h2>
       <p className="text-sm text-muted-foreground mb-6">
-        PDF, DOCX, or plain text — we handle all common formats.
+        PDF, DOCX, or plain text. We handle all common formats.
       </p>
 
       {!file ? (
@@ -519,7 +519,7 @@ function ReviewStep({
 
       <Button onClick={onComplete} className="w-full" size="lg" disabled={isCompleting}>
         {isCompleting ? <Spinner className="size-4 mr-2" /> : null}
-        Looks good — save & finish
+        Looks good, save and finish
       </Button>
     </motion.div>
   )
