@@ -14,8 +14,8 @@ Each executor: read the plan fully, honor STOP conditions, update status row.
 | 042 | Frontend shell — React + Vite + shadcn/ui (minimal deps) | P1 | M | 040, 041 | ✅ DONE |
 | 043 | Full native agent — job-search tools, prompt tiers, identity | P1 | M | 039, 040, 041, 044 | ✅ DONE |
 | 044 | Provider setup — first-run API key + model config | P1 | S | 040, 041, 042 | ✅ DONE |
-| 045 | Onboarding backend — CV upload, agent extraction, wizard API | P1 | M | 041, 043 | TODO ← NEXT |
-| 046 | Onboarding frontend — multi-step wizard UI | P1 | M | 042, 045 | TODO |
+| 045 | Onboarding backend — CV upload, agent extraction, wizard API | P1 | M | 041, 043, 044 | ✅ DONE |
+| 046 | Onboarding frontend — multi-step wizard UI | P1 | M | 042, 045 | ✅ DONE |
 | 047 | Discovery API — scraper endpoints, run from UI | P1 | M | 041 | TODO |
 | 048 | Agent-based evaluation — delete subprocess adapters, use native agent | P1 | M | 041, 043 | TODO |
 | 049 | Dashboard — job list with fit badges, filters, search | P1 | L | 041, 044, 047, 048 | TODO |
@@ -67,9 +67,9 @@ Each executor: read the plan fully, honor STOP conditions, update status row.
 5. **044** — provider setup
 6. **039** — bare agent (DONE)
 7. **043** — full agent (DONE)
-8. **045** — onboarding backend (NEXT)
-9. **046** — onboarding frontend
-10. **047** — discovery API
+8. **045** — onboarding backend (DONE)
+9. **046** — onboarding frontend (DONE)
+10. **047** — discovery API (NEXT)
 11. **048** — native-agent evaluation
 12. **049-053** — dashboard/job/detail/decision/pack/profile features
 13. **054** — frontend polish
