@@ -20,8 +20,7 @@ MAX_TEXT_CHARS = 12_000
 MAX_SEARCH_RESULTS = 5
 MAX_DB_ROWS = 50
 
-from haxjobs.config import STATE_DIR
-PROFILE_PATH = STATE_DIR / "profile.json"
+from haxjobs.config import PROFILE_PATH
 
 
 def _truncate(text: str, limit: int = MAX_TEXT_CHARS) -> str:

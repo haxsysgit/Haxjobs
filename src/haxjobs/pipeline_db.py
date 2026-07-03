@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """HaxJobs pipeline CLI — unified entry point for all pipeline operations.
 
-`import pipeline_db as db` provides access to all db/ and discovery/ modules.
+`from haxjobs import pipeline_db as db` provides access to all db/ and discovery/ modules.
 """
 from haxjobs.db import *  # noqa: F401, F403
 
@@ -66,7 +66,7 @@ def action_reset():
 
 def action_discover_manual(argv: list[str]):
     """Insert a manually-discovered job through the full ingestion spine."""
-    parser = argparse.ArgumentParser(prog="pipeline_db.py discover-manual")
+    parser = argparse.ArgumentParser(prog="python -m haxjobs.pipeline_db discover-manual")
     parser.add_argument("--title", required=True)
     parser.add_argument("--company", required=True)
     parser.add_argument("--location", default="")
@@ -86,7 +86,7 @@ def action_discover_manual(argv: list[str]):
         "jd_text": jd_text,
     }
 
-    from discovery import normalize_job, should_accept_discovered_job
+    from haxjobs.discovery import normalize_job, should_accept_discovered_job
     from haxjobs.db.discovered_jobs import insert_discovered_job, update_discovery_status, promote_discovered_job
 
     normalized = normalize_job(raw, source=args.source)
@@ -112,7 +112,7 @@ def action_discover_manual(argv: list[str]):
 def action_discover_run():
     """Process discovered_jobs with status 'new' through hooks, promote accepted."""
     from haxjobs.db.discovered_jobs import list_discovered_jobs, update_discovery_status, promote_discovered_job
-    from discovery import should_accept_discovered_job
+    from haxjobs.discovery import should_accept_discovered_job
 
     new_jobs = list_discovered_jobs(status="new")
     if not new_jobs:
@@ -201,7 +201,11 @@ def action_run_full():
     print(f"Evaluated {count} jobs")
 
     print("\n─ Report ─")
-    from cron.generate_cycle_report import main as report_main
+    import runpy
+    from pathlib import Path
+    report_main = runpy.run_path(
+        str(Path(__file__).resolve().parents[2] / "cron" / "generate_cycle_report.py")
+    )["main"]
     report_main([])
 
     print("\n" + "=" * 60)
@@ -248,6 +252,6 @@ if __name__ == "__main__":
         action_run_full()
     else:
         print(f"Unknown action: {action}")
-        print("Usage: pipeline_db.py [classify-roles|status|activity|pending|reset|")
+        print("Usage: python -m haxjobs.pipeline_db [classify-roles|status|activity|pending|reset|")
         print("       discover-manual|discover-run|scrape-greenhouse|scrape-ashby|scrape-lever|")
         print("       scrape-all|discover-full|run-full]")

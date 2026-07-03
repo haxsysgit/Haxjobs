@@ -71,6 +71,13 @@ def tmp_profile(tmp_path, monkeypatch):
 # ── profile_read ──
 
 
+def test_profile_path_comes_from_config():
+    from haxjobs.agent import tools
+    from haxjobs.config import PROFILE_PATH
+
+    assert tools.PROFILE_PATH == PROFILE_PATH
+
+
 def test_profile_read_full(tmp_profile):
     from haxjobs.agent.tools import profile_read
 

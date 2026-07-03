@@ -17,7 +17,7 @@ from haxjobs.db.jobs import update_job_pack_status
 from haxjobs.db.schema import init as init_db
 from haxjobs.packs_builder.job_pack import build_job_pack
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_REGISTRY_PATH = ROOT / "src" / "haxjobs" / "cv_variants" / "registry.json"
 from haxjobs.config import AUTO_PACK_LEVELS, PROFILE_PATH as DEFAULT_PROFILE_PATH
 DEFAULT_OUTPUT_ROOT = ROOT / "packs"

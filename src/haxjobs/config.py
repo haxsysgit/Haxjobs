@@ -14,7 +14,6 @@ from pathlib import Path
 _CANDIDATES = [
     Path("haxjobs.toml"),                        # CWD first
     Path(__file__).resolve().parent / "haxjobs.toml",  # package dir
-    Path.home() / ".haxjobs" / "haxjobs.toml",    # user config
 ]
 _TOML_PATH = next((p for p in _CANDIDATES if p.exists()), _CANDIDATES[1])
 
@@ -39,8 +38,7 @@ OUTREACH_DIR = HAXJOBS_HOME / _cfg["paths"]["runtime"]["outreach"]
 
 # ── Profile ──
 PROFILE_DIR = HAXJOBS_HOME / _cfg["paths"]["profile"]["dir"]
-PROFILE_PATH = Path(_env("HAXJOBS_PROFILE",
-    str(PROFILE_DIR / _cfg["paths"]["profile"]["local"])))
+PROFILE_PATH = Path(_env("HAXJOBS_PROFILE", str(STATE_DIR / "profile.json")))
 CV_PROFILE_PATH = Path(_env("HAXJOBS_CV_PROFILE",
     str(HAXJOBS_HOME / _cfg["paths"]["profile"]["cv_typed"])))
 

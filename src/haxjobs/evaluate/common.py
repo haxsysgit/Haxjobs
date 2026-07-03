@@ -28,55 +28,120 @@ def load_json(path):
         return json.load(f)
 
 
+def _plain(value) -> str:
+    """Render profile values as prompt text, not JSON."""
+    if value is None or value == "":
+        return ""
+    if isinstance(value, bool):
+        return "yes" if value else "no"
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        return ", ".join(filter(None, (_plain(v) for v in value)))
+    if isinstance(value, dict):
+        if "name" in value:
+            suffix = f" ({value.get('proficiency')})" if value.get("proficiency") else ""
+            return f"{value.get('name', '')}{suffix}"
+        if "language" in value:
+            suffix = f" ({value.get('proficiency')})" if value.get("proficiency") else ""
+            return f"{value.get('language', '')}{suffix}"
+        if {"min", "max", "currency", "flexibility"} & set(value):
+            currency = value.get("currency", "")
+            low = value.get("min", "")
+            high = value.get("max", "")
+            range_text = f"{currency} {low}-{high}".strip(" -")
+            return "; ".join(filter(None, [range_text, value.get("flexibility", "")]))
+        return "; ".join(
+            f"{key.replace('_', ' ')}: {_plain(val)}"
+            for key, val in value.items()
+            if _plain(val)
+        )
+    return str(value)
+
+
+def _line(label: str, value) -> str:
+    return f"{label}: {_plain(value)}"
+
+
+def _append_items(lines: list[str], heading: str, items: list[dict], fields: tuple[str, ...]) -> None:
+    if not items:
+        return
+    lines.append(f"\n## {heading}")
+    for item in items:
+        summary = " — ".join(_plain(item.get(field)) for field in fields if _plain(item.get(field)))
+        if summary:
+            lines.append(f"  - {summary}")
+        for extra in ("description", "achievements", "highlights", "technologies"):
+            text = _plain(item.get(extra))
+            if text:
+                lines.append(f"    {extra.replace('_', ' ').title()}: {text}")
+
+
 def build_profile_blurb(company: str = "") -> str:
-    """Build the profile section of the evaluation prompt.
-
-    Reads the profile JSON and produces one efficient prompt section with:
-    - User profile basics (name, location, work auth, salary, preferences)
-    - Full skills list
-    - Structured facts with safe_wording/avoid_wording guidance inline
-    - Behavioral guardrails + scoring guidance
-    - Company-specific notes (if matching)
-
-    No raw JSON dump — everything is merged into readable text.
-    """
+    """Build plain-text profile context for evaluation prompts."""
     if not os.path.exists(PROFILE_PATH):
         return "Profile not found."
 
     p = load_json(PROFILE_PATH)
-    up = p.get("user_profile", {})
+    legacy = p.get("user_profile") if isinstance(p.get("user_profile"), dict) else None
+    profile = legacy or p
+    personal = profile.get("personal", {}) if not legacy else profile
+    preferences = profile.get("preferences", {}) if not legacy else profile
+    work_auth = profile.get("work_authorization", {}) if not legacy else {}
+
     facts = p.get("confirmed_profile_facts", [])
     eval_context = p.get("evaluation_context", {})
     company_notes = p.get("company_notes", {})
 
-    # ── Basics ──
-    skills = up.get("skills", [])
+    work_auth_text = work_auth.get("summary") or work_auth.get("status") or profile.get("work_authorization_summary", "")
+    salary = preferences.get("salary_range") or profile.get("salary_preference", "£35,000-£60,000")
+
     lines = [
-        f"Name: {up.get('name', 'Arinze Elenasulu')}",
-        f"Headline: {up.get('preferred_headline', 'Python Backend Engineer | AI & Automation')}",
-        f"Location: {up.get('location', 'London, UK')}",
-        f"University: {up.get('university', 'Middlesex University')}, {up.get('university_location', 'London, UK')}",
-        f"Work authorization: {up.get('work_authorization_summary', '')}",
-        f"Requires sponsorship: {up.get('requires_sponsorship', '')}",
-        f"Availability: {up.get('availability', '')}",
-        f"Salary: {up.get('salary_preference', '£35,000-£60,000')}",
-        f"Email: {up.get('email', '')}",
-        f"LinkedIn: {up.get('linkedin_url', '')}",
-        f"GitHub: {up.get('github_url', '')}",
+        _line("Name", personal.get("name", "Arinze Elenasulu")),
+        _line("Headline", personal.get("preferred_headline") or personal.get("headline", "Python Backend Engineer | AI & Automation")),
+        _line("Location", personal.get("location", "London, UK")),
+        _line("Work authorization", work_auth_text),
+        _line("Requires sponsorship now", work_auth.get("requires_sponsorship_now", profile.get("requires_sponsorship", ""))),
+        _line("Requires sponsorship future", work_auth.get("requires_sponsorship_future", "")),
+        _line("Availability", preferences.get("availability") or profile.get("availability", "")),
+        _line("Salary", salary),
+        _line("Email", personal.get("email", "")),
+        _line("LinkedIn", personal.get("linkedin_url") or personal.get("linkedin", "")),
+        _line("GitHub", personal.get("github_url", "")),
         "",
-        "Skills: " + ", ".join(skills),
-        "",
-        f"Preferred roles: {', '.join(up.get('preferred_roles', []))}",
-        f"Preferred locations: {', '.join(up.get('preferred_locations', []))}",
-        f"Preferred work modes: {', '.join(up.get('preferred_work_modes', []))}",
-        f"Target levels: {', '.join(up.get('experience_levels', []))}",
-        f"Excluded levels: {', '.join(up.get('excluded_levels', []))}",
     ]
 
-    # ── Structured facts (safe wording rules embedded inline) ──
+    skills = profile.get("skills", [])
+    if isinstance(skills, dict):
+        lines.append("Skills:")
+        for category, values in skills.items():
+            text = _plain(values)
+            if text:
+                lines.append(f"  - {category.replace('_', ' ').title()}: {text}")
+    else:
+        lines.append("Skills: " + _plain(skills))
+
+    lines.extend([
+        "",
+        _line("Preferred roles", preferences.get("preferred_roles", [])),
+        _line("Preferred locations", preferences.get("preferred_locations", [])),
+        _line("Preferred work modes", preferences.get("preferred_work_modes", [])),
+        _line("Target levels", preferences.get("experience_levels", [])),
+        _line("Excluded levels", preferences.get("excluded_levels", [])),
+    ])
+
+    if legacy and profile.get("university"):
+        lines.append(_line("University", [profile.get("university"), profile.get("university_location", "")]))
+
+    _append_items(lines, "Work Experience", profile.get("work_experience", []), ("title", "company", "start_date", "end_date", "location"))
+    _append_items(lines, "Projects", profile.get("projects", []), ("name", "url"))
+    _append_items(lines, "Education", profile.get("education", []), ("institution", "degree", "field", "location"))
+
     if facts:
         lines.append("\n## Confirmed Profile Facts")
-        lines.append("  (Use safe_wording in CVs/packs. Follow avoid_wording rules.)\n")
+        lines.append("  (Use safe_wording in CVs/packs. Follow avoid_wording rules.)")
         for f in facts:
             cat = f.get("category", "other")
             claim = f.get("claim", "")
@@ -88,7 +153,6 @@ def build_profile_blurb(company: str = "") -> str:
             if avoid:
                 lines.append(f"    → AVOID: {avoid}")
 
-    # ── Evaluation Context (behavioral guardrails) ──
     guardrails = eval_context.get("behavioral_guardrails", [])
     if guardrails:
         lines.append("\n## Behavioral Guardrails (READ BEFORE SCORING)")
@@ -99,16 +163,15 @@ def build_profile_blurb(company: str = "") -> str:
     if scoring:
         lines.append("\n## Scoring Guidance")
         for role_type, guidance in scoring.items():
-            lines.append(f"  [{role_type}] {guidance}")
+            lines.append(f"  [{role_type}] {_plain(guidance)}")
 
-    # ── Company-specific notes ──
     if company:
         company_lower = company.strip().lower()
         matched_notes = []
-        for key, cn in company_notes.items():
+        for cn in company_notes.values():
             pattern = cn.get("pattern", "").lower()
             match_type = cn.get("match_type", "company_name_contains")
-            if match_type == "company_name_contains" and pattern in company_lower:
+            if pattern and match_type == "company_name_contains" and pattern in company_lower:
                 matched_notes.append(cn.get("note", ""))
 
         if matched_notes:
@@ -122,7 +185,7 @@ def build_profile_blurb(company: str = "") -> str:
 def _build_whitelist_context(company: str, title: str) -> str:
     """Build whitelist context from DB for the evaluation prompt."""
     try:
-        import pipeline_db as db
+        from haxjobs import pipeline_db as db
         whitelist = db.get_whitelist_for_eval(company, title) if hasattr(db, 'get_whitelist_for_eval') else []
     except Exception:
         whitelist = []

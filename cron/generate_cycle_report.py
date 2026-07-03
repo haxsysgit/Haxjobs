@@ -4,7 +4,7 @@
 Queries jobs + evaluations, writes a markdown digest to ``reports/<cycle>.md``,
 and saves the report path and body to the evaluations table using Plan 018 fields.
 
-Usage: PYTHONPATH=. python3 cron/generate_cycle_report.py [--cycle-id <id>]
+Usage: PYTHONPATH=src:. python3 cron/generate_cycle_report.py [--cycle-id <id>]
 """
 from __future__ import annotations
 
@@ -21,8 +21,7 @@ def generate_cycle_report(cycle_id: str | None = None) -> dict:
 
     Returns a dict with the report path, body, and job counts.
     """
-    import pipeline_db as db
-    from haxjobs.config import EVALUATION_AGENT
+    from haxjobs import pipeline_db as db
 
     db.init()
 

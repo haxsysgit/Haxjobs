@@ -3,9 +3,9 @@
 Uses the native HaxJobs agent directly.
 
 Usage:
-  python3 -m evaluate.run --next           # Process next pending job
-  python3 -m evaluate.run --batch 1        # Process 1 pending job
-  python3 -m evaluate.run --all-pending    # Process all (one at a time)
+  python3 -m haxjobs.evaluate.run --next           # Process next pending job
+  python3 -m haxjobs.evaluate.run --batch 1        # Process 1 pending job
+  python3 -m haxjobs.evaluate.run --all-pending    # Process all (one at a time)
 """
 from __future__ import annotations
 
@@ -48,7 +48,7 @@ def evaluate_from_db(agent_name: str | None = None) -> bool:
 
     Returns True if a job was evaluated, False if none pending.
     """
-    import pipeline_db as db
+    from haxjobs import pipeline_db as db
     db.init()
     pending = db.get_pending_jobs(1)
     if not pending:
@@ -143,7 +143,7 @@ def _auto_pack(job: dict, result: dict) -> None:
     print(f"  → Pack generated: {pack_result['pack_dir']}")
 
     # Save pack path back to evaluation and job
-    import pipeline_db as db
+    from haxjobs import pipeline_db as db
     db.init()
     from haxjobs.db.evaluations import save_evaluation
     result["pack_dir"] = pack_result["pack_dir"]
@@ -157,14 +157,14 @@ def main(argv: list[str] | None = None) -> int:
     if argv is None:
         argv = sys.argv
 
-    import pipeline_db as db
+    from haxjobs import pipeline_db as db
     db.init()
 
     if len(argv) < 2:
         print("Usage:")
-        print("  evaluate/run.py --next           # Next pending job from DB")
-        print("  evaluate/run.py --batch 1        # Process N pending")
-        print("  evaluate/run.py --all-pending    # Process all (one at a time)")
+        print("  python -m haxjobs.evaluate.run --next           # Next pending job from DB")
+        print("  python -m haxjobs.evaluate.run --batch 1        # Process N pending")
+        print("  python -m haxjobs.evaluate.run --all-pending    # Process all (one at a time)")
         return 1
 
     arg = argv[1]
@@ -214,7 +214,7 @@ def main(argv: list[str] | None = None) -> int:
 
     else:
         print(f"Unknown argument: {arg}")
-        print("Usage: evaluate/run.py --next | --batch N | --all-pending")
+        print("Usage: python -m haxjobs.evaluate.run --next | --batch N | --all-pending")
         return 1
 
     return 0

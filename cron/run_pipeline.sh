@@ -12,6 +12,7 @@ fi
 export HAXJOBS_HOME
 # --- end auto-detect ---
 cd "$HAXJOBS_HOME"
+export PYTHONPATH="${PYTHONPATH:+$PYTHONPATH:}src:."
 
 LOG_FILE="state/pipeline.log"
 DISCOVERY_MARKER="state/.last_discovery"
@@ -20,12 +21,10 @@ log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] $*" | tee -a "$LOG_FILE"; }
 
 # Read config values
 BATCH=$(python3 -c "
-import sys; sys.path.insert(0, '.')
 from haxjobs.config import CRON_CONFIG
 print(CRON_CONFIG.get('evaluate_batch', 1))
 ")
 DISCOVERY_INTERVAL=$(python3 -c "
-import sys; sys.path.insert(0, '.')
 from haxjobs.config import CRON_CONFIG
 print(CRON_CONFIG.get('discovery_interval_minutes', 720))
 ")
@@ -34,7 +33,7 @@ print(CRON_CONFIG.get('discovery_interval_minutes', 720))
 # Run discovery if the marker is missing or older than discovery_interval_minutes.
 if [ ! -f "$DISCOVERY_MARKER" ] || [ "$(find "$DISCOVERY_MARKER" -mmin +"$DISCOVERY_INTERVAL")" ]; then
     log "Running discovery cycle…"
-    PYTHONPATH=. python3 pipeline_db.py discover-full 2>&1 | tee -a "$LOG_FILE" || log "Discovery had issues (continuing)"
+    python3 -m haxjobs.pipeline_db discover-full 2>&1 | tee -a "$LOG_FILE" || log "Discovery had issues (continuing)"
     touch "$DISCOVERY_MARKER"
 else
     log "Discovery skipped (last run within ${DISCOVERY_INTERVAL} minutes)."
@@ -42,8 +41,7 @@ fi
 
 # Count pending jobs
 PENDING=$(python3 -c "
-import sys; sys.path.insert(0, '.')
-import pipeline_db as db
+from haxjobs import pipeline_db as db
 db.init()
 print(db.get_stats()['pending'])
 ")
@@ -56,13 +54,12 @@ fi
 log "Pipeline starting — $PENDING pending jobs. Processing up to $BATCH job(s)…"
 
 # ── Evaluate batch ──
-python3 evaluate/run.py --batch "$BATCH" 2>&1 | tee -a "$LOG_FILE"
+python3 -m haxjobs.evaluate.run --batch "$BATCH" 2>&1 | tee -a "$LOG_FILE"
 EXIT_CODE=$?
 
 # Re-count pending
 PENDING_AFTER=$(python3 -c "
-import sys; sys.path.insert(0, '.')
-import pipeline_db as db
+from haxjobs import pipeline_db as db
 db.init()
 print(db.get_stats()['pending'])
 ")
@@ -78,10 +75,9 @@ if [ "${1:-}" = "--all" ] && [ "$PENDING_AFTER" -gt 0 ]; then
     log "--all mode: processing remaining $PENDING_AFTER jobs…"
     while [ "$PENDING_AFTER" -gt 0 ]; do
         sleep 5
-        python3 evaluate/run.py --batch "$BATCH" 2>&1 | tail -3 | tee -a "$LOG_FILE"
+        python3 -m haxjobs.evaluate.run --batch "$BATCH" 2>&1 | tail -3 | tee -a "$LOG_FILE"
         PENDING_AFTER=$(python3 -c "
-import sys; sys.path.insert(0, '.')
-import pipeline_db as db
+from haxjobs import pipeline_db as db
 db.init()
 print(db.get_stats()['pending'])
 ")
@@ -91,8 +87,8 @@ print(db.get_stats()['pending'])
 fi
 
 # Always refresh classifications and report
-PYTHONPATH=. python3 pipeline_db.py classify-roles 2>&1 | tee -a "$LOG_FILE"
+python3 -m haxjobs.pipeline_db classify-roles 2>&1 | tee -a "$LOG_FILE"
 
-PYTHONPATH=. python3 cron/generate_cycle_report.py 2>&1 | tee -a "$LOG_FILE"
+python3 cron/generate_cycle_report.py 2>&1 | tee -a "$LOG_FILE"
 
 log "Pipeline done."
