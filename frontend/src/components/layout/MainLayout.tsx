@@ -14,7 +14,7 @@ function SetupGuard() {
     fetch("/api/setup/status")
       .then((r) => r.json())
       .then((data: { configured: boolean }) => {
-        if (!data.configured && location.pathname !== "/setup") {
+        if (!data.configured && location.pathname !== "/setup" && location.pathname !== "/onboarding") {
           navigate("/setup", { replace: true })
         }
         setChecked(true)

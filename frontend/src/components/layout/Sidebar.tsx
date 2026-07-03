@@ -3,11 +3,12 @@ import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { LayoutDashboard, Briefcase, User, Settings } from "lucide-react"
+import { LayoutDashboard, Briefcase, User, Settings, UserRoundPlus } from "lucide-react"
 
 const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Jobs", url: "/jobs", icon: Briefcase },
+  { title: "Onboarding", url: "/onboarding", icon: UserRoundPlus },
   { title: "Setup", url: "/setup", icon: Settings },
   { title: "Profile", url: "/profile", icon: User },
 ]
