@@ -427,9 +427,12 @@ def save_profile(profile: dict):
 
 
 def load_profile() -> dict | None:
+    """Return profile only if user completed onboarding."""
     if PROFILE_PATH.exists():
         with open(PROFILE_PATH) as f:
-            return json.load(f)
+            data = json.load(f)
+        if data.get("onboarding_complete"):
+            return data
     return None
 
 

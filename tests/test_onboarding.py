@@ -247,6 +247,10 @@ def test_save_and_load(tmp_path, monkeypatch):
     from haxjobs.features.onboarding import service as svc
     monkeypatch.setattr(svc, "PROFILE_PATH", tmp_path / "profile.json")
     svc.save_profile({"personal": {"name": "Test"}})
+    # Without onboarding_complete flag, load returns None
+    assert svc.load_profile() is None
+    # With flag, it returns the profile
+    svc.save_profile({"personal": {"name": "Test"}, "onboarding_complete": True})
     loaded = svc.load_profile()
     assert loaded["personal"]["name"] == "Test"
 

@@ -5,20 +5,34 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { AppSidebar } from "./Sidebar"
 import { Header } from "./Header"
 
-function SetupGuard() {
+function RouteGuard() {
   const location = useLocation()
   const navigate = useNavigate()
   const [checked, setChecked] = useState(false)
 
   useEffect(() => {
-    fetch("/api/setup/status")
-      .then((r) => r.json())
-      .then((data: { configured: boolean }) => {
-        if (!data.configured && location.pathname !== "/setup" && location.pathname !== "/onboarding") {
+    async function check() {
+      try {
+        const [setupRes, onboardRes] = await Promise.all([
+          fetch("/api/setup/status").then((r) => r.json()),
+          fetch("/api/onboarding/status").then((r) => r.json()),
+        ])
+
+        const setupDone: boolean = setupRes.configured
+        const onboardDone: boolean = onboardRes.stage === "complete"
+        const path = location.pathname
+
+        if (!setupDone && path !== "/setup" && path !== "/onboarding") {
           navigate("/setup", { replace: true })
+        } else if (setupDone && !onboardDone && path !== "/onboarding") {
+          navigate("/onboarding", { replace: true })
         }
-        setChecked(true)
-      })
+      } catch {
+        // server down — let the page render and handle its own errors
+      }
+      setChecked(true)
+    }
+    check()
   }, [location.pathname])
 
   if (!checked) return null
@@ -33,7 +47,7 @@ export function MainLayout() {
         <SidebarInset>
           <Header />
           <main className="flex-1 p-6">
-            <SetupGuard />
+            <RouteGuard />
           </main>
         </SidebarInset>
       </SidebarProvider>

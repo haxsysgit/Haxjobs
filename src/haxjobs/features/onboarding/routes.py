@@ -142,6 +142,7 @@ def onboarding_complete() -> dict:
     if profile is None:
         raise HTTPException(400, "No active onboarding session.")
 
+    profile["onboarding_complete"] = True
     save_profile(profile)
     clear_session()
     return {"ok": True, "stage": "complete"}
