@@ -258,6 +258,8 @@ def _find_gaps(profile: dict) -> list[tuple[str, str]]:
 
 def _run_agent_extraction(cv_text: str, profile: dict) -> dict:
     """Use the agent to extract structured sections from CV text into profile."""
+    # Temporarily persist so agent's profile_read/profile_write tools can access it
+    save_profile(profile)
     system = (
         "You are an expert CV parser. You receive raw CV text and a partial profile JSON. "
         "Your job: extract structured data from the CV into the profile.\n\n"
@@ -286,6 +288,8 @@ def _run_agent_extraction(cv_text: str, profile: dict) -> dict:
 
 def _generate_agent_questions(cv_text: str, profile: dict) -> list[dict]:
     """Agent generates personalized questions to fill remaining gaps and enrich metadata."""
+    # Persist so agent's profile_read tool can access the current profile
+    save_profile(profile)
     gaps = _find_gaps(profile)
     gap_list = "\n".join(f"- {label} ({path})" for path, label in gaps) if gaps else "(all required fields filled)"
 

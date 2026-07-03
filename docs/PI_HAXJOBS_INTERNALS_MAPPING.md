@@ -34,6 +34,9 @@ Keep v1 boring: just enough for job-search automation. Python services still rea
 | `web_search` | Find job listings/company career pages when existing scrapers are not enough |
 | `fetch_page` | Fetch job descriptions/company pages for extraction |
 | `db_query` | Read-only SQLite queries over jobs/evaluations/decisions for summaries/debugging |
+| `profile_read` | Read specific profile fields (dot-path) or the full profile — use before asking redundant questions |
+| `profile_write` | Write/update a specific profile field — use during onboarding to fill gaps, or after user confirms a fact |
+| `profile_schema` | Return the full profile JSON Schema — call when you need to know what fields exist |
 
 ## Deferred tool set
 
@@ -51,6 +54,7 @@ These are Pi coding-agent tools. Do not build them in Plan 043. Add only when a 
 
 - Evaluation (`Plan 048`) should use `Agent.run()` without tools.
 - Onboarding extraction should use `Agent.run()` without tools; Python passes CV/profile text in.
+- Onboarding wizard MAY use `profile_read`/`profile_write`/`profile_schema` so the agent can interact with the profile directly.
 - Discovery may use `web_search`, `fetch_page`, and read-only `db_query`.
 - No `bash`, `write`, `edit`, or filesystem exploration tools in v1.
 - `db_query` is read-only in v1.

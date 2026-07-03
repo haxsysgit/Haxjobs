@@ -3,9 +3,11 @@ from __future__ import annotations
 
 import html
 import ipaddress
+import json as _json
 import re
 import socket
 import sqlite3
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
@@ -17,6 +19,8 @@ USER_AGENT = "HaxJobs/1.0 (+https://github.com/haxsysgit/Haxjobs)"
 MAX_TEXT_CHARS = 12_000
 MAX_SEARCH_RESULTS = 5
 MAX_DB_ROWS = 50
+
+PROFILE_PATH = Path.home() / ".haxjobs" / "profile.json"
 
 
 def _truncate(text: str, limit: int = MAX_TEXT_CHARS) -> str:
@@ -197,4 +201,145 @@ register(
         },
     },
     db_query,
+)
+
+
+# ── profile tools ──
+
+
+def _load_profile() -> dict[str, Any] | None:
+    if PROFILE_PATH.exists():
+        with open(PROFILE_PATH) as f:
+            return _json.load(f)
+    return None
+
+
+def _get_nested(data: dict, path: str) -> Any:
+    parts = path.split(".")
+    for p in parts:
+        if isinstance(data, dict):
+            data = data.get(p)
+        elif isinstance(data, list) and p.isdigit():
+            idx = int(p)
+            data = data[idx] if 0 <= idx < len(data) else None
+        else:
+            return None
+    return data
+
+
+def _set_nested(data: dict, path: str, value: Any) -> dict:
+    parts = path.split(".")
+    target = data
+    for p in parts[:-1]:
+        if isinstance(target, dict):
+            target = target.setdefault(p, {})
+        elif isinstance(target, list) and p.isdigit():
+            idx = int(p)
+            while len(target) <= idx:
+                target.append({})
+            target = target[idx]
+        else:
+            return data
+    if isinstance(target, dict):
+        target[parts[-1]] = value
+    return data
+
+
+def profile_read(field_path: str | None = None) -> dict[str, Any]:
+    """Read the user profile. If field_path is given, return only that dot-path field."""
+    profile = _load_profile()
+    if profile is None:
+        return {"error": "No profile found. Complete onboarding first."}
+    if field_path:
+        value = _get_nested(profile, field_path)
+        return {field_path: value}
+    return {"profile": profile}
+
+
+def profile_write(field_path: str, value: str) -> dict[str, Any]:
+    """Write a value to a specific profile field using dot-path notation."""
+    profile = _load_profile()
+    if profile is None:
+        return {"error": "No profile found. Complete onboarding first."}
+    # Parse value — try JSON first, fall back to string
+    try:
+        parsed = _json.loads(value)
+    except (_json.JSONDecodeError, TypeError):
+        parsed = value
+    profile = _set_nested(profile, field_path, parsed)
+    profile["updated_at"] = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
+    PROFILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(PROFILE_PATH, "w") as f:
+        _json.dump(profile, f, indent=2)
+    PROFILE_PATH.chmod(0o600)
+    return {"ok": True, "field": field_path}
+
+
+# ponytail: read the schema file on each call so changes are live without restart
+SCHEMA_CACHE_PATH = Path(__file__).resolve().parent.parent / "profile" / "profile_schema.json"
+
+
+def profile_schema() -> dict[str, Any]:
+    """Return the HaxJobs profile JSON Schema so the agent knows what fields exist."""
+    if SCHEMA_CACHE_PATH.exists():
+        with open(SCHEMA_CACHE_PATH) as f:
+            return {"schema": _json.load(f)}
+    return {"error": "Profile schema file not found"}
+
+
+register(
+    "profile_read",
+    {
+        "name": "profile_read",
+        "description": (
+            "Read the user's HaxJobs profile. Call without arguments for the full profile, "
+            "or pass a dot-path like 'personal.email' or 'skills.languages' for a specific field. "
+            "Use this before asking questions the profile already answers."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "field_path": {
+                    "type": "string",
+                    "description": "Dot-path to a field, e.g. 'personal.name' or 'work_experience'. Omit for full profile.",
+                },
+            },
+            "required": [],
+        },
+    },
+    profile_read,
+)
+register(
+    "profile_write",
+    {
+        "name": "profile_write",
+        "description": (
+            "Write a value to the user's HaxJobs profile. Use dot-path notation to target a specific field. "
+            "The value can be a plain string or a JSON string for arrays/objects. "
+            "Examples: profile_write('personal.phone', '+447...') or "
+            "profile_write('skills.ai_ml', '[{\"name\": \"PyTorch\", \"proficiency\": \"advanced\"}]'). "
+            "ONLY write fields the user has explicitly confirmed."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "field_path": {"type": "string", "description": "Dot-path to the field to update"},
+                "value": {"type": "string", "description": "Value to write (string or JSON-encoded)"},
+            },
+            "required": ["field_path", "value"],
+        },
+    },
+    profile_write,
+)
+register(
+    "profile_schema",
+    {
+        "name": "profile_schema",
+        "description": (
+            "Return the full HaxJobs profile JSON Schema — all fields, types, descriptions, and required flags. "
+            "Call this when you need to know what fields exist in the profile before reading or writing."
+        ),
+        "parameters": {"type": "object", "properties": {}, "required": []},
+    },
+    profile_schema,
 )
