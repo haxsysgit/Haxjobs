@@ -4,11 +4,12 @@ import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { LayoutDashboard, Briefcase, User, Settings, UserRoundPlus } from "lucide-react"
+import { LayoutDashboard, Briefcase, Search, User, Settings, UserRoundPlus } from "lucide-react"
 
 const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Jobs", url: "/jobs", icon: Briefcase },
+  { title: "Discovery", url: "/discovery", icon: Search },
   { title: "Onboarding", url: "/onboarding", icon: UserRoundPlus },
   { title: "Setup", url: "/setup", icon: Settings },
   { title: "Profile", url: "/profile", icon: User },

@@ -2,6 +2,7 @@ import { createBrowserRouter, RouterProvider } from "react-router-dom"
 import { MainLayout } from "./components/layout/MainLayout"
 import { DashboardPage } from "./pages/DashboardPage"
 import { JobsPage } from "./pages/JobsPage"
+import { DiscoveryPage } from "./pages/DiscoveryPage"
 import { ProfilePage } from "./pages/ProfilePage"
 import { SetupPage } from "./pages/SetupPage"
 import OnboardingPage from "./pages/OnboardingPage"
@@ -12,6 +13,7 @@ const router = createBrowserRouter([
     children: [
       { path: "/", element: <DashboardPage /> },
       { path: "/jobs", element: <JobsPage /> },
+      { path: "/discovery", element: <DiscoveryPage /> },
       { path: "/onboarding", element: <OnboardingPage /> },
       { path: "/profile", element: <ProfilePage /> },
       { path: "/setup", element: <SetupPage /> },
