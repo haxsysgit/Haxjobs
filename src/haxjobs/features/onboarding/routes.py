@@ -145,3 +145,19 @@ def onboarding_complete() -> dict:
     save_profile(profile)
     clear_session()
     return {"ok": True, "stage": "complete"}
+
+
+@router.post("/onboarding/reset")
+def onboarding_reset() -> dict:
+    """Reset all onboarding state — clears in-memory session and persisted profile."""
+    from .service import delete_profile, clear_session
+
+    clear_session()
+    delete_profile()
+    return {"ok": True, "stage": "not_started"}
+
+
+@router.get("/onboarding/reset")
+def onboarding_reset_get() -> dict:
+    """GET alias for browser convenience."""
+    return onboarding_reset()

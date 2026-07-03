@@ -432,6 +432,12 @@ def load_profile() -> dict | None:
     return None
 
 
+def delete_profile():
+    """Remove the persisted profile so onboarding starts fresh."""
+    if PROFILE_PATH.exists():
+        PROFILE_PATH.unlink()
+
+
 # ── session ──
 
 
@@ -444,6 +450,8 @@ def start_session(profile: dict, questions: list[dict]):
 
 
 def get_session() -> tuple[dict | None, str, int]:
+    if _pending_profile is None:
+        return None, "not_started", 0
     pending_questions = [
         q for q in _agent_questions
         if q["field"] not in _answered_questions
