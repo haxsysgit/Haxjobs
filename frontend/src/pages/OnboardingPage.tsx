@@ -1,21 +1,20 @@
-import { useState, useCallback, useRef, useEffect } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useMutation } from "@tanstack/react-query"
-import { motion, AnimatePresence } from "framer-motion"
+import { AnimatePresence, motion } from "framer-motion"
 import { toast } from "sonner"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
-import { Spinner } from "@/components/ui/spinner"
-import { ArrowLeft, Upload, FileText, File, X, Check } from "lucide-react"
+import { ArrowLeft, Check, Circle, File, FileText, Sparkles, Upload, X } from "lucide-react"
 
-// ── types ──
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Spinner } from "@/components/ui/spinner"
+import { Textarea } from "@/components/ui/textarea"
 
 type Step = "welcome" | "source" | "upload" | "paste" | "extracting" | "review" | "complete"
-
 type Source = "upload" | "paste"
+type SectionStatus = "complete" | "review" | "missing"
 
 interface ExtractionPhase {
   phase: string
@@ -39,32 +38,49 @@ interface ExtractResponse {
   extraction_phases: ExtractionPhase[]
 }
 
-// ── API helpers ──
+interface ReviewSection {
+  key: string
+  title: string
+  status: SectionStatus
+  summary: string
+  details: string[]
+}
 
 const API = "/api"
+const MIN_CV_CHARS = 100
+const MAX_FILE_BYTES = 5 * 1024 * 1024
+
+const stepVariants = {
+  enter: { opacity: 0, y: 18 },
+  center: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -18 },
+}
+
+const FLOW_STEPS = ["Start", "Source", "Extract", "Review"]
+const DEFAULT_PHASES = [
+  "Reading your CV",
+  "Extracting profile facts",
+  "Organizing skills and experience",
+  "Asking the agent to enrich the profile",
+  "Preparing review",
+]
 
 async function uploadCV(file: File): Promise<ExtractResponse> {
   const form = new FormData()
   form.append("file", file)
-  const r = await fetch(`${API}/onboarding/upload`, { method: "POST", body: form })
-  if (!r.ok) {
-    const e = await r.json().catch(() => ({ detail: "Upload failed" }))
-    throw new Error(e.detail || "Upload failed")
-  }
-  return r.json()
+  const response = await fetch(`${API}/onboarding/upload`, { method: "POST", body: form })
+  if (!response.ok) throw new Error(await errorMessage(response, "Upload failed"))
+  return response.json()
 }
 
 async function extractText(text: string): Promise<ExtractResponse> {
-  const r = await fetch(`${API}/onboarding/extract-text`, {
+  const response = await fetch(`${API}/onboarding/extract-text`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text }),
   })
-  if (!r.ok) {
-    const e = await r.json().catch(() => ({ detail: "Extraction failed" }))
-    throw new Error(e.detail || "Extraction failed")
-  }
-  return r.json()
+  if (!response.ok) throw new Error(await errorMessage(response, "Extraction failed"))
+  return response.json()
 }
 
 async function submitAnswer(questionId: string, answer: string): Promise<{
@@ -73,53 +89,68 @@ async function submitAnswer(questionId: string, answer: string): Promise<{
   questions_remaining: number
   phase: string
 }> {
-  const r = await fetch(`${API}/onboarding/wizard`, {
+  const response = await fetch(`${API}/onboarding/wizard`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ question_id: questionId, answer }),
   })
-  if (!r.ok) throw new Error("Failed to submit answer")
-  return r.json()
+  if (!response.ok) throw new Error(await errorMessage(response, "Could not save that answer"))
+  return response.json()
 }
 
 async function completeOnboarding() {
-  const r = await fetch(`${API}/onboarding/complete`, { method: "POST" })
-  if (!r.ok) throw new Error("Failed to complete")
-  return r.json()
+  const response = await fetch(`${API}/onboarding/complete`, { method: "POST" })
+  if (!response.ok) throw new Error(await errorMessage(response, "Could not save your profile"))
+  return response.json()
 }
 
-// ── animations ──
-
-const stepVariants = {
-  enter: { opacity: 0, x: 24 },
-  center: { opacity: 1, x: 0 },
-  exit: { opacity: 0, x: -24 },
+async function errorMessage(response: Response, fallback: string) {
+  const body = await response.json().catch(() => null)
+  return typeof body?.detail === "string" ? body.detail : fallback
 }
 
-// ── shared components ──
-
-function StepProgress({ step, total }: { step: number; total: number }) {
+function MotionStep({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className="flex items-center gap-1 mb-8">
-      {Array.from({ length: total }, (_, i) => (
-        <div
-          key={i}
-          className={`h-1 rounded-full transition-all duration-300 ${
-            i < step ? "w-8 bg-primary" : i === step - 1 ? "w-10 bg-primary" : "w-4 bg-muted-foreground/20"
-          }`}
-        />
-      ))}
+    <motion.div variants={stepVariants} initial="enter" animate="center" exit="exit" className={className}>
+      {children}
+    </motion.div>
+  )
+}
+
+function WizardProgress({ active }: { active: number }) {
+  return (
+    <div className="mb-8">
+      <div className="grid grid-cols-4 gap-2">
+        {FLOW_STEPS.map((label, index) => {
+          const done = index < active
+          const current = index === active
+          return (
+            <div key={label} className="space-y-2">
+              <div className={`h-1.5 rounded-full transition-all ${done || current ? "bg-primary" : "bg-muted"}`} />
+              <p className={`text-[11px] ${done || current ? "text-foreground" : "text-muted-foreground"}`}>
+                {label}
+              </p>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
 
-function BackButton({ onClick, label = "Back" }: { onClick: () => void; label?: string }) {
+function BackButton({ onClick }: { onClick: () => void }) {
   return (
-    <Button variant="ghost" size="sm" onClick={onClick} className="mb-4 -ml-2 text-muted-foreground">
-      <ArrowLeft className="size-4 mr-1" />
-      {label}
+    <Button variant="ghost" size="sm" onClick={onClick} className="mb-5 -ml-2 text-muted-foreground">
+      <ArrowLeft className="mr-1 size-4" />
+      Back
     </Button>
   )
+}
+
+function statusBadge(status: SectionStatus) {
+  if (status === "complete") return <Badge className="bg-primary/10 text-primary hover:bg-primary/10">Complete</Badge>
+  if (status === "review") return <Badge variant="secondary">Needs review</Badge>
+  return <Badge variant="outline" className="border-amber-500/40 text-amber-600">Missing</Badge>
 }
 
 function formatSize(bytes: number): string {
@@ -128,626 +159,689 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-// ── STEP 1: Welcome ──
-
 function WelcomeStep({ onNext }: { onNext: () => void }) {
   return (
-    <motion.div variants={stepVariants} initial="enter" animate="center" exit="exit" className="max-w-xl mx-auto">
-      <div className="text-center space-y-4">
-        <div className="text-5xl mb-2">👋</div>
-        <h1 className="text-3xl font-heading tracking-tight">Let&apos;s build your profile</h1>
-        <p className="text-muted-foreground max-w-md mx-auto leading-relaxed">
-          HaxJobs needs to understand your skills, experience, and what you&apos;re
-          looking for. So it can find the right jobs and tailor applications to you.
-        </p>
-        <div className="bg-muted/40 rounded-xl p-5 text-left max-w-sm mx-auto space-y-3 text-sm mt-6">
-          <p className="font-medium text-foreground">This takes about 2 minutes:</p>
-          <ol className="space-y-2 list-decimal list-inside text-muted-foreground">
-            <li>Upload or paste your CV. We extract everything we can</li>
-            <li>We enrich it with AI to fill in gaps</li>
-            <li>You review, edit, and confirm. Your edits always win</li>
-          </ol>
+    <MotionStep className="mx-auto max-w-3xl">
+      <div className="grid gap-8 lg:grid-cols-[1fr_0.9fr] lg:items-center">
+        <div className="space-y-5">
+          <Badge variant="secondary" className="gap-1 rounded-full px-3 py-1">
+            <Sparkles className="size-3" />
+            Profile first, jobs second
+          </Badge>
+          <div className="space-y-3">
+            <h1 className="text-4xl font-heading tracking-tight sm:text-5xl">Let&apos;s build your hiring profile</h1>
+            <p className="max-w-xl text-base leading-7 text-muted-foreground">
+              We will turn your CV into a structured profile. HaxJobs uses it to understand your skills,
+              experience, goals, strengths, gaps, and what kind of work actually fits you.
+            </p>
+          </div>
+          <Button size="lg" onClick={onNext} className="min-w-44">
+            Get started
+          </Button>
         </div>
-        <Button onClick={onNext} size="lg" className="mt-4 min-w-[200px]">
-          Get started
-        </Button>
+
+        <Card className="border-primary/15 bg-muted/20 shadow-sm">
+          <CardHeader>
+            <CardTitle className="font-heading text-xl">What happens next</CardTitle>
+            <CardDescription>No busywork. The CV does the heavy lifting.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm">
+            {[
+              ["Upload or paste", "Start with your CV, PDF, DOCX, Markdown, or plain text."],
+              ["Extract and enrich", "Deterministic parsing fills the basics. The agent adds structure and depth."],
+              ["Review and confirm", "You see the profile before saving. Your edits win."],
+              ["Then HaxJobs can work", "Discovery, evaluation, tailoring, and learning all use this profile."],
+            ].map(([title, body], index) => (
+              <div key={title} className="flex gap-3">
+                <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                  {index + 1}
+                </div>
+                <div>
+                  <p className="font-medium">{title}</p>
+                  <p className="text-muted-foreground">{body}</p>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       </div>
-    </motion.div>
+    </MotionStep>
   )
 }
-
-// ── STEP 2: Choose source ──
 
 function SourceStep({ onSelect }: { onSelect: (source: Source) => void }) {
   return (
-    <motion.div variants={stepVariants} initial="enter" animate="center" exit="exit" className="max-w-xl mx-auto">
-      <StepProgress step={1} total={4} />
-      <h2 className="text-xl font-heading text-center mb-2">Where&apos;s your CV?</h2>
-      <p className="text-sm text-muted-foreground text-center mb-8">
-        We&apos;ll extract your profile automatically. You review and edit before saving.
-      </p>
-
-      <div className="grid grid-cols-2 gap-4">
+    <MotionStep className="mx-auto max-w-3xl">
+      <WizardProgress active={1} />
+      <div className="mb-7 text-center">
+        <h2 className="text-3xl font-heading tracking-tight">Choose your starting point</h2>
+        <p className="mt-2 text-muted-foreground">Pick the easiest way to give HaxJobs your CV. We will do the rest.</p>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
         <button
+          type="button"
           onClick={() => onSelect("upload")}
-          className="flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-border hover:border-primary/40 hover:bg-muted/20 text-center transition-all duration-200 cursor-pointer group"
+          className="group rounded-2xl border bg-card p-6 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
         >
-          <div className="p-3 rounded-full bg-primary/10 group-hover:bg-primary/15 transition-colors">
-            <Upload className="size-6 text-primary" />
+          <div className="mb-5 flex items-center justify-between">
+            <div className="rounded-2xl bg-primary/10 p-3 text-primary">
+              <Upload className="size-6" />
+            </div>
+            <Badge variant="secondary">Recommended</Badge>
           </div>
-          <div>
-            <p className="font-medium">Upload a file</p>
-            <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, or text</p>
-          </div>
-          <Badge variant="secondary" className="text-[10px]">Recommended</Badge>
+          <h3 className="text-lg font-semibold">Upload a file</h3>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            Best if your CV is ready as PDF, DOCX, Markdown, or text.
+          </p>
         </button>
 
         <button
+          type="button"
           onClick={() => onSelect("paste")}
-          className="flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-border hover:border-primary/40 hover:bg-muted/20 text-center transition-all duration-200 cursor-pointer group"
+          className="group rounded-2xl border bg-card p-6 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
         >
-          <div className="p-3 rounded-full bg-primary/10 group-hover:bg-primary/15 transition-colors">
-            <FileText className="size-6 text-primary" />
+          <div className="mb-5 rounded-2xl bg-primary/10 p-3 text-primary w-fit">
+            <FileText className="size-6" />
           </div>
-          <div>
-            <p className="font-medium">Paste as text</p>
-            <p className="text-xs text-muted-foreground mt-1">Copy and paste CV content</p>
-          </div>
+          <h3 className="text-lg font-semibold">Paste CV text</h3>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            Good when you want to copy from a document or make a quick test run.
+          </p>
         </button>
       </div>
-    </motion.div>
+    </MotionStep>
   )
 }
 
-// ── STEP 3a: Upload file ──
-
 function UploadStep({
+  file,
   onBack,
-  onSubmit,
+  onChoose,
+  onClear,
+  onContinue,
   isSubmitting,
 }: {
+  file: File | null
   onBack: () => void
-  onSubmit: (file: File) => void
+  onChoose: (file: File) => void
+  onClear: () => void
+  onContinue: () => void
   isSubmitting: boolean
 }) {
-  const [file, setFile] = useState<File | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const handleFile = useCallback((f: File) => {
-    if (f.size > 5 * 1024 * 1024) {
-      toast.error("File too large. Max 5 MB")
+  const chooseFile = useCallback((nextFile: File) => {
+    if (nextFile.size > MAX_FILE_BYTES) {
+      toast.error("That file is too large. Max 5 MB.")
       return
     }
-    setFile(f)
-  }, [])
+    onChoose(nextFile)
+  }, [onChoose])
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault()
-      setDragOver(false)
-      const f = e.dataTransfer.files[0]
-      if (f) handleFile(f)
-    },
-    [handleFile],
-  )
+  const openPicker = () => {
+    if (inputRef.current) inputRef.current.value = ""
+    inputRef.current?.click()
+  }
+
+  const dropFile = (event: React.DragEvent) => {
+    event.preventDefault()
+    setDragOver(false)
+    const nextFile = event.dataTransfer.files[0]
+    if (nextFile) chooseFile(nextFile)
+  }
 
   return (
-    <motion.div variants={stepVariants} initial="enter" animate="center" exit="exit" className="max-w-xl mx-auto">
-      <StepProgress step={2} total={4} />
+    <MotionStep className="mx-auto max-w-3xl">
+      <WizardProgress active={2} />
       <BackButton onClick={onBack} />
-
-      <h2 className="text-xl font-heading mb-1">Upload your CV</h2>
-      <p className="text-sm text-muted-foreground mb-6">
-        PDF, DOCX, or plain text. We handle all common formats.
-      </p>
-
-      {!file ? (
-        <div
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={handleDrop}
-          onClick={() => inputRef.current?.click()}
-          className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all duration-200
-            ${dragOver
-              ? "border-primary bg-primary/5 scale-[1.01]"
-              : "border-muted-foreground/20 hover:border-primary/30 hover:bg-muted/20"
-            }`}
-        >
-          <Upload className="size-8 mx-auto mb-3 text-muted-foreground" />
-          <p className="font-medium mb-1">Drag & drop your CV here</p>
-          <p className="text-sm text-muted-foreground">or click to browse files</p>
-        </div>
-      ) : (
-        <div className="border rounded-xl p-4 space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <File className="size-5 text-primary" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-sm truncate">{file.name}</p>
-              <p className="text-xs text-muted-foreground">{formatSize(file.size)}</p>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8"
-              onClick={(e) => { e.stopPropagation(); setFile(null) }}
-            >
-              <X className="size-4" />
-            </Button>
-          </div>
-        </div>
-      )}
-
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".pdf,.txt,.md,.docx,.json"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0]
-          if (f) handleFile(f)
-        }}
-      />
-
-      <div className="mt-6 flex gap-3 justify-end">
-        {file && (
-          <Button onClick={() => onSubmit(file)} disabled={isSubmitting} className="min-w-[140px]">
-            {isSubmitting ? <Spinner className="size-4 mr-2" /> : null}
-            {isSubmitting ? "Extracting…" : "Extract my profile"}
-          </Button>
-        )}
-        {!file && (
-          <Button disabled className="min-w-[140px]">
-            Select a file to continue
-          </Button>
-        )}
-      </div>
-    </motion.div>
-  )
-}
-
-// ── STEP 3b: Paste text ──
-
-function PasteStep({
-  onBack,
-  onSubmit,
-  isSubmitting,
-}: {
-  onBack: () => void
-  onSubmit: (text: string) => void
-  isSubmitting: boolean
-}) {
-  const [text, setText] = useState("")
-
-  const charCount = text.trim().length
-  const canSubmit = charCount >= 100
-
-  return (
-    <motion.div variants={stepVariants} initial="enter" animate="center" exit="exit" className="max-w-xl mx-auto">
-      <StepProgress step={2} total={4} />
-      <BackButton onClick={onBack} />
-
-      <h2 className="text-xl font-heading mb-1">Paste your CV</h2>
-      <p className="text-sm text-muted-foreground mb-6">
-        Copy the full content of your CV and paste it below.
-      </p>
-
-      <Textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        placeholder="Paste your CV content here…&#10;&#10;Example:&#10;John Doe&#10;Email: john@example.com&#10;Location: London, UK&#10;&#10;Software Engineer with 5 years of experience…"
-        rows={14}
-        className="resize-none font-mono text-sm"
-        autoFocus
-      />
-
-      <div className="flex items-center justify-between mt-3 mb-6">
-        <p className={`text-xs ${canSubmit ? "text-muted-foreground" : "text-amber-600"}`}>
-          {charCount} / 100 characters minimum
-          {canSubmit ? <Check className="size-3 inline ml-1 text-green-500" /> : null}
-        </p>
+      <div className="mb-6">
+        <h2 className="text-3xl font-heading tracking-tight">Upload your CV</h2>
+        <p className="mt-2 text-muted-foreground">Choose the file first. We only start extracting after you confirm.</p>
       </div>
 
-      <div className="flex gap-3 justify-end">
-        <Button
-          onClick={() => onSubmit(text.trim())}
-          disabled={!canSubmit || isSubmitting}
-          className="min-w-[140px]"
-        >
-          {isSubmitting ? <Spinner className="size-4 mr-2" /> : null}
-          {isSubmitting ? "Extracting…" : "Extract my profile"}
-        </Button>
-      </div>
-    </motion.div>
-  )
-}
-
-// ── STEP 4: Extracting ──
-
-const EXTRACT_PHASES = [
-  { phase: "reading", label: "Reading your CV" },
-  { phase: "extracting", label: "Extracting skills & experience" },
-  { phase: "agent_enriching", label: "Enriching with AI" },
-  { phase: "generating_questions", label: "Building your profile draft" },
-]
-
-function ExtractingStep({ phases }: { phases: ExtractionPhase[] }) {
-  const [visible, setVisible] = useState(0)
-
-  useEffect(() => {
-    if (visible >= EXTRACT_PHASES.length) return
-    const t = setTimeout(() => setVisible((v) => v + 1), 700)
-    return () => clearTimeout(t)
-  }, [visible])
-
-  const displayPhases = phases.length > 0
-    ? phases.map((p, i) => ({ ...p, index: i }))
-    : EXTRACT_PHASES.map((p, i) => ({ ...p, index: i, done: false }))
-
-  return (
-    <motion.div variants={stepVariants} initial="enter" animate="center" exit="exit" className="max-w-md mx-auto">
-      <StepProgress step={3} total={4} />
-      <h2 className="text-xl font-heading text-center mb-6">Building your profile</h2>
-
-      <div className="space-y-4">
-        {displayPhases.map((p) => (
-          <div key={p.phase} className="flex items-center gap-3">
-            <div className={`size-2 rounded-full transition-colors duration-300 ${
-              p.index < visible ? "bg-primary" : "bg-muted-foreground/20"
-            }`} />
-            <span className={`text-sm flex-1 ${p.index < visible ? "text-foreground" : "text-muted-foreground/40"}`}>
-              {p.label}
-            </span>
-            {p.index < visible && (
-              <motion.span
-                initial={{ opacity: 0, scale: 0.5 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="text-xs font-medium text-primary"
-              >
-                Done
-              </motion.span>
+      <Card>
+        <CardContent className="p-6">
+          <div
+            onDragOver={(event) => { event.preventDefault(); setDragOver(true) }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={dropFile}
+            className={`rounded-2xl border-2 border-dashed p-8 transition-all ${dragOver ? "border-primary bg-primary/5" : "border-muted-foreground/20 bg-muted/20"}`}
+          >
+            {!file ? (
+              <div className="text-center">
+                <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-full bg-background text-muted-foreground shadow-sm">
+                  <Upload className="size-7" />
+                </div>
+                <p className="font-medium">Drop your CV here</p>
+                <p className="mt-1 text-sm text-muted-foreground">or browse for a file on your computer</p>
+                <Button type="button" variant="outline" className="mt-5" onClick={openPicker}>
+                  Choose file
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+                <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <File className="size-7" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium">{file.name}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {formatSize(file.size)}. {file.type || "File type will be detected"}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" onClick={openPicker}>Change file</Button>
+                  <Button type="button" variant="ghost" size="icon" onClick={onClear} aria-label="Remove file">
+                    <X className="size-4" />
+                  </Button>
+                </div>
+              </div>
             )}
           </div>
-        ))}
-      </div>
-    </motion.div>
+
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".pdf,.txt,.md,.docx,.json"
+            className="hidden"
+            onChange={(event) => {
+              const nextFile = event.target.files?.[0]
+              if (nextFile) chooseFile(nextFile)
+            }}
+          />
+
+          <div className="mt-6 flex justify-end">
+            <Button type="button" size="lg" disabled={!file || isSubmitting} onClick={onContinue}>
+              {isSubmitting ? <Spinner className="mr-2 size-4" /> : null}
+              Continue, build profile
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </MotionStep>
   )
 }
 
-// ── STEP 5: Review ──
+function PasteStep({
+  text,
+  onText,
+  onBack,
+  onContinue,
+  isSubmitting,
+}: {
+  text: string
+  onText: (text: string) => void
+  onBack: () => void
+  onContinue: () => void
+  isSubmitting: boolean
+}) {
+  const charCount = text.trim().length
+  const canContinue = charCount >= MIN_CV_CHARS
+
+  return (
+    <MotionStep className="mx-auto max-w-3xl">
+      <WizardProgress active={2} />
+      <BackButton onClick={onBack} />
+      <div className="mb-6">
+        <h2 className="text-3xl font-heading tracking-tight">Paste your CV</h2>
+        <p className="mt-2 text-muted-foreground">Paste the full CV text. Names, dates, projects, and role details all help.</p>
+      </div>
+      <Card>
+        <CardContent className="p-6">
+          <Textarea
+            value={text}
+            onChange={(event) => onText(event.target.value)}
+            placeholder="Paste your CV content here. Include your name, contact details, experience, education, projects, skills, and anything else you want HaxJobs to understand."
+            rows={16}
+            className="min-h-80 resize-y text-sm leading-6"
+            autoFocus
+          />
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <p className={`text-sm ${canContinue ? "text-muted-foreground" : "text-amber-600"}`}>
+              {charCount} of {MIN_CV_CHARS} characters minimum
+            </p>
+            <Button size="lg" disabled={!canContinue || isSubmitting} onClick={onContinue}>
+              {isSubmitting ? <Spinner className="mr-2 size-4" /> : null}
+              Continue, build profile
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </MotionStep>
+  )
+}
+
+function ExtractingStep({ phases, source }: { phases: ExtractionPhase[]; source: Source }) {
+  const [active, setActive] = useState(0)
+  const labels = phases.length > 0 ? phases.map((phase) => phase.label.replace(/\u2026/g, "")) : DEFAULT_PHASES
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setActive((current) => Math.min(current + 1, labels.length - 1))
+    }, 900)
+    return () => window.clearInterval(timer)
+  }, [labels.length])
+
+  return (
+    <MotionStep className="mx-auto max-w-3xl">
+      <WizardProgress active={2} />
+      <Card className="overflow-hidden">
+        <CardHeader className="border-b bg-muted/20">
+          <CardTitle className="font-heading text-2xl">Building your profile</CardTitle>
+          <CardDescription>
+            Reading your {source === "upload" ? "file" : "pasted CV"}, extracting what we can, then asking the agent to enrich the useful bits.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-6">
+          <div className="space-y-5">
+            {labels.map((label, index) => {
+              const done = index < active
+              const current = index === active
+              return (
+                <div key={`${label}-${index}`} className="flex items-center gap-4">
+                  <div className={`flex size-9 shrink-0 items-center justify-center rounded-full border ${done ? "border-primary bg-primary text-primary-foreground" : current ? "border-primary text-primary" : "border-muted text-muted-foreground"}`}>
+                    {done ? <Check className="size-4" /> : current ? <Spinner className="size-4" /> : <Circle className="size-3" />}
+                  </div>
+                  <div className="flex-1">
+                    <p className={done || current ? "font-medium" : "text-muted-foreground"}>{label}</p>
+                    {current ? <p className="text-sm text-muted-foreground">Working on this now.</p> : null}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </CardContent>
+      </Card>
+    </MotionStep>
+  )
+}
 
 function ReviewStep({
   profile,
-  questions,
+  question,
   questionsRemaining,
-  onSubmitAnswer,
+  isAnswering,
+  isCompleting,
+  onAnswer,
   onSkipQuestions,
   onComplete,
-  isCompleting,
 }: {
   profile: Record<string, unknown>
-  questions: FieldQuestion | null
+  question: FieldQuestion | null
   questionsRemaining: number
-  onSubmitAnswer: (questionId: string, answer: string) => void
+  isAnswering: boolean
+  isCompleting: boolean
+  onAnswer: (field: string, answer: string) => void
   onSkipQuestions: () => void
   onComplete: () => void
-  isCompleting: boolean
 }) {
-  const [showQuestions, setShowQuestions] = useState(false)
-  const [answerValue, setAnswerValue] = useState("")
+  const [answer, setAnswer] = useState("")
+  const [showQuestion, setShowQuestion] = useState(Boolean(question))
   const sections = buildSections(profile)
+  const completeCount = sections.filter((section) => section.status === "complete").length
+  const strength = Math.round((completeCount / sections.length) * 100)
+
+  useEffect(() => {
+    setAnswer("")
+    setShowQuestion(Boolean(question))
+  }, [question?.field])
 
   return (
-    <motion.div variants={stepVariants} initial="enter" animate="center" exit="exit" className="max-w-xl mx-auto">
-      <StepProgress step={4} total={4} />
-      <h2 className="text-xl font-heading text-center mb-1">Review your profile</h2>
-      <p className="text-sm text-muted-foreground text-center mb-6">
-        Everything we extracted from your CV. You can edit these later from the dashboard.
-      </p>
+    <MotionStep className="mx-auto max-w-4xl">
+      <WizardProgress active={3} />
+      <div className="mb-6 grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
+        <div>
+          <h2 className="text-3xl font-heading tracking-tight">Review your profile draft</h2>
+          <p className="mt-2 text-muted-foreground">
+            This is what HaxJobs understood from your CV. Missing does not mean broken. It means we know what to improve next.
+          </p>
+        </div>
+        <Card className="min-w-48 bg-muted/20">
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">Profile strength</p>
+            <p className="text-3xl font-semibold">{strength}%</p>
+          </CardContent>
+        </Card>
+      </div>
 
-      {/* Sections */}
-      <div className="space-y-2 mb-6">
-        {sections.map((s) => (
-          <div key={s.key} className="border rounded-lg p-3 flex items-center gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-sm">{s.label}</span>
-                {s.status === "gap" && (
-                  <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-600">missing</Badge>
-                )}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {sections.map((section) => (
+          <Card key={section.key} className="shadow-sm">
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <CardTitle className="text-base">{section.title}</CardTitle>
+                  <CardDescription className="mt-1 line-clamp-2">{section.summary}</CardDescription>
+                </div>
+                {statusBadge(section.status)}
               </div>
-              <p className="text-xs text-muted-foreground truncate mt-0.5">{s.preview}</p>
-            </div>
-            {s.status === "complete" && <Check className="size-4 text-green-500 shrink-0" />}
-          </div>
+            </CardHeader>
+            {section.details.length > 0 ? (
+              <CardContent className="pt-0">
+                <div className="flex flex-wrap gap-2">
+                  {section.details.slice(0, 8).map((detail) => (
+                    <Badge key={detail} variant="outline" className="max-w-full truncate font-normal">
+                      {detail}
+                    </Badge>
+                  ))}
+                </div>
+              </CardContent>
+            ) : null}
+          </Card>
         ))}
       </div>
 
-      {/* Deep questions */}
-      {showQuestions && questions && (
-        <Card className="border-primary/20 bg-primary/5 mb-4">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-heading">{questions.question}</CardTitle>
-            <CardDescription className="text-xs">{questions.description}</CardDescription>
+      {question && showQuestion ? (
+        <Card className="mt-6 border-primary/30 bg-primary/5">
+          <CardHeader>
+            <CardTitle className="font-heading text-xl">Improve your profile</CardTitle>
+            <CardDescription>{questionsRemaining} useful follow up{questionsRemaining === 1 ? "" : "s"} left. Answer what you can, skip what you want.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {questions.type === "list" ? (
-              <Textarea
-                value={answerValue}
-                onChange={(e) => setAnswerValue(e.target.value)}
-                placeholder="Comma-separated values…"
-                rows={2}
-                autoFocus
-              />
-            ) : (
-              <Input
-                value={answerValue}
-                onChange={(e) => setAnswerValue(e.target.value)}
-                placeholder="Your answer…"
-                autoFocus
-              />
-            )}
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                disabled={!answerValue.trim()}
-                onClick={() => {
-                  onSubmitAnswer(questions.field, answerValue.trim())
-                  setAnswerValue("")
-                }}
-              >
-                Save & Continue
-              </Button>
-              <Button size="sm" variant="ghost" onClick={onSkipQuestions}>Skip all</Button>
+          <CardContent className="space-y-4">
+            <div>
+              <p className="font-medium">{question.question}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{question.description}</p>
             </div>
-            {questionsRemaining > 0 && (
-              <p className="text-[10px] text-muted-foreground">
-                {questionsRemaining} more question{questionsRemaining !== 1 ? "s" : ""} after this
-              </p>
+            {question.type === "list" ? (
+              <Textarea value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder="Add a few items, separated with commas." rows={3} autoFocus />
+            ) : (
+              <Input value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder="Type your answer." autoFocus />
             )}
+            <div className="flex flex-wrap gap-2">
+              <Button disabled={!answer.trim() || isAnswering} onClick={() => onAnswer(question.field, answer.trim())}>
+                {isAnswering ? <Spinner className="mr-2 size-4" /> : null}
+                Save answer
+              </Button>
+              <Button variant="ghost" onClick={onSkipQuestions}>Skip questions for now</Button>
+            </div>
           </CardContent>
         </Card>
-      )}
+      ) : null}
 
-      {!showQuestions && questions && questionsRemaining > 0 && (
-        <Button variant="outline" className="w-full mb-4" onClick={() => setShowQuestions(true)}>
-          Answer {questionsRemaining} question{questionsRemaining !== 1 ? "s" : ""} to improve your profile
+      <div className="mt-6 flex justify-end">
+        <Button size="lg" onClick={onComplete} disabled={isCompleting}>
+          {isCompleting ? <Spinner className="mr-2 size-4" /> : null}
+          Save profile and finish
         </Button>
-      )}
-
-      <Button onClick={onComplete} className="w-full" size="lg" disabled={isCompleting}>
-        {isCompleting ? <Spinner className="size-4 mr-2" /> : null}
-        Looks good, save and finish
-      </Button>
-    </motion.div>
+      </div>
+    </MotionStep>
   )
 }
-
-// ── STEP 6: Complete ──
 
 function CompleteStep() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    const t = setTimeout(() => navigate("/"), 2500)
-    return () => clearTimeout(t)
+    const timer = window.setTimeout(() => navigate("/", { replace: true }), 2500)
+    return () => window.clearTimeout(timer)
   }, [navigate])
 
   return (
-    <motion.div variants={stepVariants} initial="enter" animate="center" exit="exit" className="max-w-md mx-auto">
-      <div className="text-center space-y-4 py-8">
+    <MotionStep className="mx-auto max-w-xl text-center">
+      <div className="py-12">
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ type: "spring", stiffness: 200, damping: 15 }}
-          className="text-6xl"
+          className="mx-auto mb-5 flex size-20 items-center justify-center rounded-full bg-primary/10 text-5xl"
         >
           ✅
         </motion.div>
-        <h2 className="text-2xl font-heading">You&apos;re all set</h2>
-        <p className="text-muted-foreground">
-          Your profile is ready. Redirecting to the dashboard…
-        </p>
+        <h2 className="text-3xl font-heading tracking-tight">Profile saved</h2>
+        <p className="mt-2 text-muted-foreground">Nice. HaxJobs has something real to work with now. Opening the dashboard...</p>
       </div>
-    </motion.div>
+    </MotionStep>
   )
 }
 
-// ── helpers ──
-
-interface ProfileSection {
-  key: string
-  label: string
-  status: "complete" | "gap" | "empty"
-  preview: string
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}
 }
 
-function buildSections(profile: Record<string, unknown>): ProfileSection[] {
-  const sections: ProfileSection[] = []
-
-  const personal = profile.personal as Record<string, unknown> | undefined
-  sections.push({
-    key: "name",
-    label: "Name",
-    status: personal?.name ? "complete" : "gap",
-    preview: String(personal?.name || "Not provided"),
-  })
-  sections.push({
-    key: "email",
-    label: "Email",
-    status: personal?.email ? "complete" : "gap",
-    preview: String(personal?.email || "Not provided"),
-  })
-  sections.push({
-    key: "location",
-    label: "Location",
-    status: personal?.location ? "complete" : "gap",
-    preview: String(personal?.location || "Not provided").trim(),
-  })
-
-  const prefs = profile.preferences as Record<string, unknown> | undefined
-  const roles = prefs?.preferred_roles as string[] | undefined
-  sections.push({
-    key: "roles",
-    label: "Target roles",
-    status: roles?.length ? "complete" : "gap",
-    preview: roles?.length ? roles.join(", ") : "Not provided",
-  })
-
-  const skills = profile.skills as Record<string, unknown> | undefined
-  let skillCount = 0
-  let skillPreview = ""
-  if (skills) {
-    const entries: string[] = []
-    for (const cat of ["languages", "frameworks", "databases", "devops", "ai_ml", "tools"]) {
-      const arr = skills[cat] as unknown[] | undefined
-      if (arr) {
-        skillCount += arr.length
-        entries.push(...arr.map((s) => typeof s === "string" ? s : (s as Record<string, unknown>).name as string || ""))
-      }
-    }
-    skillPreview = entries.slice(0, 5).join(", ") + (entries.length > 5 ? ` +${entries.length - 5} more` : "")
-  }
-  sections.push({
-    key: "skills",
-    label: "Skills",
-    status: skillCount > 0 ? "complete" : "gap",
-    preview: skillPreview || "None found",
-  })
-
-  const work = profile.work_experience as Record<string, unknown>[] | undefined
-  sections.push({
-    key: "experience",
-    label: "Work experience",
-    status: work?.length ? "complete" : "gap",
-    preview: work?.length ? `${work.length} role${work.length > 1 ? "s" : ""} found` : "None found",
-  })
-
-  return sections
+function asArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : []
 }
 
-// ── main page ──
+function text(value: unknown): string {
+  return typeof value === "string" ? value.trim() : ""
+}
+
+function itemName(item: unknown): string {
+  if (typeof item === "string") return item.trim()
+  const record = asRecord(item)
+  return text(record.name) || text(record.title) || text(record.company) || text(record.institution) || text(record.degree)
+}
+
+function collectNames(value: unknown, limit = 6): string[] {
+  return asArray(value).map(itemName).filter(Boolean).slice(0, limit)
+}
+
+function joinOrMissing(values: string[], missing = "Nothing clear yet") {
+  return values.length ? values.join(", ") : missing
+}
+
+function profileValue(profile: Record<string, unknown>, path: string): unknown {
+  return path.split(".").reduce<unknown>((current, part) => asRecord(current)[part], profile)
+}
+
+function sectionStatus(hasCore: boolean, hasSomething: boolean): SectionStatus {
+  if (hasCore) return "complete"
+  if (hasSomething) return "review"
+  return "missing"
+}
+
+function buildSections(profile: Record<string, unknown>): ReviewSection[] {
+  const personal = asRecord(profile.personal)
+  const preferences = asRecord(profile.preferences)
+  const authorization = asRecord(profile.work_authorization)
+  const skills = asRecord(profile.skills)
+  const health = asRecord(profile.profile_health)
+
+  const name = text(personal.name)
+  const email = text(personal.email)
+  const location = text(personal.location)
+  const headline = text(personal.preferred_headline) || text(personal.summary)
+  const roles = collectNames(preferences.preferred_roles)
+  const preferredLocations = collectNames(preferences.preferred_locations)
+  const workModes = collectNames(preferences.preferred_work_modes)
+  const authStatus = text(authorization.status) || text(profileValue(profile, "work_authorization.summary"))
+  const education = collectNames(profile.education, 4)
+  const projects = collectNames(profile.projects, 5)
+  const experience = asArray(profile.work_experience)
+  const experienceNames = experience.map((item) => {
+    const role = asRecord(item)
+    return [text(role.title), text(role.company)].filter(Boolean).join(" at ")
+  }).filter(Boolean).slice(0, 5)
+
+  const skillNames = ["languages", "frameworks", "databases", "devops", "ai_ml", "tools", "soft_skills"]
+    .flatMap((category) => collectNames(skills[category], 4))
+    .filter(Boolean)
+
+  const missingCount = Number(asRecord(health.required_fields).missing_count ?? 0)
+  const completion = Number(health.completion_pct ?? 0)
+
+  return [
+    {
+      key: "personal",
+      title: "Personal details",
+      status: sectionStatus(Boolean(name && email && location), Boolean(name || email || location || headline)),
+      summary: [name, location].filter(Boolean).join(". ") || "Name, email, and location still need checking.",
+      details: [email, headline].filter(Boolean),
+    },
+    {
+      key: "target",
+      title: "Target roles",
+      status: sectionStatus(roles.length > 0, roles.length > 0 || preferredLocations.length > 0 || workModes.length > 0),
+      summary: joinOrMissing(roles, "Target roles are still missing."),
+      details: [...preferredLocations.map((item) => `Location: ${item}`), ...workModes.map((item) => `Mode: ${item}`)],
+    },
+    {
+      key: "authorization",
+      title: "Work authorization",
+      status: sectionStatus(Boolean(authStatus), Boolean(authStatus)),
+      summary: authStatus || "Visa or work authorization status is missing.",
+      details: [],
+    },
+    {
+      key: "skills",
+      title: "Skills",
+      status: sectionStatus(skillNames.length > 0, skillNames.length > 0),
+      summary: skillNames.length ? `${skillNames.length} skills found` : "No clear skills extracted yet.",
+      details: skillNames.slice(0, 10),
+    },
+    {
+      key: "experience",
+      title: "Experience",
+      status: sectionStatus(experience.length > 0, experience.length > 0),
+      summary: experience.length ? `${experience.length} role${experience.length === 1 ? "" : "s"} found` : "No work history found yet.",
+      details: experienceNames,
+    },
+    {
+      key: "education",
+      title: "Education",
+      status: sectionStatus(education.length > 0, education.length > 0),
+      summary: joinOrMissing(education, "No education section found yet."),
+      details: education,
+    },
+    {
+      key: "projects",
+      title: "Projects",
+      status: sectionStatus(projects.length > 0, projects.length > 0),
+      summary: joinOrMissing(projects, "No projects found yet."),
+      details: projects,
+    },
+    {
+      key: "health",
+      title: "Profile health",
+      status: sectionStatus(missingCount === 0 && completion > 0, completion > 0),
+      summary: completion ? `${completion}% complete. ${missingCount} required field${missingCount === 1 ? "" : "s"} missing.` : "Health score will improve as the profile fills out.",
+      details: [],
+    },
+  ]
+}
 
 export default function OnboardingPage() {
   const [step, setStep] = useState<Step>("welcome")
+  const [source, setSource] = useState<Source>("upload")
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [pastedText, setPastedText] = useState("")
   const [response, setResponse] = useState<ExtractResponse | null>(null)
   const navigate = useNavigate()
 
-  // Redirect if already complete
   useEffect(() => {
     fetch("/api/onboarding/status")
-      .then((r) => r.json())
+      .then((result) => result.json())
       .then((data) => {
         if (data.stage === "complete") navigate("/", { replace: true })
       })
-  }, [])
+      .catch(() => undefined)
+  }, [navigate])
+
+  const showReview = (data: ExtractResponse) => {
+    setResponse(data)
+    window.setTimeout(() => setStep("review"), 900)
+  }
 
   const uploadMutation = useMutation({
     mutationFn: uploadCV,
-    onSuccess: (data) => {
-      setResponse(data)
-      setStep("extracting")
-      setTimeout(() => setStep("review"), Math.min(data.extraction_phases.length * 800, 3500))
-    },
-    onError: (e: Error) => {
-      toast.error(e.message)
+    onSuccess: showReview,
+    onError: (error: Error) => {
+      toast.error(error.message)
       setStep("upload")
     },
   })
 
   const pasteMutation = useMutation({
     mutationFn: extractText,
-    onSuccess: (data) => {
-      setResponse(data)
-      setStep("extracting")
-      setTimeout(() => setStep("review"), Math.min(data.extraction_phases.length * 800, 3500))
-    },
-    onError: (e: Error) => {
-      toast.error(e.message)
+    onSuccess: showReview,
+    onError: (error: Error) => {
+      toast.error(error.message)
       setStep("paste")
     },
   })
 
   const answerMutation = useMutation({
-    mutationFn: ({ id, answer }: { id: string; answer: string }) => submitAnswer(id, answer),
-    onSuccess: (data) => {
-      setResponse((prev) => (prev ? { ...prev, ...data } : prev))
-      if (!data.next_question) {
-        // All questions answered
-      }
-    },
-    onError: () => toast.error("Failed to save answer"),
+    mutationFn: ({ field, answer }: { field: string; answer: string }) => submitAnswer(field, answer),
+    onSuccess: (data) => setResponse((previous) => previous ? { ...previous, ...data } : previous),
+    onError: (error: Error) => toast.error(error.message),
   })
 
   const completeMutation = useMutation({
     mutationFn: completeOnboarding,
     onSuccess: () => setStep("complete"),
-    onError: () => toast.error("Failed to save profile"),
+    onError: (error: Error) => toast.error(error.message),
   })
 
-  const handleFileSubmit = (file: File) => {
-    uploadMutation.mutate(file)
+  const beginUpload = () => {
+    if (!selectedFile) return
+    setSource("upload")
+    setStep("extracting")
+    uploadMutation.mutate(selectedFile)
   }
 
-  const handlePasteSubmit = (text: string) => {
+  const beginPaste = () => {
+    const text = pastedText.trim()
+    if (text.length < MIN_CV_CHARS) return
+    setSource("paste")
+    setStep("extracting")
     pasteMutation.mutate(text)
   }
 
+  const chooseSource = (nextSource: Source) => {
+    setSource(nextSource)
+    setStep(nextSource)
+  }
+
+  const skipQuestions = () => {
+    setResponse((previous) => previous ? { ...previous, next_question: null, questions_remaining: 0 } : previous)
+    toast.message("Questions skipped. You can enrich the profile later.")
+  }
+
   return (
-    <div className="flex items-start justify-center min-h-[calc(100vh-4rem)] p-6 pt-10">
-      <div className="w-full max-w-2xl">
-        <AnimatePresence mode="wait">
-          {step === "welcome" && (
-            <WelcomeStep key="welcome" onNext={() => setStep("source")} />
-          )}
-
-          {step === "source" && (
-            <SourceStep
-              key="source"
-              onSelect={(src) => setStep(src)}
-            />
-          )}
-
-          {step === "upload" && (
-            <UploadStep
-              key="upload"
-              onBack={() => setStep("source")}
-              onSubmit={handleFileSubmit}
-              isSubmitting={uploadMutation.isPending}
-            />
-          )}
-
-          {step === "paste" && (
-            <PasteStep
-              key="paste"
-              onBack={() => setStep("source")}
-              onSubmit={handlePasteSubmit}
-              isSubmitting={pasteMutation.isPending}
-            />
-          )}
-
-          {step === "extracting" && (
-            <ExtractingStep key="extracting" phases={response?.extraction_phases || []} />
-          )}
-
-          {step === "review" && response && (
-            <ReviewStep
-              key="review"
-              profile={response.profile}
-              questions={response.next_question}
-              questionsRemaining={response.questions_remaining}
-              onSubmitAnswer={(id, answer) => answerMutation.mutate({ id, answer })}
-              onSkipQuestions={() => {}}
-              onComplete={() => completeMutation.mutate()}
-              isCompleting={completeMutation.isPending}
-            />
-          )}
-
-          {step === "complete" && <CompleteStep key="complete" />}
-        </AnimatePresence>
-      </div>
+    <div className="min-h-[calc(100vh-4rem)] px-4 py-8 sm:px-6 lg:px-8">
+      <AnimatePresence mode="wait">
+        {step === "welcome" ? <WelcomeStep key="welcome" onNext={() => setStep("source")} /> : null}
+        {step === "source" ? <SourceStep key="source" onSelect={chooseSource} /> : null}
+        {step === "upload" ? (
+          <UploadStep
+            key="upload"
+            file={selectedFile}
+            onChoose={setSelectedFile}
+            onClear={() => setSelectedFile(null)}
+            onBack={() => setStep("source")}
+            onContinue={beginUpload}
+            isSubmitting={uploadMutation.isPending}
+          />
+        ) : null}
+        {step === "paste" ? (
+          <PasteStep
+            key="paste"
+            text={pastedText}
+            onText={setPastedText}
+            onBack={() => setStep("source")}
+            onContinue={beginPaste}
+            isSubmitting={pasteMutation.isPending}
+          />
+        ) : null}
+        {step === "extracting" ? (
+          <ExtractingStep key="extracting" source={source} phases={response?.extraction_phases || []} />
+        ) : null}
+        {step === "review" && response ? (
+          <ReviewStep
+            key="review"
+            profile={response.profile}
+            question={response.next_question}
+            questionsRemaining={response.questions_remaining}
+            isAnswering={answerMutation.isPending}
+            isCompleting={completeMutation.isPending}
+            onAnswer={(field, answer) => answerMutation.mutate({ field, answer })}
+            onSkipQuestions={skipQuestions}
+            onComplete={() => completeMutation.mutate()}
+          />
+        ) : null}
+        {step === "complete" ? <CompleteStep key="complete" /> : null}
+      </AnimatePresence>
     </div>
   )
 }

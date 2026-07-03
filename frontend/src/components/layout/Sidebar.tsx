@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom"
+import { NavLink, useLocation } from "react-router-dom"
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem,
@@ -14,24 +14,30 @@ const items = [
 ]
 
 export function AppSidebar() {
+  const location = useLocation()
+
   return (
     <Sidebar>
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    render={
-                      <Link to={item.url}>
-                        <item.icon />
-                        <span>{item.title}</span>
-                      </Link>
-                    }
-                  />
-                </SidebarMenuItem>
-              ))}
+              {items.map((item) => {
+                const isActive = item.url === "/" ? location.pathname === "/" : location.pathname.startsWith(item.url)
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      isActive={isActive}
+                      render={
+                        <NavLink to={item.url} end={item.url === "/"}>
+                          <item.icon />
+                          <span>{item.title}</span>
+                        </NavLink>
+                      }
+                    />
+                  </SidebarMenuItem>
+                )
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

@@ -28,7 +28,7 @@ function RouteGuard() {
           navigate("/onboarding", { replace: true })
         }
       } catch {
-        // server down — let the page render and handle its own errors
+        // server down, let the page render and handle its own errors
       }
       setChecked(true)
     }
