@@ -1,9 +1,10 @@
 """FastAPI application."""
 from pathlib import Path
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 
 @asynccontextmanager
@@ -52,5 +53,22 @@ def mount_features():
 mount_features()
 
 _FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
+
 if _FRONTEND_DIR.exists():
-    app.mount("/", StaticFiles(directory=str(_FRONTEND_DIR), html=True), name="frontend")
+    # Serve static assets (JS, CSS, fonts, images, favicon)
+    assets = _FRONTEND_DIR / "assets"
+    if assets.exists():
+        app.mount("/assets", StaticFiles(directory=str(assets)), name="assets")
+    # Serve favicon
+    favicon = _FRONTEND_DIR / "favicon.svg"
+    if favicon.exists():
+        @app.get("/favicon.svg", include_in_schema=False)
+        def favicon():
+            return FileResponse(favicon)
+    # SPA catch-all — serve index.html for all client-side routes
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def spa_fallback(full_path: str, request: Request):
+        # Skip API routes — they're already matched above
+        if full_path.startswith("api/"):
+            return FileResponse(_FRONTEND_DIR / "404.html") if (_FRONTEND_DIR / "404.html").exists() else {"detail": "Not Found"}
+        return FileResponse(_FRONTEND_DIR / "index.html")
