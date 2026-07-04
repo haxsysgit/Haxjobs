@@ -14,6 +14,11 @@ def test_discovery_run_endpoint(monkeypatch):
     assert res.json() == {"run_id": "run123", "running": True}
 
 
+def test_discovery_run_rejects_cross_site():
+    res = TestClient(app).post("/api/discovery/run", headers={"Origin": "https://evil.example"})
+    assert res.status_code == 403
+
+
 def test_discovery_status_endpoint(monkeypatch):
     from haxjobs.features.discovery import routes
 

@@ -9,6 +9,7 @@ Usage:
 """
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
@@ -77,6 +78,11 @@ def evaluate_from_db(agent_name: str | None = None) -> bool:
     return True
 
 
+def _safe_slug(value: object) -> str:
+    text = re.sub(r"[^a-z0-9]+", "_", str(value).strip().lower())
+    return re.sub(r"_+", "_", text).strip("_")[:80] or "unknown"
+
+
 def _auto_pack(job: dict, result: dict) -> None:
     """Auto-generate a pack for a job and save the path to the evaluation."""
     import json
@@ -122,7 +128,7 @@ def _auto_pack(job: dict, result: dict) -> None:
         jd_text = job.get("jd_text", "")
         if jd_text and len(jd_text) > 100:
             reviewed_cv = review_cv_for_job(variant, jd_text)
-            pack_dir = Path("packs") / job.get("company", "unknown").replace(" ", "_").lower() / variant
+            pack_dir = Path("packs") / _safe_slug(job.get("company", "unknown")) / _safe_slug(variant)
             pack_dir.mkdir(parents=True, exist_ok=True)
             reviewed_cv_path = pack_dir / "cv_reviewed.md"
             reviewed_cv_path.write_text(reviewed_cv)

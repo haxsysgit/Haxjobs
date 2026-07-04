@@ -1,7 +1,9 @@
 """Onboarding API routes."""
 from __future__ import annotations
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from urllib.parse import urlparse
+
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 
 from .schemas import (
     CVUploadResponse,
@@ -29,6 +31,14 @@ MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
 MIN_CV_LENGTH = 100  # minimum chars for meaningful extraction
 
 
+def _require_local_intent(request: Request) -> None:
+    if request.headers.get("sec-fetch-site") == "cross-site":
+        raise HTTPException(403, "Cross-site requests are not allowed")
+    origin = request.headers.get("origin")
+    if origin and (urlparse(origin).hostname or "").lower() not in {"localhost", "127.0.0.1"}:
+        raise HTTPException(403, "Cross-site requests are not allowed")
+
+
 @router.get("/onboarding/status")
 def onboarding_status() -> OnboardingStatusResponse:
     profile = load_profile()
@@ -41,7 +51,8 @@ def onboarding_status() -> OnboardingStatusResponse:
 
 
 @router.post("/onboarding/upload")
-async def onboarding_upload(file: UploadFile = File(...)) -> CVUploadResponse:
+async def onboarding_upload(request: Request, file: UploadFile = File(...)) -> CVUploadResponse:
+    _require_local_intent(request)
     if not file.filename:
         raise HTTPException(400, "No file provided")
     content = await file.read()
@@ -83,7 +94,8 @@ async def onboarding_upload(file: UploadFile = File(...)) -> CVUploadResponse:
 
 
 @router.post("/onboarding/extract-text")
-def onboarding_extract_text(body: TextUploadRequest) -> CVUploadResponse:
+def onboarding_extract_text(body: TextUploadRequest, request: Request) -> CVUploadResponse:
+    _require_local_intent(request)
     text = body.text.strip()
     if len(text) < MIN_CV_LENGTH:
         raise HTTPException(400, "CV text too short — couldn't extract meaningful content")
@@ -115,7 +127,8 @@ def onboarding_extract_text(body: TextUploadRequest) -> CVUploadResponse:
 
 
 @router.post("/onboarding/wizard")
-def onboarding_wizard(answer: WizardAnswer) -> WizardResponse:
+def onboarding_wizard(answer: WizardAnswer, request: Request) -> WizardResponse:
+    _require_local_intent(request)
     profile, _, _ = get_session()
     if profile is None:
         raise HTTPException(400, "No active onboarding session. Upload a CV first.")
@@ -137,7 +150,8 @@ def onboarding_wizard(answer: WizardAnswer) -> WizardResponse:
 
 
 @router.post("/onboarding/complete")
-def onboarding_complete() -> dict:
+def onboarding_complete(request: Request) -> dict:
+    _require_local_intent(request)
     profile, _, _ = get_session()
     if profile is None:
         raise HTTPException(400, "No active onboarding session.")
@@ -148,17 +162,17 @@ def onboarding_complete() -> dict:
     return {"ok": True, "stage": "complete"}
 
 
+@router.get("/onboarding/reset")
+def onboarding_reset_get() -> dict:
+    raise HTTPException(405, "Use POST /onboarding/reset")
+
+
 @router.post("/onboarding/reset")
-def onboarding_reset() -> dict:
+def onboarding_reset(request: Request) -> dict:
     """Reset all onboarding state — clears in-memory session and persisted profile."""
+    _require_local_intent(request)
     from .service import delete_profile, clear_session
 
     clear_session()
     delete_profile()
     return {"ok": True, "stage": "not_started"}
-
-
-@router.get("/onboarding/reset")
-def onboarding_reset_get() -> dict:
-    """GET alias for browser convenience."""
-    return onboarding_reset()

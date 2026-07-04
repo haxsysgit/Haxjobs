@@ -10,7 +10,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode, urlparse
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from haxjobs.agent.registry import register
 from haxjobs.db.schema import get_db
@@ -29,9 +29,17 @@ def _truncate(text: str, limit: int = MAX_TEXT_CHARS) -> str:
     return text[:limit] + f"\n...[truncated {len(text) - limit} chars]"
 
 
+class _PublicRedirectHandler(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if err := _public_http_url(newurl):
+            raise ValueError(f"blocked unsafe redirect: {err}")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
 def _request_text(url: str, timeout: int = 10, max_bytes: int = 500_000) -> str:
     req = Request(url, headers={"User-Agent": USER_AGENT})
-    with urlopen(req, timeout=timeout) as res:  # noqa: S310 - tool fetches user/model-supplied public URLs with scheme guard
+    opener = build_opener(_PublicRedirectHandler)
+    with opener.open(req, timeout=timeout) as res:  # noqa: S310 - URL is checked before fetch and on redirects
         content_type = res.headers.get("content-type", "")
         charset = "utf-8"
         match = re.search(r"charset=([^;]+)", content_type, re.I)

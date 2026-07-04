@@ -13,18 +13,9 @@ def insert_discovered_job(record: dict) -> int | None:
     """Insert a raw discovered job and return its row id, or None on duplicate."""
     conn = get_db()
 
-    # Check for existing duplicate first
-    dup = _find_duplicate_inner(conn, record)
-    if dup:
-        # Mark the existing one as duplicate if it was 'new'
-        if dup["discovery_status"] == "new":
-            conn.execute(
-                "UPDATE discovered_jobs SET discovery_status='duplicate', "
-                "filter_reason='duplicate source_url or company+title', "
-                "updated_at=datetime('now') WHERE id=?",
-                (dup["id"],),
-            )
-            conn.commit()
+    # Check for existing duplicate first. Keep the original row's status intact:
+    # it may still be the accepted/new row that should be promoted.
+    if _find_duplicate_inner(conn, record):
         conn.close()
         return None
 
@@ -120,6 +111,19 @@ def get_discovered_job(discovered_id: int) -> dict | None:
     return dict(row) if row else None
 
 
+def _find_existing_job_id(discovered: dict) -> int | None:
+    conn = get_db()
+    row = None
+    external_id = (discovered.get("external_id") or "").strip()
+    source_url = (discovered.get("source_url") or "").strip()
+    if external_id:
+        row = conn.execute("SELECT id FROM jobs WHERE external_id=?", (external_id,)).fetchone()
+    if row is None and source_url:
+        row = conn.execute("SELECT id FROM jobs WHERE source_url=?", (source_url,)).fetchone()
+    conn.close()
+    return int(row["id"]) if row else None
+
+
 def update_discovery_status(discovered_id: int, status: str, reason: str = "") -> None:
     """Update the discovery_status (and optionally filter_reason) of a discovered job."""
     conn = get_db()
@@ -142,7 +146,7 @@ def update_discovery_status(discovered_id: int, status: str, reason: str = "") -
 def promote_discovered_job(discovered_id: int) -> int | None:
     """Promote a discovered job into the main ``jobs`` table.
 
-    Returns the new ``jobs.id``, or None if the discovered job is not eligible.
+    Returns the ``jobs.id``, or None if the discovered job is not eligible.
     """
     from .jobs import insert_job
 
@@ -152,31 +156,22 @@ def promote_discovered_job(discovered_id: int) -> int | None:
     if discovered["discovery_status"] not in ("new", "accepted"):
         return None
 
-    conn = get_db()
-    cur = conn.execute("""
-        INSERT OR IGNORE INTO jobs (
-            external_id, title, company, location, jd_text,
-            source_url, source, status
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
-    """, (
-        discovered["external_id"] or None,
+    existing_job_id = _find_existing_job_id(discovered)
+    job_id = existing_job_id or insert_job(
         discovered["title"],
         discovered["company"],
-        discovered["location"],
-        discovered["jd_text"],
-        discovered["source_url"],
-        discovered["source"],
-    ))
-    conn.commit()
-    job_id = cur.lastrowid
-
+        location=discovered["location"],
+        jd_text=discovered["jd_text"],
+        source_url=discovered["source_url"],
+        source=discovered["source"],
+        external_id=discovered["external_id"] or None,
+    )
     if job_id is None:
-        # Job already existed (external_id collision in main table)
-        conn.close()
+        job_id = _find_existing_job_id(discovered)
+    if job_id is None:
         return None
 
-    # Mark discovered job as promoted
+    conn = get_db()
     conn.execute(
         "UPDATE discovered_jobs SET discovery_status='promoted', "
         "promoted_job_id=?, updated_at=datetime('now') WHERE id=?",

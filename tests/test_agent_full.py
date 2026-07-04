@@ -1,5 +1,6 @@
 """Tests for Plan 043 full native agent pieces."""
 import json
+import socket
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -55,6 +56,48 @@ def test_builtin_tool_names_registered():
 def test_fetch_page_blocks_local_urls():
     assert "localhost" in fetch_page("http://localhost:8241")["error"]
     assert "private/local" in fetch_page("http://127.0.0.1")["error"]
+
+
+def test_fetch_page_blocks_redirect_to_local_url(monkeypatch):
+    import haxjobs.agent.tools as tools
+
+    def fake_getaddrinfo(host, *_args, **_kwargs):
+        ip = "127.0.0.1" if host == "127.0.0.1" else "93.184.216.34"
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (ip, 80))]
+
+    class RedirectingOpener:
+        def open(self, _req, timeout=10):
+            raise ValueError("blocked unsafe redirect: private/local URLs are not allowed")
+
+    monkeypatch.setattr(tools.socket, "getaddrinfo", fake_getaddrinfo)
+    monkeypatch.setattr(tools, "build_opener", lambda *_handlers: RedirectingOpener())
+
+    assert "blocked unsafe redirect" in fetch_page("https://example.com/job")["error"]
+
+
+def test_fetch_page_allows_public_page(monkeypatch):
+    import haxjobs.agent.tools as tools
+
+    class FakeResponse:
+        headers = {"content-type": "text/html; charset=utf-8"}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self, _max_bytes):
+            return b"<html><body><h1>Backend job</h1></body></html>"
+
+    class FakeOpener:
+        def open(self, _req, timeout=10):
+            return FakeResponse()
+
+    monkeypatch.setattr(tools.socket, "getaddrinfo", lambda *_args, **_kwargs: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 80))])
+    monkeypatch.setattr(tools, "build_opener", lambda *_handlers: FakeOpener())
+
+    assert fetch_page("https://example.com/job")["text"] == "Backend job"
 
 
 def test_db_query_read_only(tmp_path, monkeypatch):

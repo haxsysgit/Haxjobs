@@ -283,6 +283,29 @@ def test_upload_rejects_no_file(client):
     assert r.status_code == 422
 
 
+def test_get_reset_is_not_state_changing(client):
+    r = client.get("/api/onboarding/reset")
+    assert r.status_code in {404, 405}
+
+
+def test_onboarding_mutations_reject_cross_site(client):
+    headers = {"Origin": "https://evil.example"}
+    assert client.post("/api/onboarding/reset", headers=headers).status_code == 403
+    assert client.post(
+        "/api/onboarding/upload",
+        files={"file": ("cv.txt", SAMPLE_CV.encode())},
+        headers=headers,
+    ).status_code == 403
+    assert client.post("/api/onboarding/extract-text", json={"text": SAMPLE_CV}, headers=headers).status_code == 403
+    assert client.post("/api/onboarding/wizard", json={"question_id": "x", "answer": "y"}, headers=headers).status_code == 403
+    assert client.post("/api/onboarding/complete", headers=headers).status_code == 403
+
+
+def test_onboarding_mutations_reject_cross_site_fetch_metadata(client):
+    r = client.post("/api/onboarding/reset", headers={"Sec-Fetch-Site": "cross-site"})
+    assert r.status_code == 403
+
+
 def test_upload_text_cv(monkeypatch, client):
     from haxjobs.agent import Agent
     monkeypatch.setattr(Agent, "run", _fake_agent_run)
