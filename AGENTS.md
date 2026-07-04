@@ -12,7 +12,7 @@ HaxJobs is a platform with six phases:
 ONBOARD → DISCOVER → CLASSIFY → EVALUATE → DECIDE → LEARN
 ```
 
-**0. Onboarding** (one-time) — user uploads CV, LLM extracts structured profile, targeted questions fill gaps. Output: `profile/arinze_profile.local.json` — the backbone of everything. No hand-writing JSON.
+**0. Onboarding** (one-time) — user uploads CV, deterministic extraction and the agent build a structured profile, then targeted questions fill real gaps. Runtime output: `state/profile.json`. No hand-writing JSON.
 
 **1. Discovery** — web search + ATS scrapers (Greenhouse, Ashby, Lever) find jobs matching the profile. Profile-aware pre-filtering at scraper level. Jobs normalized and stored in `discovered_jobs`, promoted to `jobs` after hooks (dedup, blacklist, location filter).
 
@@ -46,7 +46,7 @@ Workflow: develop on Jade → push to GitHub → Archilles pulls via update scri
 
 ## Config
 
-`haxjobs.toml` is the canonical config. `haxjobs_config.py` is a thin parser. Env vars override TOML values.
+`haxjobs.toml` is the canonical product config. `src/haxjobs/config.py` parses it with `tomllib`. Env vars override TOML values. Provider credentials live separately in `~/.haxjobs/haxjobs.toml`.
 
 Sections: `[paths]`, `[user]`, `[job_search]`, `[[roles]]`, `[evaluation]`, `[delivery]`, `[cron]`, `[email]`, `[telegram]`.
 
@@ -70,10 +70,10 @@ Sections: `[paths]`, `[user]`, `[job_search]`, `[[roles]]`, `[evaluation]`, `[de
 Run these from the repo root before claiming changes are safe:
 
 ```bash
-PYTHONPATH=. python3 -m pytest -q tests/
-PYTHONPATH=. python3 -m py_compile $(find . -path './dashboard/node_modules' -prune -o -path './.git' -prune -o -path './.venv' -prune -o -name '*.py' -print)
+PYTHONPATH=src:. python3 -m pytest -q tests/
+PYTHONPATH=src:. python3 -m py_compile $(find src tests cron -name '*.py')
 bash -n cron/run_pipeline.sh
-cd dashboard && npx tsc -b --noEmit && npm run lint -- --quiet && npm run build
+cd frontend && npx tsc --noEmit && npm run lint -- --quiet && npm run build
 ```
 
 ## Read/write boundaries
@@ -102,7 +102,7 @@ cd dashboard && npx tsc -b --noEmit && npm run lint -- --quiet && npm run build
 
 ## Product rules
 
-- **Profile JSON** (`profile/arinze_profile.local.json`) is the backbone — built by onboarding wizard, drives all pipeline stages
+- **Profile JSON** (`state/profile.json`) is the runtime backbone — built by onboarding wizard, drives all pipeline stages
 - **Direct LLM API** for headless evaluation — faster and more reliable than agent subprocess
 - **SQLite** (`state/haxjobs.db`) is the source of truth for jobs, evaluations, packs, decisions, and outreach
 - **`haxjobs.toml`** drives classification, evaluation config, and level-based auto-pack decisions
@@ -118,5 +118,5 @@ cd dashboard && npx tsc -b --noEmit && npm run lint -- --quiet && npm run build
 - `ponytail:` comments mark deliberate simplifications with the upgrade path.
 - Tests use temporary SQLite DB monkeypatches via `tests/conftest.py`.
 - Match existing naming: `list_jobs()`, `insert_job()`, camelCase for API fields.
-- Python stdlib HTTP server. React + TypeScript + Vite dashboard.
+- FastAPI backend. React + TypeScript + Vite frontend.
 - Config is TOML first: never hardcode paths, agent names, or profile preferences.

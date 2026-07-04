@@ -22,7 +22,7 @@ function RouteGuard() {
         const onboardDone: boolean = onboardRes.stage === "complete"
         const path = location.pathname
 
-        if (!setupDone && path !== "/setup" && path !== "/onboarding") {
+        if (!setupDone && path !== "/setup") {
           navigate("/setup", { replace: true })
         } else if (setupDone && !onboardDone && path !== "/onboarding") {
           navigate("/onboarding", { replace: true })

@@ -7,8 +7,8 @@ __pycache__/
 # Node / Vite
 node_modules/
 dist/
-dashboard/dist/
-dashboard/node_modules/
+frontend/dist/
+frontend/node_modules/
 coverage/
 
 # Runtime state, generated outputs, and private local data
@@ -19,6 +19,10 @@ coverage/
 /state/
 /reports/
 /outreach/
+/adapter_research/
+/research/test-results/
+/research/adapter-reports/
+/src/haxjobs/profile/arinze_profile.local.json
 *.db
 *.sqlite
 *.sqlite3
@@ -43,6 +47,4 @@ coverage/
 .DS_Store
 .vscode/
 
-# Vite generated bundle
-dashboard/assets/
 .claude/

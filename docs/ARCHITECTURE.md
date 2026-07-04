@@ -1,125 +1,64 @@
 # HaxJobs Architecture
 
-HaxJobs is a self-hosted job search platform, not a five-stage pipeline. It runs as a web app at `localhost:8241` with a Python backend, React frontend, and SQLite database. The canonical product vision is in `PRODUCT_ARCHITECTURE.md`.
+HaxJobs is a self-hosted job-search web app. The current app is a Python package under `src/haxjobs`, a FastAPI backend mounted at `/api`, a React/Vite frontend under `frontend/`, and SQLite state under `state/`.
 
-## Component architecture
+## Runtime shape
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Web UI (React)                         │
-│  Dashboard │ Jobs │ Discovery │ Packs │ Outreach │ Profile│
-│  Settings  │ Pipeline │ Activity │ Onboarding Wizard     │
-└────────────────────┬────────────────────────────────────┘
-                     │ HTTP REST API
-┌────────────────────┴────────────────────────────────────┐
-│                 Python API Server                         │
-│  /api/profile  /api/jobs  /api/evaluations  /api/packs   │
-│  /api/discovery  /api/outreach  /api/decisions           │
-│  /api/onboarding (CV upload, profile extraction, wizard) │
-└────────────────────┬────────────────────────────────────┘
-                     │
-┌────────────────────┴────────────────────────────────────┐
-│                   Pipeline Engine                         │
-│                                                           │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐ │
-│  │Discovery │→│Classify  │→│Evaluate  │→│Pack Gen  │ │
-│  │(scrapers │  │(config-  │  │(LLM API) │  │(template │ │
-│  │ +web)    │  │ driven)  │  │          │  │ fill)    │ │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘ │
-│                                                           │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐               │
-│  │Outreach  │  │Learning  │  │Report    │               │
-│  │Engine    │  │Engine    │  │Generator │               │
-│  └──────────┘  └──────────┘  └──────────┘               │
-└────────────────────┬────────────────────────────────────┘
-                     │
-┌────────────────────┴────────────────────────────────────┐
-│                   SQLite Database                         │
-│  profile │ jobs │ evaluations │ decisions │ outreach     │
-│  discovered_jobs │ activity_log │ cycle_state           │
-│  job_history │ learning_patterns                        │
-└─────────────────────────────────────────────────────────┘
+```text
+React frontend (frontend/)
+  ↓ /api
+FastAPI app (src/haxjobs/app.py)
+  ↓
+Feature route modules (src/haxjobs/features/*/routes.py)
+  ↓
+Services, native agent harness, discovery scrapers, pack builder
+  ↓
+SQLite (state/haxjobs.db) and runtime profile (state/profile.json)
 ```
 
-## Key design decisions
+The backend also serves the built SPA from `frontend/dist` when running the local app on `localhost:8241`.
 
-### 1. Direct LLM API for evaluation, not agent subprocess
+## Main components
 
-Evaluation is a text-in → JSON-out task. Direct API calls (`openai.chat.completions.create()` with `response_format: {type: "json_schema"}`) are faster, cheaper, and more reliable than spawning agent CLIs as subprocesses. Agent adapters stay for interactive use only (the Pi skill, where the agent's own reasoning adds value). For headless cron: direct API.
+- `src/haxjobs/app.py` creates the FastAPI app, mounts `/api/*` feature routes, serves static frontend assets, and provides the SPA catch-all route.
+- `src/haxjobs/server/main.py` runs uvicorn for local development and production-like starts.
+- `src/haxjobs/config.py` parses repo product config from `haxjobs.toml`; provider credentials are handled separately by setup code under `~/.haxjobs/haxjobs.toml`.
+- `src/haxjobs/db/` owns SQLite schema and CRUD helpers.
+- `src/haxjobs/discovery/` owns ATS scrapers, normalization, and discovery filters.
+- `src/haxjobs/evaluate/` builds evaluation prompts, calls the native agent, validates JSON, and triggers auto-pack generation for configured levels.
+- `src/haxjobs/agent/` is the small native agent harness with scoped tools, prompt tiers, and provider-backed LLM calls.
+- `src/haxjobs/packs_builder/` creates markdown-first application packs that reference reusable CV variants.
+- `frontend/src/` contains the React pages, layout, and shadcn-style UI components.
+- `cron/` contains scheduled pipeline/report entrypoints that run package modules via `PYTHONPATH=src:.`.
 
-### 2. Profile is the backbone — and it evolves
+## Data flow
 
-The profile JSON (`profile/arinze_profile.local.json`) drives every pipeline stage. It's built during onboarding from CV extraction + targeted questions. It continuously evolves as the learning engine processes user decisions — not static, not hand-maintained.
-
-### 3. Three data tiers for jobs
-
-- `discovered_jobs` — raw scraped, pre-filtering. Temporary.
-- `jobs` — promoted, classified, evaluated. Active.
-- `job_history` — applied, interviewed, rejected, archived. Permanent record.
-
-### 4. Cycle-based operation
-
-Each pipeline run is a "cycle" (e.g., biweekly). Cycle ID groups all jobs/evaluations/packs from that run. Between cycles: DB cleanup, learning engine processes user decisions. Cycle report shows what's new plus what changed since last time.
-
-### 5. Self-contained, local-first
-
-Ships as a single installable package. Web UI on localhost. SQLite — no Postgres/MySQL. LLM API keys are the only external dependency (user brings their own).
-
-## User journey
-
-```
-ONBOARD → DISCOVER → REVIEW → APPLY → LEARN → REPEAT
+```text
+ONBOARD → DISCOVER → CLASSIFY → EVALUATE → DECIDE → LEARN
 ```
 
-See `PRODUCT_ARCHITECTURE.md` for the full phase-by-phase breakdown.
+1. Onboarding writes the runtime profile to `state/profile.json` after CV extraction and user confirmation.
+2. Discovery scrapers normalize jobs into `discovered_jobs`.
+3. Discovery hooks accept, reject, dedupe, and promote accepted jobs into `jobs`.
+4. Classification fields such as `role_family` and `recommended_cv_variant` are added through the normal job insertion path.
+5. Evaluation uses the native `Agent` plus `extract_json()` validation and writes `evaluations`.
+6. L1/L2 jobs can generate markdown packs using reusable CV variants and templates.
+7. User decisions are recorded in `decisions` and feed later learning work.
 
-## Config architecture
+## Profile and config
 
-`haxjobs.toml` is the canonical config. `haxjobs_config.py` parses it with `tomllib` and applies env var overrides. Every script imports config — no hardcoded paths or agent names.
+- Runtime profile: `state/profile.json` via `haxjobs.config.PROFILE_PATH`.
+- Product config: repo-root `haxjobs.toml`.
+- Provider credentials: `~/.haxjobs/haxjobs.toml`, written by setup, not used as product config.
+- SQLite DB: `state/haxjobs.db` by default.
 
-Sections: `[paths]`, `[user]`, `[job_search]`, `[[roles]]`, `[evaluation]`, `[delivery]`, `[cron]`, `[email]`, `[telegram]`.
+## Verification
 
-## Directory map
+From repo root:
 
+```bash
+PYTHONPATH=src:. python3 -m py_compile $(find src tests cron -name '*.py')
+PYTHONPATH=src:. python3 -m pytest -q tests/
+bash -n cron/run_pipeline.sh
+cd frontend && npx tsc --noEmit && npm run build
 ```
-haxjobs-private-dev/
-├── haxjobs.toml              ← canonical config
-├── haxjobs_config.py         ← thin parser
-├── AGENTS.md                 ← agent guide
-├── README.md                 ← project overview
-├── pipeline_db.py            ← CLI entry point (18 commands)
-├── api_server.py             ← stdlib HTTP API server
-├── db/                       ← SQLite layer (schema, jobs, evaluations, etc.)
-├── evaluate/                 ← evaluation logic
-│   ├── common.py             ← prompt building, JSON parsing, validation
-│   ├── chain.py              ← config-driven agent fallback chain
-│   ├── run.py                ← evaluate_from_db, batch CLI
-│   ├── cv_review.py          ← per-job CV review generation
-│   └── agents/               ← agent adapter implementations
-├── discovery/                ← job sourcing
-│   ├── scrapers/             ← greenhouse.py, ashby.py, lever.py
-│   ├── hooks.py              ← post-discovery filtering
-│   ├── profile_search.py     ← pre-scrape filtering
-│   └── normalize.py          ← canonical job format
-├── packs_builder/            ← pack generation
-├── application_templates/    ← 7 role-specific pack templates
-├── cv_variants/              ← 7 reusable CV variants (HTML + PDF)
-├── cron/                     ← scheduling (run_pipeline.sh)
-├── dashboard/                ← React + TypeScript + Vite web UI
-├── server/                   ← API route handlers
-├── profile/                  ← user profile JSON (backbone)
-├── reports/                  ← generated cycle reports
-├── packs/                    ← generated application packs
-├── tests/                    ← test suite
-├── plans/                    ← implementation plans
-└── docs/                     ← architecture and product docs
-```
-
-## Data model
-
-See `DATA_MODEL.md` for the full schema. Key points:
-
-- **Three tiers**: discovered_jobs → jobs → job_history
-- **Feedback loop**: decisions table drives learning engine → profile evolution
-- **Cycle tracking**: cycle_state table groups work by run
-- **Deprecated**: favorites, saved_jobs, evaluation_history (replaced by decisions + cycle_id)

@@ -1,4 +1,0 @@
-Fetch date: 2026-07-01
-Title: Gemini CLI npm package
-Original URL: https://www.npmjs.com/package/@google/gemini-cli
-Fetch failed: HTTPError: HTTP Error 403: Forbidden

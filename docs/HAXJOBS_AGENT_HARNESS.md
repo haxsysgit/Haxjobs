@@ -44,7 +44,7 @@ controlled system prompt
         ↓
 LLM call
         ↓
-optional tool calls: web_search / fetch_page / db_query
+optional tool calls: web_search / fetch_page / db_query / profile_read / profile_write / profile_schema / profile_gaps
         ↓
 structured result for HaxJobs workflow
 ```
@@ -55,7 +55,7 @@ The difference is ownership:
 - HaxJobs owns the workflow.
 - The agent is a reasoning component inside that workflow.
 
-That means Python services still own the database, files, profile, packs, decisions, and safety rules. The LLM is allowed to reason and call a few approved tools. It is not allowed to freely browse the filesystem, run shell commands, edit files, send outreach, or submit applications.
+That means Python services still own the database, files, packs, decisions, and safety rules. The LLM is allowed to reason and call a few approved tools. It can update only the scoped runtime profile through `profile_write`; it is not allowed to freely browse the filesystem, run shell commands, edit arbitrary files, send outreach, or submit applications.
 
 ---
 
@@ -103,15 +103,19 @@ read, write, edit, bash, grep, find, ls
 
 Those make sense for a coding agent. They do **not** belong in HaxJobs v1 because HaxJobs is a job-search automation product.
 
-HaxJobs v1 exposes only job-search-native tools:
+HaxJobs v1 exposes only job-search-native and scoped profile tools:
 
 ```text
 web_search
 fetch_page
 db_query
+profile_read
+profile_write
+profile_schema
+profile_gaps
 ```
 
-Everything else is deferred until a real workflow earns it.
+`profile_write` is the only write-capable tool. It is scoped to the runtime profile file and exists for onboarding/profile enrichment, not arbitrary filesystem writes. Everything else is deferred until a real workflow earns it.
 
 For example:
 
@@ -504,14 +508,14 @@ Python extracts text
   ↓
 Agent.run() extracts structured profile JSON
   ↓
-Python validates/saves profile
+Python validates/saves profile draft to state/profile.json
   ↓
-Agent.run() asks targeted follow-up questions
+Agent uses profile tools to inspect gaps and ask targeted follow-up questions
   ↓
-profile/arinze_profile.local.json becomes the backbone
+state/profile.json becomes the runtime backbone
 ```
 
-The agent does not need tools here. Python already has the CV text and the current profile state. The safest path is to pass that text directly to `Agent.run()`.
+Onboarding may use `profile_read`, `profile_write`, `profile_schema`, and `profile_gaps` so the agent can enrich the scoped profile. It still cannot read arbitrary files, run shell commands, submit applications, or send outreach.
 
 ### 2. Discovery
 

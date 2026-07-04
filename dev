@@ -5,6 +5,10 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 CMD="${1:-restart}"
+PYTHON="${HAXJOBS_PYTHON:-$ROOT/.venv/bin/python}"
+if [ ! -x "$PYTHON" ]; then
+  PYTHON=python3
+fi
 
 cd "$ROOT"
 
@@ -27,7 +31,7 @@ case "$CMD" in
     cd "$ROOT/frontend" && npm run build -- --logLevel warn
     cd "$ROOT"
     echo "==> compile Python"
-    PYTHONPATH=src:. .venv/bin/python -m py_compile $(find src -name '*.py') 2>&1 || true
+    PYTHONPATH=src:. "$PYTHON" -m py_compile $(find src tests cron -name '*.py')
     echo "done"
     ;;
   start)
@@ -35,11 +39,11 @@ case "$CMD" in
     cd "$ROOT/frontend" && npm run build -- --logLevel warn 2>&1 | tail -1
     cd "$ROOT"
     echo "==> start server"
-    PYTHONPATH=src:. "$ROOT/.venv/bin/python" -m haxjobs.server.main --no-browser --reload
+    PYTHONPATH=src:. "$PYTHON" -m haxjobs.server.main --no-browser --reload
     ;;
   test)
     echo "==> tests"
-    PYTHONPATH=src:. "$ROOT/.venv/bin/python" -m pytest -q tests/
+    PYTHONPATH=src:. "$PYTHON" -m pytest -q tests/
     ;;
   *)
     echo "Usage: ./dev [restart|reset|status|build|start|test]"

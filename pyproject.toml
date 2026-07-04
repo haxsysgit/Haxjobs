@@ -9,7 +9,6 @@ readme = "README.md"
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.34",
-    "requests>=2.32",
     "markdown>=3.10.2",
     "openai>=2.44.0",
     "python-multipart>=0.0.32",
