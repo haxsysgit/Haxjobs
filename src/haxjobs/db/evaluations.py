@@ -73,7 +73,7 @@ def get_evaluation(job_id):
     return dict(row) if row else None
 
 
-def get_jobs_with_evaluations(status_filter=None, offset=0, limit=None):
+def get_jobs_with_evaluations(status_filter=None, role_family=None, offset=0, limit=None):
     conn = get_db()
     query = """
         SELECT j.*, e.fit_score, e.fit_verdict, e.level, e.level_name,
@@ -83,21 +83,26 @@ def get_jobs_with_evaluations(status_filter=None, offset=0, limit=None):
         FROM jobs j
         LEFT JOIN evaluations e ON j.id = e.job_id
     """
+    params: list = []
+    conditions: list[str] = []
+
     if status_filter:
-        query += " WHERE j.status=?"
-        query += " ORDER BY j.discovered_at DESC"
-        if limit is not None:
-            query += " LIMIT ? OFFSET ?"
-            rows = conn.execute(query, (status_filter, limit, offset)).fetchall()
-        else:
-            rows = conn.execute(query, (status_filter,)).fetchall()
-    else:
-        query += " ORDER BY j.discovered_at DESC"
-        if limit is not None:
-            query += " LIMIT ? OFFSET ?"
-            rows = conn.execute(query, (limit, offset)).fetchall()
-        else:
-            rows = conn.execute(query).fetchall()
+        conditions.append("j.status = ?")
+        params.append(status_filter)
+    if role_family:
+        conditions.append("j.role_family = ?")
+        params.append(role_family)
+
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+
+    query += " ORDER BY j.discovered_at DESC"
+
+    if limit is not None:
+        query += " LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
+
+    rows = conn.execute(query, params).fetchall()
     conn.close()
     return [_job_with_eval(r) for r in rows]
 

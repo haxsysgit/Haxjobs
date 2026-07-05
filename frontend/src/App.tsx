@@ -2,6 +2,7 @@ import { createBrowserRouter, RouterProvider } from "react-router-dom"
 import { MainLayout } from "./components/layout/MainLayout"
 import { HomePage } from "./pages/HomePage"
 import { JobsPage, JobsRolePage } from "./pages/JobsPage"
+import { JobDetailPage } from "./pages/JobDetailPage"
 import { DiscoveryPage } from "./pages/DiscoveryPage"
 import { PacksPage } from "./pages/PacksPage"
 import { SettingsPage } from "./pages/SettingsPage"
@@ -19,6 +20,8 @@ const router = createBrowserRouter([
       { path: "/discovery", element: <DiscoveryPage /> },
       { path: "/jobs", element: <JobsPage /> },
       { path: "/jobs/:roleId", element: <JobsRolePage /> },
+      { path: "/jobs/:roleId/:jobId", element: <JobDetailPage /> },
+      { path: "/jobs/detail/:jobId", element: <JobDetailPage /> },
       { path: "/packs", element: <PacksPage /> },
       { path: "/settings", element: <SettingsPage /> },
       { path: "/settings/providers", element: <SettingsProvidersPage /> },

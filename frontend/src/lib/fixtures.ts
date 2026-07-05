@@ -7,6 +7,7 @@ export interface FixtureJob {
   company: string
   location: string
   source_url: string
+  jd_text?: string
   status: string
   fit_score: number
   level: number

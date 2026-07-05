@@ -1,14 +1,15 @@
 import { Link, useParams } from "react-router-dom"
+import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { AgentMessage } from "@/components/app/AgentMessage"
-import { EmptyState } from "@/components/app/EmptyState"
 import { PageHeader } from "@/components/app/PageHeader"
-import { IconArena, IconFit } from "@/components/icons"
+import { EmptyState } from "@/components/app/EmptyState"
+import { IconArena } from "@/components/icons"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { apiGet } from "@/lib/api"
-import { fixtureMode, getFixtureJobsByRole, type FixtureJob } from "@/lib/fixtures"
+import { JobCard } from "@/components/jobs/JobCard"
+import { JobListFilters } from "@/components/jobs/JobListFilters"
+import { listJobs } from "@/lib/jobs"
+import type { JobListItem } from "@/lib/jobs"
 import { useRoles } from "@/hooks/useRoles"
 import { roleDisplayName } from "@/lib/roles"
 import { Swords } from "lucide-react"
@@ -64,19 +65,17 @@ export function JobsPage() {
 export function JobsRolePage() {
   const { roleId } = useParams<{ roleId: string }>()
   const displayName = roleDisplayName(roleId || "")
+  const [activeStatus, setActiveStatus] = useState<string | null>(null)
 
-  const { data: jobsData, isLoading } = useQuery<{ jobs: any[] }>({
-    queryKey: ["jobs", "role", roleId],
-    queryFn: () => apiGet(`/jobs?role_family=${roleId}&limit=20`),
-    enabled: !fixtureMode && !!roleId,
+  const { data: jobsData, isLoading } = useQuery<{ jobs: JobListItem[]; total: number }>({
+    queryKey: ["jobs", "role", roleId, activeStatus],
+    queryFn: () => listJobs({ role_family: roleId, status: activeStatus || undefined }),
+    enabled: !!roleId,
     staleTime: 30_000,
     retry: false,
   })
 
-  // Fixture mode
-  const fixtureJobs: FixtureJob[] = fixtureMode && roleId ? getFixtureJobsByRole(roleId) : []
-
-  const jobs = fixtureMode ? fixtureJobs : (jobsData?.jobs || [])
+  const jobs = jobsData?.jobs || []
 
   if (isLoading) {
     return (
@@ -105,6 +104,8 @@ export function JobsRolePage() {
         description={`${jobs.length} jobs found`}
       />
 
+      <JobListFilters activeStatus={activeStatus} onStatusChange={setActiveStatus} />
+
       {jobs.length === 0 ? (
         <EmptyState
           icon={<IconArena />}
@@ -118,48 +119,11 @@ export function JobsRolePage() {
         />
       ) : (
         <div className="space-y-3">
-          {jobs.map((job: any) => (
-            <AgentMessage
-              key={job.id}
-              icon={<IconFit />}
-              title={`${job.company} — ${job.title}`}
-              subtitle={
-                job.fit_score
-                  ? `Score ${job.fit_score} · Level ${job.level} · ${job.fit_verdict}`
-                  : `Awaiting evaluation`
-              }
-              timestamp={job.discovered_at ? timeAgo(job.discovered_at) : undefined}
-              status={job.fit_score ? "success" : "idle"}
-              variant="compact"
-              actions={
-                <Link to={`/jobs/${roleId}/${job.id}`}>
-                  <Button variant="ghost" size="sm" className="text-xs">Detail</Button>
-                </Link>
-              }
-            >
-              <div className="flex flex-wrap gap-2 text-xs">
-                {job.strongest_matches?.map((m: string) => (
-                  <Badge key={m} variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:bg-emerald-400/10 dark:text-emerald-400">{m}</Badge>
-                ))}
-                {job.major_gaps?.map((g: string) => (
-                  <Badge key={g} variant="outline" className="bg-amber-500/10 text-amber-600 dark:bg-amber-400/10 dark:text-amber-400">{g}</Badge>
-                ))}
-              </div>
-            </AgentMessage>
+          {jobs.map((job, i) => (
+            <JobCard key={job.id} job={job} index={i} roleId={roleId} />
           ))}
         </div>
       )}
     </div>
   )
-}
-
-function timeAgo(iso: string): string {
-  if (!iso) return ""
-  const diff = Date.now() - new Date(iso).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return "just now"
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  return `${Math.floor(hrs / 24)}d ago`
 }

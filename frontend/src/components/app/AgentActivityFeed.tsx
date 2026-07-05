@@ -296,7 +296,7 @@ function EventActions({ event }: { event: FeedEvent }) {
       )
     case "evaluation":
       return (
-        <Link to={`/jobs/${event.data.id}`}>
+        <Link to={`/jobs/detail/${event.data.id}`}>
           <Button variant="ghost" size="sm" className="text-xs">Review</Button>
         </Link>
       )
