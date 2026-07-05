@@ -11,7 +11,7 @@ import pytest
 @pytest.fixture
 def tmp_profile(tmp_path, monkeypatch):
     """Set up a temporary profile.json for tool tests."""
-    import haxjobs.agent.tools as t
+    import haxjobs.agent.tools_profile as t
 
     profile_path = tmp_path / "profile.json"
     monkeypatch.setattr(t, "PROFILE_PATH", profile_path)
@@ -72,14 +72,14 @@ def tmp_profile(tmp_path, monkeypatch):
 
 
 def test_profile_path_comes_from_config():
-    from haxjobs.agent import tools
+    import haxjobs.agent.tools_profile as profile_tools
     from haxjobs.config import PROFILE_PATH
 
-    assert tools.PROFILE_PATH == PROFILE_PATH
+    assert profile_tools.PROFILE_PATH == PROFILE_PATH
 
 
 def test_profile_read_full(tmp_profile):
-    from haxjobs.agent.tools import profile_read
+    from haxjobs.agent.tools_profile import profile_read
 
     result = profile_read()
     assert "profile" in result
@@ -87,35 +87,35 @@ def test_profile_read_full(tmp_profile):
 
 
 def test_profile_read_field(tmp_profile):
-    from haxjobs.agent.tools import profile_read
+    from haxjobs.agent.tools_profile import profile_read
 
     result = profile_read("personal.email")
     assert result == {"personal.email": "test@example.com"}
 
 
 def test_profile_read_nested(tmp_profile):
-    from haxjobs.agent.tools import profile_read
+    from haxjobs.agent.tools_profile import profile_read
 
     result = profile_read("skills.languages")
     assert result["skills.languages"] == [{"name": "Python", "proficiency": "advanced"}]
 
 
 def test_profile_read_missing(tmp_profile):
-    from haxjobs.agent.tools import profile_read
+    from haxjobs.agent.tools_profile import profile_read
 
     result = profile_read("personal.phone")
     assert result["personal.phone"] is None
 
 
 def test_profile_read_array_index(tmp_profile):
-    from haxjobs.agent.tools import profile_read
+    from haxjobs.agent.tools_profile import profile_read
 
     result = profile_read("work_experience.0.company")
     assert result["work_experience.0.company"] == "Acme Corp"
 
 
 def test_profile_read_no_file(monkeypatch, tmp_path):
-    from haxjobs.agent import tools as t
+    import haxjobs.agent.tools_profile as t
 
     monkeypatch.setattr(t, "PROFILE_PATH", tmp_path / "nonexistent.json")
     result = t.profile_read()
@@ -126,7 +126,7 @@ def test_profile_read_no_file(monkeypatch, tmp_path):
 
 
 def test_profile_write_string(tmp_profile):
-    from haxjobs.agent.tools import profile_write, profile_read
+    from haxjobs.agent.tools_profile import profile_write, profile_read
 
     result = profile_write("personal.phone", "+447700900000")
     assert result["ok"] is True
@@ -134,7 +134,7 @@ def test_profile_write_string(tmp_profile):
 
 
 def test_profile_write_json(tmp_profile):
-    from haxjobs.agent.tools import profile_write, profile_read
+    from haxjobs.agent.tools_profile import profile_write, profile_read
 
     val = json.dumps([{"name": "FastAPI", "proficiency": "intermediate"}])
     profile_write("skills.frameworks", val)
@@ -143,7 +143,7 @@ def test_profile_write_json(tmp_profile):
 
 
 def test_profile_write_list(tmp_profile):
-    from haxjobs.agent.tools import profile_write, profile_read
+    from haxjobs.agent.tools_profile import profile_write, profile_read
 
     profile_write("preferences.preferred_roles", '["AI Engineer", "Backend"]')
     result = profile_read("preferences.preferred_roles")
@@ -151,7 +151,7 @@ def test_profile_write_list(tmp_profile):
 
 
 def test_profile_write_no_file(monkeypatch, tmp_path):
-    from haxjobs.agent import tools as t
+    import haxjobs.agent.tools_profile as t
 
     monkeypatch.setattr(t, "PROFILE_PATH", tmp_path / "nonexistent.json")
     result = t.profile_write("personal.name", "Someone")
@@ -159,7 +159,7 @@ def test_profile_write_no_file(monkeypatch, tmp_path):
 
 
 def test_profile_write_persists(tmp_profile):
-    from haxjobs.agent.tools import profile_write
+    from haxjobs.agent.tools_profile import profile_write
 
     profile_write("personal.location", "Manchester")
     with open(tmp_profile) as f:
@@ -171,7 +171,7 @@ def test_profile_write_persists(tmp_profile):
 
 
 def test_profile_schema():
-    from haxjobs.agent.tools import profile_schema
+    from haxjobs.agent.tools_profile import profile_schema
 
     result = profile_schema()
     assert "schema" in result
@@ -216,7 +216,7 @@ def test_profile_tools_dispatch(tmp_profile):
 
 
 def test_profile_gaps_all_filled(tmp_profile):
-    from haxjobs.agent.tools import profile_gaps
+    from haxjobs.agent.tools_profile import profile_gaps
 
     result = profile_gaps()
     assert "required_filled" in result
@@ -229,7 +229,7 @@ def test_profile_gaps_all_filled(tmp_profile):
 
 
 def test_profile_gaps_no_profile(monkeypatch, tmp_path):
-    from haxjobs.agent import tools as t
+    import haxjobs.agent.tools_profile as t
 
     monkeypatch.setattr(t, "PROFILE_PATH", tmp_path / "nonexistent.json")
     result = t.profile_gaps()

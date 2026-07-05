@@ -13,7 +13,8 @@ from haxjobs.agent import (
     load_identity,
     register,
 )
-from haxjobs.agent.tools import db_query, fetch_page
+from haxjobs.agent.tools_db import db_query
+from haxjobs.agent.tools_web import fetch_page
 
 
 # ── Registry ──────────────────────────────────────────────────────────
@@ -59,7 +60,7 @@ def test_fetch_page_blocks_local_urls():
 
 
 def test_fetch_page_blocks_redirect_to_local_url(monkeypatch):
-    import haxjobs.agent.tools as tools
+    import haxjobs.agent.tools_web as tools
 
     def fake_getaddrinfo(host, *_args, **_kwargs):
         ip = "127.0.0.1" if host == "127.0.0.1" else "93.184.216.34"
@@ -76,7 +77,7 @@ def test_fetch_page_blocks_redirect_to_local_url(monkeypatch):
 
 
 def test_fetch_page_allows_public_page(monkeypatch):
-    import haxjobs.agent.tools as tools
+    import haxjobs.agent.tools_web as tools
 
     class FakeResponse:
         headers = {"content-type": "text/html; charset=utf-8"}

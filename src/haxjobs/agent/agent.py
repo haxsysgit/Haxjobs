@@ -15,6 +15,7 @@ class Agent:
         timeout: int = 60,
         tools: list[str] | None = None,
         exclude_tools: list[str] | None = None,
+        tool_mode: str | None = None,
     ):
         cfg = self._load_config()
         p = cfg["provider"]
@@ -22,7 +23,11 @@ class Agent:
             api_key=p["api_key"], base_url=p["base_url"], timeout=timeout
         )
         self.model = model or p["model"]
-        self.tools = tools
+        if tool_mode is not None and tools is None:
+            from haxjobs.agent.tool_modes import tools_for_mode
+            self.tools = tools_for_mode(tool_mode)
+        else:
+            self.tools = tools
         self.exclude_tools = exclude_tools
 
     @staticmethod
