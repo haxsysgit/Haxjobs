@@ -5,11 +5,13 @@ from .activity import _log
 
 def record_decision(job_id, decision, reason=""):
     conn = get_db()
-    conn.execute("INSERT INTO decisions (job_id, decision, reason) VALUES (?, ?, ?)",
-                 (job_id, decision, reason))
+    cur = conn.execute("INSERT INTO decisions (job_id, decision, reason) VALUES (?, ?, ?)",
+                       (job_id, decision, reason))
+    decision_id = cur.lastrowid
     conn.commit()
     conn.close()
     _log("user_decision", f"{decision} — {reason[:60]}", job_id=job_id)
+    return decision_id
 
 
 def get_decisions(job_id):
