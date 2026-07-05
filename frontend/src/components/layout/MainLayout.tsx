@@ -24,7 +24,7 @@ function RouteGuard() {
 
         if (!setupDone && path !== "/setup") {
           navigate("/setup", { replace: true })
-        } else if (setupDone && !onboardDone && path !== "/onboarding") {
+        } else if (setupDone && !onboardDone && path !== "/onboarding" && !path.startsWith("/settings")) {
           navigate("/onboarding", { replace: true })
         }
       } catch {

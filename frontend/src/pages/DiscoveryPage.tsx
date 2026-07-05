@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react"
-
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Spinner } from "@/components/ui/spinner"
 import { cn } from "@/lib/utils"
+import { PageHeader } from "@/components/app/PageHeader"
+import { AgentMessage } from "@/components/app/AgentMessage"
+import { IconSweep, IconRecon } from "@/components/icons"
 
 interface ScraperStatus {
   name: string
@@ -28,151 +29,114 @@ interface DiscoveryStatus {
 
 export function DiscoveryPage() {
   const [status, setStatus] = useState<DiscoveryStatus | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
+  const [starting, setStarting] = useState(false)
 
-  async function refreshStatus() {
-    const response = await fetch("/api/discovery/status")
-    if (!response.ok) return
-    const data = await response.json()
-    if (!isDiscoveryStatus(data)) {
-      setError("Discovery API is stale. Restart dev server with ./dev restart.")
-      return
-    }
-    setError("")
-    setStatus(data)
+  async function fetchStatus() {
+    try {
+      const res = await fetch("/api/discovery/status")
+      if (res.ok) setStatus(await res.json())
+    } catch { /* ignore */ }
   }
 
-  async function runDiscovery() {
-    setError("")
-    setLoading(true)
+  async function start() {
+    setStarting(true)
     try {
-      const response = await fetch("/api/discovery/run", { method: "POST" })
-      if (!response.ok) {
-        throw new Error(response.status === 404 || response.status === 405
-          ? "Discovery API is stale. Restart dev server with ./dev restart."
-          : "Could not start discovery")
-      }
-      await refreshStatus()
-    } catch (exc) {
-      setError(exc instanceof Error ? exc.message : "Could not start discovery")
-    } finally {
-      setLoading(false)
-    }
+      await fetch("/api/discovery/run", { method: "POST" })
+      await fetchStatus()
+    } catch { /* ignore */ }
+    setStarting(false)
   }
 
   useEffect(() => {
-    refreshStatus().catch(() => undefined)
+    fetchStatus()
+    const timer = setInterval(fetchStatus, 3000)
+    return () => clearInterval(timer)
   }, [])
 
-  useEffect(() => {
-    if (!status?.running) return
-    const timer = window.setInterval(() => refreshStatus().catch(() => undefined), 1500)
-    return () => window.clearInterval(timer)
-  }, [status?.running])
-
-  const running = Boolean(status?.running || loading)
-  const scrapers = status?.scrapers?.length ? status.scrapers : [
-    { name: "greenhouse", status: "pending", found: 0, matched: 0, new: 0, errors: 0, message: "" },
-    { name: "ashby", status: "pending", found: 0, matched: 0, new: 0, errors: 0, message: "" },
-    { name: "lever", status: "pending", found: 0, matched: 0, new: 0, errors: 0, message: "" },
-  ]
+  const isRunning = status?.running || starting
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-heading font-bold tracking-tight">Discovery</h2>
-        <p className="text-muted-foreground">Run the scrapers and watch each source report back.</p>
-      </div>
+      <PageHeader
+        title="Recon"
+        description="Run ATS scrapers to find jobs matching your profile."
+        action={
+          <Button onClick={start} disabled={isRunning}>
+            {isRunning ? <><Spinner className="mr-2 size-4" /> Sweeping...</> : "Start Recon"}
+          </Button>
+        }
+      />
 
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <CardTitle>Scraper run</CardTitle>
-              <CardDescription>Greenhouse, Ashby, and Lever run one by one. Accepted jobs move into the main queue.</CardDescription>
-            </div>
-            <Button onClick={runDiscovery} disabled={running}>
-              {running ? <Spinner className="mr-2 size-4" /> : null}
-              {running ? "Running" : "Discover jobs"}
-            </Button>
+      {/* Running state */}
+      {isRunning && (
+        <AgentMessage
+          icon={<IconSweep animate />}
+          title="I'm running a recon sweep right now. Checking scrapers for new jobs."
+          status="running"
+        >
+          <div className="space-y-2 text-sm">
+            {status?.scrapers?.map((s) => (
+              <div key={s.name} className="flex items-center justify-between">
+                <span>{s.name}</span>
+                <span className={cn(
+                  "text-xs",
+                  s.status === "done" && "text-emerald-600 dark:text-emerald-400",
+                  s.status === "error" && "text-red-600 dark:text-red-400",
+                  s.status === "running" && "text-amber-600 dark:text-amber-400"
+                )}>
+                  {s.status}
+                </span>
+              </div>
+            ))}
           </div>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Stat label="Found" value={status?.found ?? 0} />
-            <Stat label="New" value={status?.new ?? 0} />
-            <Stat label="Promoted" value={status?.promoted ?? 0} />
+        </AgentMessage>
+      )}
+
+      {/* Done state */}
+      {!isRunning && status && (
+        <AgentMessage
+          icon={<IconRecon />}
+          title={`I completed a recon sweep. ${status.found} jobs found, ${status.new} new, ${status.promoted} promoted.`}
+          status="success"
+          subtitle={`${status.errors?.length || 0} errors`}
+        >
+          <div className="space-y-3 text-sm">
+            {status.scrapers?.map((s) => (
+              <div key={s.name} className="flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <p className="font-medium">{s.name}</p>
+                  <p className="text-xs text-muted-foreground">{s.status}</p>
+                </div>
+                <div className="flex gap-3 text-xs">
+                  <span>{s.found} found</span>
+                  <span>{s.matched} matched</span>
+                  <span>{s.new} new</span>
+                  {s.errors > 0 && <span className="text-red-500">{s.errors} errors</span>}
+                </div>
+              </div>
+            ))}
+            {status.errors && status.errors.length > 0 && (
+              <div>
+                <p className="mb-1 text-xs font-medium text-red-500">Errors</p>
+                {status.errors.slice(0, 5).map((e, i) => (
+                  <p key={i} className="text-xs text-muted-foreground">{e}</p>
+                ))}
+              </div>
+            )}
           </div>
+        </AgentMessage>
+      )}
 
-          <div className="grid gap-3 md:grid-cols-3">
-            {scrapers.map((scraper) => <ScraperCard key={scraper.name} scraper={scraper} />)}
-          </div>
-
-          {status?.errors?.length ? (
-            <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-              {status.errors.slice(0, 4).map((item) => <p key={item}>{item}</p>)}
-            </div>
-          ) : null}
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
-          {status?.finished_at ? <p className="text-sm text-muted-foreground">Last run finished.</p> : null}
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
-function isDiscoveryStatus(value: unknown): value is DiscoveryStatus {
-  return Boolean(
-    value &&
-    typeof value === "object" &&
-    "running" in value &&
-    "scrapers" in value &&
-    Array.isArray((value as DiscoveryStatus).scrapers)
-  )
-}
-
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-lg border bg-muted/20 p-3">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className="text-2xl font-semibold">{value}</p>
-    </div>
-  )
-}
-
-function ScraperCard({ scraper }: { scraper: ScraperStatus }) {
-  const running = scraper.status === "running"
-  return (
-    <div className="rounded-xl border bg-card p-4 shadow-sm">
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <h3 className="font-medium capitalize">{scraper.name}</h3>
-        <span className={cn(
-          "rounded-full px-2 py-0.5 text-xs font-medium",
-          scraper.status === "done" && "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-          scraper.status === "running" && "bg-primary/10 text-primary",
-          scraper.status === "error" && "bg-destructive/10 text-destructive",
-          scraper.status === "pending" && "bg-muted text-muted-foreground",
-        )}>
-          {running ? "running" : scraper.status}
-        </span>
-      </div>
-      <div className="grid grid-cols-2 gap-2 text-sm">
-        <MiniStat label="Found" value={scraper.found} />
-        <MiniStat label="Matched" value={scraper.matched} />
-        <MiniStat label="New" value={scraper.new} />
-        <MiniStat label="Errors" value={scraper.errors} />
-      </div>
-      {scraper.message ? <p className="mt-3 text-xs text-destructive">{scraper.message}</p> : null}
-    </div>
-  )
-}
-
-function MiniStat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-md bg-muted/30 p-2">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="font-semibold">{value}</p>
+      {/* Idle state */}
+      {!isRunning && !status && (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <IconRecon className="mb-4 size-12 text-muted-foreground/50" />
+          <h3 className="text-lg font-medium">No recon runs yet</h3>
+          <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+            Hit the button above and I'll search Greenhouse, Ashby, and Lever for you.
+          </p>
+        </div>
+      )}
     </div>
   )
 }

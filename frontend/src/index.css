@@ -173,3 +173,28 @@
     @apply font-sans;
     }
 }
+
+/* Agent workspace utility classes */
+.agent-surface {
+  border-radius: var(--radius-xl);
+  border: 1px solid hsl(var(--border));
+  background-color: hsl(var(--card));
+}
+
+.agent-surface-muted {
+  background-color: hsl(var(--muted) / 0.5);
+}
+
+.agent-ring {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+
+.agent-ring:focus-visible {
+  outline-color: hsl(var(--ring));
+}
+
+/* Collapsible section animation for sidebar */
+[data-slot="sidebar-menu-sub"] {
+  transition: opacity 0.2s ease, max-height 0.2s ease;
+}
