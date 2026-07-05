@@ -13,7 +13,7 @@ import { fixtureMode, getFixtureJobs, type FixtureJob } from "@/lib/fixtures"
 /* ── Types ──────────────────────────────────────────────────────────────── */
 
 interface DiscoveryStatus {
-  status: string
+  running: boolean
   scrapers?: { name: string; status: string; found?: number; new?: number; errors?: string[] }[]
   started_at?: string
 }
@@ -66,7 +66,7 @@ export function AgentActivityFeed() {
     queryKey: ["discovery-status"],
     queryFn: () => apiGet<DiscoveryStatus>("/discovery/status"),
     enabled: !fixtureMode,
-    refetchInterval: (q) => (q.state.data?.status === "running" ? 5_000 : 60_000),
+    refetchInterval: (q) => (q.state.data?.running ? 5_000 : 60_000),
     retry: false,
   })
 
@@ -97,8 +97,8 @@ export function AgentActivityFeed() {
       id: "discovery-fixture",
       timestamp: new Date(now.getTime() - 300_000).toISOString(),
       data: {
-        status: "completed",
-        scrapers: [{ name: "Greenhouse", status: "done", found: 12, new: 3 }],
+        running: false,
+        scrapers: [{ name: "Greenhouse", status: "done", found: 12, new: 3, errors: [] }],
         started_at: new Date(now.getTime() - 600_000).toISOString(),
       },
     })
@@ -121,7 +121,7 @@ export function AgentActivityFeed() {
       })
     }
   } else {
-    if (ds.data && ds.data.status === "running") {
+    if (ds.data && ds.data.running) {
       events.push({
         type: "discovery",
         id: "discovery-running",
@@ -235,7 +235,7 @@ export function AgentActivityFeed() {
 function EventIcon({ event }: { event: FeedEvent }) {
   switch (event.type) {
     case "discovery":
-      return event.data.status === "running" ? <IconSweep animate /> : <IconRecon />
+      return event.data.running ? <IconSweep animate /> : <IconRecon />
     case "evaluation":
       return <IconFit />
     case "pack":
@@ -248,7 +248,7 @@ function EventIcon({ event }: { event: FeedEvent }) {
 function eventTitle(event: FeedEvent): string {
   switch (event.type) {
     case "discovery": {
-      if (event.data.status === "running") return "I'm running a recon sweep right now."
+      if (event.data.running) return "I'm running a recon sweep right now."
       const total = event.data.scrapers?.reduce((s, x) => s + (x.found || 0), 0) || 0
       const newC = event.data.scrapers?.reduce((s, x) => s + (x.new || 0), 0) || 0
       return `I completed a recon sweep. ${total} jobs found, ${newC} new.`
@@ -278,7 +278,7 @@ function eventSubtitle(event: FeedEvent): string {
 function eventStatus(event: FeedEvent): "success" | "running" | "error" | "idle" {
   switch (event.type) {
     case "discovery":
-      return event.data.status === "running" ? "running" : event.data.status === "error" ? "error" : "success"
+      return event.data.running ? "running" : event.data.scrapers?.some(s => s.status === "error") ? "error" : "success"
     case "evaluation":
     case "pack":
     case "decision":
