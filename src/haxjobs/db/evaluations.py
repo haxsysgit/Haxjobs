@@ -70,7 +70,13 @@ def get_evaluation(job_id):
     conn = get_db()
     row = conn.execute("SELECT * FROM evaluations WHERE job_id=?", (job_id,)).fetchone()
     conn.close()
-    return dict(row) if row else None
+    if row is None:
+        return None
+    d = dict(row)
+    for field in ("strongest_matches", "major_gaps"):
+        val = d.get(field)
+        d[field] = json.loads(val) if val else []
+    return d
 
 
 def get_jobs_with_evaluations(status_filter=None, role_family=None, offset=0, limit=None):
