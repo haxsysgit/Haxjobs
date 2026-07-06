@@ -198,3 +198,24 @@
 [data-slot="sidebar-menu-sub"] {
   transition: opacity 0.2s ease, max-height 0.2s ease;
 }
+
+@keyframes radar-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.radar-sweep {
+  animation: radar-spin 4.5s linear infinite;
+}
+
+.radar-sweep-fast {
+  animation-duration: 2.8s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .radar-sweep,
+  .radar-sweep-fast {
+    animation-duration: 12s;
+  }
+}

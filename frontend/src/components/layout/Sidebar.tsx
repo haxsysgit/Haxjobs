@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom"
 import { useEffect, useState, useMemo } from "react"
+import { motion } from "framer-motion"
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuSub,
@@ -61,9 +62,15 @@ export function AppSidebar() {
                       <SidebarMenuButton
                         isActive={isActive}
                         render={
-                          <Link to={section.path} onClick={() => setActivePath(section.path)}>
+                          <Link to={section.path} onClick={() => setActivePath(section.path)} className="flex w-full items-center gap-2">
                             <IconComp />
                             <span>{section.title}</span>
+                            {isActive && (
+                              <motion.span
+                                layoutId="active-sidebar-dot"
+                                className="ml-auto size-2 rounded-full bg-sidebar-primary"
+                              />
+                            )}
                           </Link>
                         }
                       />
@@ -80,7 +87,7 @@ export function AppSidebar() {
                       isActive={isParentActive}
                       onClick={() => setExpandedSections((prev) => ({ ...prev, [secKey]: !isOpen }))}
                     >
-                      <IconComp />
+                      <IconComp className={cn(isParentActive && "text-sidebar-primary")} />
                       <span>{section.title}</span>
                       <ChevronDown
                         className={cn(
@@ -104,8 +111,14 @@ export function AppSidebar() {
                                 <SidebarMenuSubButton
                                   isActive={isChildActive}
                                   render={
-                                    <Link to={child.path} onClick={() => setActivePath(child.path)}>
+                                    <Link to={child.path} onClick={() => setActivePath(child.path)} className="flex w-full items-center gap-2">
                                       <span>{child.title}</span>
+                                      {isChildActive && (
+                                        <motion.span
+                                          layoutId="active-sidebar-dot"
+                                          className="ml-auto size-1.5 rounded-full bg-sidebar-primary"
+                                        />
+                                      )}
                                     </Link>
                                   }
                                 />
@@ -121,6 +134,10 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        <div className="mx-3 mt-auto rounded-xl border border-sidebar-border/70 bg-sidebar-accent/45 px-3 py-2 text-[11px] text-sidebar-foreground/70">
+          <span className="mr-2 inline-block size-1.5 rounded-full bg-sidebar-primary align-middle" />
+          online, nosy, useful
+        </div>
       </SidebarContent>
     </Sidebar>
   )

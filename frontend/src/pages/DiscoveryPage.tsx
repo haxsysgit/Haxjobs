@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Spinner } from "@/components/ui/spinner"
+import { useEffect, useRef, useState } from "react"
 import { cn } from "@/lib/utils"
 import { PageHeader } from "@/components/app/PageHeader"
 import { AgentMessage } from "@/components/app/AgentMessage"
 import { IconSweep, IconRecon } from "@/components/icons"
+import { ReconControlCard } from "@/components/recon/ReconControlCard"
+import { fireSweepCompleteConfetti } from "@/hooks/useConfetti"
 
 interface ScraperStatus {
   name: string
@@ -30,6 +30,7 @@ interface DiscoveryStatus {
 export function DiscoveryPage() {
   const [status, setStatus] = useState<DiscoveryStatus | null>(null)
   const [starting, setStarting] = useState(false)
+  const wasRunning = useRef(false)
 
   async function fetchStatus() {
     try {
@@ -55,17 +56,21 @@ export function DiscoveryPage() {
 
   const isRunning = status?.running || starting
 
+  useEffect(() => {
+    if (wasRunning.current && !isRunning && status) {
+      fireSweepCompleteConfetti()
+    }
+    wasRunning.current = Boolean(isRunning)
+  }, [isRunning, status])
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Recon"
-        description="Run ATS scrapers to find jobs matching your profile."
-        action={
-          <Button onClick={start} disabled={isRunning}>
-            {isRunning ? <><Spinner className="mr-2 size-4" /> Sweeping...</> : "Start Recon"}
-          </Button>
-        }
+        description="Watch the scrapers and launch new sweeps."
       />
+
+      <ReconControlCard running={Boolean(isRunning)} onStart={start} />
 
       {/* Running state */}
       {isRunning && (

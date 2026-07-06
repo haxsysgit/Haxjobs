@@ -32,10 +32,16 @@ export function JobCard({ job, index = 0, roleId }: Props) {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05 }}
+      whileHover={{ y: -2 }}
     >
       <Link to={href} className="block">
-        <div className="group flex items-start gap-4 rounded-xl border bg-card p-4 transition-all hover:border-primary/20 hover:shadow-sm">
+        <div className="group flex items-start gap-4 rounded-xl border bg-card p-4 transition-all hover:border-primary/35 hover:shadow-md hover:shadow-primary/5">
           <div className="flex-1 min-w-0">
+            {job.fit_score != null && (
+              <p className="mb-1 text-xs font-semibold text-primary">
+                Yo, scored {job.company || "this one"} at {job.fit_score}%.
+              </p>
+            )}
             <div className="flex items-center gap-2">
               <h3 className="font-medium text-sm truncate">{job.title}</h3>
               {job.fit_score != null && (

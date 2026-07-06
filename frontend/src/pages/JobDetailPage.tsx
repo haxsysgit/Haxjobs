@@ -1,4 +1,4 @@
-/** Job detail page — full view with fit, decisions, timeline, and jd text. */
+/** Job detail page with fit, decisions, timeline, and jd text. */
 import { useParams, Link } from "react-router-dom"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { motion } from "framer-motion"
@@ -14,6 +14,8 @@ import { JobStatusTimeline } from "@/components/jobs/JobStatusTimeline"
 import { getJob, evaluateJob, recordDecision } from "@/lib/jobs"
 import type { JobDetail, Decision } from "@/lib/jobs"
 import { roleDisplayName } from "@/lib/roles"
+import { decisionCopy } from "@/lib/decisionCopy"
+import { fireApplyConfetti } from "@/hooks/useConfetti"
 import { toast } from "sonner"
 import { useState } from "react"
 
@@ -36,7 +38,7 @@ export function JobDetailPage() {
     try {
       const result = await evaluateJob(id)
       if (result.ok) {
-        toast.success(`Evaluated: ${result.fit_score}% — ${result.fit_verdict}`)
+        toast.success(`Evaluated: ${result.fit_score}% - ${result.fit_verdict}`)
         queryClient.invalidateQueries({ queryKey: ["job", id] })
         queryClient.invalidateQueries({ queryKey: ["jobs"] })
       } else {
@@ -53,7 +55,10 @@ export function JobDetailPage() {
     try {
       const result = await recordDecision(id, decision)
       if (result.ok) {
-        toast.success(`${decision.charAt(0).toUpperCase() + decision.slice(1)} recorded.`)
+        toast.success(decisionCopy[decision])
+        if (decision === "apply") {
+          fireApplyConfetti()
+        }
         queryClient.invalidateQueries({ queryKey: ["job", id] })
         queryClient.invalidateQueries({ queryKey: ["jobs"] })
       } else {
@@ -140,7 +145,7 @@ export function JobDetailPage() {
 
       {/* Two-column layout */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Left column — job description */}
+        {/* Left column: job description */}
         <div className="lg:col-span-2 space-y-4">
           {/* Agent message summary */}
           {job.summary && (
@@ -162,7 +167,7 @@ export function JobDetailPage() {
           </div>
         </div>
 
-        {/* Right column — panels */}
+        {/* Right column: panels */}
         <div className="space-y-4">
           <JobFitPanel
             evaluation={job.evaluation}
