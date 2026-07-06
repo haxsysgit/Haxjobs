@@ -1,8 +1,29 @@
 import { Link } from "react-router-dom"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
+import type { DiscoveryStatus, HomeJobRow } from "@/lib/homeSummary"
 
-export function AgentBriefingCard() {
+interface AgentBriefingCardProps {
+  discovery?: DiscoveryStatus | null
+  jobs?: HomeJobRow[]
+}
+
+export function AgentBriefingCard({ discovery, jobs = [] }: AgentBriefingCardProps) {
+  const totalFound =
+    discovery?.scrapers?.reduce((sum, s) => sum + (s.found || 0), 0) || 0
+  const highFit = jobs.filter((j) => (j.fit_score ?? 0) >= 70).length
+  const packReady = jobs.filter((j) => j.pack_status === "generated").length
+
+  const hasData = !!discovery || jobs.length > 0
+
+  const headline = hasData
+    ? `Yo boss, scanned ${totalFound} jobs across Greenhouse, Ashby, and Lever today.`
+    : "Yo boss, scanned 47 jobs across Greenhouse, Ashby, and Lever today."
+
+  const body = hasData
+    ? `We have ${highFit} high-fit opportunities and ${packReady} application packs ready to ship.`
+    : "We have 3 high-fit opportunities and 2 application packs ready to ship."
+
   return (
     <motion.section
       initial={{ opacity: 0, y: 14 }}
@@ -19,10 +40,10 @@ export function AgentBriefingCard() {
             </span>
           </div>
           <h1 className="mt-3 max-w-3xl font-heading text-2xl leading-tight text-foreground sm:text-3xl">
-            Yo boss, scanned 47 jobs across Greenhouse, Ashby, and Lever today.
+            {headline}
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            We have 3 high-fit opportunities and 2 application packs ready to ship.
+            {body}
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">

@@ -84,7 +84,7 @@ export function HomePage() {
   return (
     <div className="gap-6 space-y-6 lg:grid lg:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.9fr)] lg:space-y-0">
       <section className="min-w-0 space-y-5">
-        <AgentBriefingCard />
+        <AgentBriefingCard discovery={discoveryQ.data} jobs={jobs} />
         <HomeMetricGrid discovery={discoveryQ.data} jobs={jobs} />
         <QuickStatsRow jobs={jobs} events={events} />
       </section>
