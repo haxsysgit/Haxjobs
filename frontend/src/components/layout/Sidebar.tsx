@@ -18,7 +18,7 @@ const iconMap: Record<string, React.ElementType> = {
   Recon: IconRecon,
   "Job Arena": IconArena,
   Packs: IconPack,
-  "Control Room": IconControl,
+  "Config": IconControl,
   You: IconYou,
 }
 

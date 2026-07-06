@@ -42,7 +42,7 @@ function ControlCard({
 export function SettingsPage() {
   return (
     <div className="space-y-6">
-      <PageHeader title="Control Room" description="Providers, defaults, and the knobs that steer the agent." />
+      <PageHeader title="Config" description="Providers, defaults, and the knobs that steer the agent." />
       <div className="grid gap-4 lg:grid-cols-2">
         <ControlCard
           to="/settings/providers"

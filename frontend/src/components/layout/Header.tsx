@@ -10,7 +10,7 @@ const sectionLabels: Record<string, string> = {
   "/discovery": "Recon",
   "/jobs": "Job Arena",
   "/packs": "Packs",
-  "/settings": "Control Room",
+  "/settings": "Config",
   "/you": "You",
 }
 

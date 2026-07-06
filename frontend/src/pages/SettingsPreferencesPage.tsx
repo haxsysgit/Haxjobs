@@ -1,46 +1,53 @@
-import { MapPin, SlidersHorizontal, Target, Waves } from "lucide-react"
+import { Heart, Plug, Cpu } from "lucide-react"
 import { PageHeader } from "@/components/app/PageHeader"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { PreferenceRow } from "@/components/settings/PreferenceRow"
+
+interface PrefRowProps {
+  label: string
+  icon: React.ReactNode
+  value: string
+}
+
+function PrefRow({ label, icon, value }: PrefRowProps) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-4">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
+        {icon}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-[13px] text-muted-foreground">{label}</div>
+      </div>
+      <span className="shrink-0 text-[13.5px] font-medium text-foreground">{value}</span>
+    </div>
+  )
+}
 
 export function SettingsPreferencesPage() {
   return (
     <div className="space-y-6">
-      <PageHeader title="Preferences" kicker="Control Room" description="Read-only defaults until profile editing lands." />
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 font-heading text-2xl">
-            <SlidersHorizontal className="size-5 text-primary" />
-            Current hunt defaults
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-3 lg:grid-cols-2">
-          <PreferenceRow
-            icon={<MapPin className="size-4" />}
-            label="Search radius"
-            value="London + Remote"
-            note="Used as a preview of the default location posture."
-          />
-          <PreferenceRow
-            icon={<Waves className="size-4" />}
-            label="Profile depth"
-            value="Lenient"
-            note="Ask for useful evidence without turning onboarding into homework."
-          />
-          <PreferenceRow
-            icon={<Target className="size-4" />}
-            label="Minimum score"
-            value="55%"
-            note="Below this, jobs stay out of the main arena unless requested."
-          />
-          <PreferenceRow
-            icon={<SlidersHorizontal className="size-4" />}
-            label="Work modes"
-            value="Remote, hybrid, onsite"
-            note="Final filtering still comes from the canonical profile."
-          />
-        </CardContent>
-      </Card>
+      <PageHeader
+        title="Preferences"
+        kicker="Config"
+        description="Search radius, profile depth, notification tone. The dials."
+      />
+
+      <div className="space-y-3">
+        <PrefRow
+          label="Search radius"
+          icon={<Heart size={15} />}
+          value="London + Remote"
+        />
+        <PrefRow
+          label="Profile depth"
+          icon={<Cpu size={15} />}
+          value="Lenient"
+        />
+        <PrefRow
+          label="Minimum score"
+          icon={<Plug size={15} />}
+          value="55%"
+        />
+      </div>
+
       <p className="text-xs text-muted-foreground">
         These are preview rows. They do not write profile data or change backend settings yet.
       </p>

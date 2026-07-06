@@ -36,7 +36,7 @@ export function buildSidebarLinks(roles: Role[] = FALLBACK_ROLES): SidebarSectio
     },
     { title: "Packs", icon: Package, path: "/packs" },
     {
-      title: "Control Room",
+      title: "Config",
       icon: SlidersHorizontal,
       path: "/settings",
       children: [
