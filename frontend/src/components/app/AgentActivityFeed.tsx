@@ -172,8 +172,19 @@ function eventTitle(event: HomeFeedEvent): string {
     case "pack":
       return `Application pack ready for ${event.data.company} ${event.data.title}.`
     case "decision":
-      return `You ${event.data.decision}d ${event.data.job_company || "a job"}.`
+      return decisionTitle(event.data.decision, event.data.job_company || event.data.job_title || "this job")
   }
+}
+
+function decisionTitle(decision: string, target: string): string {
+  const copy: Record<string, string> = {
+    apply: `You applied to ${target}. Nice, this one gets a real shot.`,
+    maybe: `You parked ${target} in maybe.`,
+    save: `You saved ${target} for a second look.`,
+    skip: `You skipped ${target}. Precious mortal attention preserved.`,
+    reject: `You rejected ${target}. Clean exit, no drama.`,
+  }
+  return copy[decision] || `You marked ${target} as ${decision}.`
 }
 
 function eventSubtitle(event: HomeFeedEvent): string {

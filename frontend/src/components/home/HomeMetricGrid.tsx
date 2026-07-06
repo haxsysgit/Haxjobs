@@ -140,9 +140,18 @@ function sum(values: number[]): number {
 
 function roleLabels(jobs: HomeJobRow[]): string[] {
   const roles = Array.from(new Set(jobs.map((job) => job.role_family).filter(Boolean))) as string[]
-  return roles.map((role) => role.split("_").map(capitalize).join(" "))
+  return roles.map(formatRoleLabel)
 }
 
-function capitalize(value: string): string {
-  return value.charAt(0).toUpperCase() + value.slice(1)
+function formatRoleLabel(role: string): string {
+  const known: Record<string, string> = {
+    ai_ml: "AI/ML",
+    backend_python: "Backend Python",
+    full_stack: "Full Stack",
+  }
+  return known[role] || role.split("_").map(formatRolePart).join(" ")
+}
+
+function formatRolePart(part: string): string {
+  return part.toUpperCase() === part ? part : part.charAt(0).toUpperCase() + part.slice(1)
 }
