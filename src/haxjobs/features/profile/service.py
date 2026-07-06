@@ -1,7 +1,16 @@
-"""Profile business logic.
+"""Profile business logic."""
+import json
+from haxjobs.config import PROFILE_PATH
 
-ponytail: placeholder. Real logic in plan 053.
-"""
 
 def get_profile():
-    return {"name": "", "email": "", "message": "Profile not yet implemented via API"}
+    if not PROFILE_PATH.exists():
+        return {"name": "", "profile": None}
+    try:
+        with open(PROFILE_PATH) as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return {"name": "", "profile": None}
+    personal = data.get("personal", {})
+    name = personal.get("name", "")
+    return {"name": name, "profile": data}

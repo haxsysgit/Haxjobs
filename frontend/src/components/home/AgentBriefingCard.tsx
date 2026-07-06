@@ -1,7 +1,11 @@
 import { Link } from "react-router-dom"
+import { useMemo } from "react"
 import { motion } from "framer-motion"
 import { Zap } from "lucide-react"
+import { useQuery } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
+import { apiGet } from "@/lib/api"
+import { pickGreeting, firstName } from "@/lib/greetings"
 import type { DiscoveryStatus, HomeJobRow } from "@/lib/homeSummary"
 
 interface AgentBriefingCardProps {
@@ -10,6 +14,16 @@ interface AgentBriefingCardProps {
 }
 
 export function AgentBriefingCard({ discovery, jobs = [] }: AgentBriefingCardProps) {
+  const { data: profile } = useQuery<{ name: string }>({
+    queryKey: ["profile-name"],
+    queryFn: () => apiGet<{ name: string }>("/profile"),
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  })
+
+  const user = firstName(profile?.name || "") || "boss"
+  const greeting = useMemo(() => pickGreeting(), [])
+
   const totalFound =
     discovery?.scrapers?.reduce((sum, s) => sum + (s.found || 0), 0) || 0
   const highFit = jobs.filter((j) => (j.fit_score ?? 0) >= 70).length
@@ -18,8 +32,8 @@ export function AgentBriefingCard({ discovery, jobs = [] }: AgentBriefingCardPro
   const hasData = !!discovery || jobs.length > 0
 
   const headline = hasData
-    ? `Yo boss, scanned ${totalFound} jobs across Greenhouse, Ashby, and Lever today.`
-    : "Yo boss, scanned 47 jobs across Greenhouse, Ashby, and Lever today."
+    ? `${greeting} ${user}, scanned ${totalFound} jobs across Greenhouse, Ashby, and Lever today.`
+    : `${greeting} ${user}, scanned 47 jobs across Greenhouse, Ashby, and Lever today.`
 
   const body = hasData
     ? `We have ${highFit} high-fit opportunities and ${packReady} application packs ready to ship.`
