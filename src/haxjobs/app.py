@@ -59,12 +59,19 @@ if _FRONTEND_DIR.exists():
     assets = _FRONTEND_DIR / "assets"
     if assets.exists():
         app.mount("/assets", StaticFiles(directory=str(assets)), name="assets")
-    # Serve favicon
-    favicon = _FRONTEND_DIR / "favicon.svg"
-    if favicon.exists():
-        @app.get("/favicon.svg", include_in_schema=False)
-        def favicon():
-            return FileResponse(favicon)
+
+    # Serve root-level static files (icons, manifest)
+    def _make_route(path: Path, route: str):
+        @app.get(route, include_in_schema=False)
+        def _serve():
+            return FileResponse(path)
+
+    for filename in ("icon.svg", "favicon.ico", "site.webmanifest", "icon-16.png",
+                     "icon-32.png", "icon-48.png", "icon-64.png", "icon-128.png",
+                     "icon-192.png", "icon-512.png"):
+        filepath = _FRONTEND_DIR / filename
+        if filepath.exists():
+            _make_route(filepath, f"/{filename}")
     # SPA catch-all — serve index.html for all client-side routes
     @app.get("/{full_path:path}", include_in_schema=False)
     async def spa_fallback(full_path: str, request: Request):
