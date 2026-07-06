@@ -46,56 +46,63 @@ export function AgentMessage({
         expanded && "shadow-sm"
       )}
     >
-      <button
-        type="button"
-        onClick={() => setExpanded(!expanded)}
+      <div
         className={cn(
-          "flex w-full items-start gap-3 text-left",
+          "flex w-full items-start gap-3",
           variant === "default" && "p-4",
           variant === "compact" && "p-3",
           variant === "highlight" && "p-5"
         )}
       >
-        {/* Icon */}
-        <div
-          className={cn(
-            "flex-shrink-0 rounded-full p-2",
-            statusColors[status],
-            status === "running" && "animate-pulse"
-          )}
+        <button
+          type="button"
+          onClick={() => children && setExpanded(!expanded)}
+          aria-expanded={children ? expanded : undefined}
+          className="flex min-w-0 flex-1 items-start gap-3 text-left"
         >
-          <div className="[&>svg]:size-5">{icon}</div>
-        </div>
+          {/* Icon */}
+          <div
+            className={cn(
+              "flex-shrink-0 rounded-full p-2",
+              statusColors[status],
+              status === "running" && "animate-pulse"
+            )}
+          >
+            <div className="[&>svg]:size-5">{icon}</div>
+          </div>
 
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium leading-snug text-foreground">{title}</p>
-          {(subtitle || timestamp) && (
-            <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-              {subtitle && <span>{subtitle}</span>}
-              {timestamp && (
-                <>
-                  {subtitle && <span aria-hidden="true">·</span>}
-                  <span>{timestamp}</span>
-                </>
-              )}
-            </div>
-          )}
-        </div>
+          {/* Content */}
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium leading-snug text-foreground">{title}</p>
+            {(subtitle || timestamp) && (
+              <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                {subtitle && <span>{subtitle}</span>}
+                {timestamp && (
+                  <>
+                    {subtitle && <span aria-hidden="true">·</span>}
+                    <span>{timestamp}</span>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
 
-        {/* Actions + chevron */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {actions}
           {children && (
             <ChevronDown
               className={cn(
-                "size-4 text-muted-foreground transition-transform duration-200",
+                "size-4 flex-shrink-0 text-muted-foreground transition-transform duration-200",
                 expanded && "rotate-180"
               )}
             />
           )}
-        </div>
-      </button>
+        </button>
+
+        {actions && (
+          <div className="flex flex-shrink-0 items-center gap-2">
+            {actions}
+          </div>
+        )}
+      </div>
 
       {/* Expandable content */}
       <AnimatePresence initial={false}>
