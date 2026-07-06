@@ -1,10 +1,20 @@
 import { motion } from "framer-motion"
-import { AgentActivityFeed } from "@/components/app/AgentActivityFeed"
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
+import { AgentBriefingCard } from "@/components/home/AgentBriefingCard"
+import { HomeMetricGrid } from "@/components/home/HomeMetricGrid"
+import { LiveAgentFeedPanel } from "@/components/home/LiveAgentFeedPanel"
+import { QuickStatsRow } from "@/components/home/QuickStatsRow"
 import { apiGet } from "@/lib/api"
 import { PageHeader } from "@/components/app/PageHeader"
+import { fixtureMode, getFixtureJobs } from "@/lib/fixtures"
+import {
+  buildHomeFeedEvents,
+  type DiscoveryStatus,
+  type HomeDecisionRow,
+  type HomeJobRow,
+} from "@/lib/homeSummary"
 
 interface OnboardingStatus {
   stage?: string
@@ -18,7 +28,30 @@ export function HomePage() {
     staleTime: 30_000,
   })
 
-  // If no profile, show onboarding prompt
+  const discoveryQ = useQuery<DiscoveryStatus>({
+    queryKey: ["discovery-status"],
+    queryFn: () => apiGet<DiscoveryStatus>("/discovery/status"),
+    enabled: !fixtureMode,
+    refetchInterval: (q) => (q.state.data?.running ? 5_000 : 60_000),
+    retry: false,
+  })
+
+  const jobsQ = useQuery<{ jobs: HomeJobRow[] }>({
+    queryKey: ["jobs", "evaluated"],
+    queryFn: () => apiGet<{ jobs: HomeJobRow[] }>("/jobs?status=evaluated&limit=20"),
+    enabled: !fixtureMode,
+    staleTime: 30_000,
+    retry: false,
+  })
+
+  const decisionsQ = useQuery<{ decisions: HomeDecisionRow[] }>({
+    queryKey: ["decisions"],
+    queryFn: () => apiGet<{ decisions: HomeDecisionRow[] }>("/decisions?limit=20"),
+    enabled: !fixtureMode,
+    staleTime: 30_000,
+    retry: false,
+  })
+
   if (onboard && onboard.stage !== "complete") {
     return (
       <motion.div
@@ -40,5 +73,24 @@ export function HomePage() {
     )
   }
 
-  return <AgentActivityFeed />
+  const jobs = fixtureMode ? getFixtureJobs() : jobsQ.data?.jobs || []
+  const events = buildHomeFeedEvents({
+    discovery: discoveryQ.data,
+    jobs,
+    decisions: decisionsQ.data?.decisions,
+    fixtureMode,
+  })
+
+  return (
+    <div className="gap-6 space-y-6 lg:grid lg:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.9fr)] lg:space-y-0">
+      <section className="min-w-0 space-y-5">
+        <AgentBriefingCard />
+        <HomeMetricGrid discovery={discoveryQ.data} jobs={jobs} />
+        <QuickStatsRow jobs={jobs} events={events} />
+      </section>
+      <aside className="min-w-0 lg:sticky lg:top-6 lg:max-h-[calc(100vh-7rem)]">
+        <LiveAgentFeedPanel eventCount={events.length} />
+      </aside>
+    </div>
+  )
 }
