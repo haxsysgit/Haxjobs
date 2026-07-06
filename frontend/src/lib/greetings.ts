@@ -1,8 +1,8 @@
 const starters = [
   "Yo",
   "Hey",
-  "Morning",
-  "Evening",
+  "There you are",
+  "Been waiting for you",
   "What's good",
   "Alright",
   "Aye",
