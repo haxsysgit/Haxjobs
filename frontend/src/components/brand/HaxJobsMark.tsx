@@ -1,53 +1,48 @@
 /**
- * HaxJobs Mark — "The Scanner"
+ * HaxJobs Mark — "The Caret"
  *
- * An angular hexagonal shield enclosing an abstracted "H" glyph
- * with a directional arrow-tipped crossbar.
+ * Hybrid: Opus 4.6's hexagonal shield container with Opus 4.8's
+ * upward-chevron H and pulsing agent-eye node.
  *
- * - Hexagonal container = protection, systematic precision
- * - "H" glyph = immediate brand recognition
- * - Arrow crossbar = agent always scanning forward
- * - Left flat block = user grounded while agent works
+ * - Hexagonal shield = protection, systematic precision (4.6)
+ * - Two-pillar H with chevron crossbar = the "^" of Hax, rising
+ *   trajectory, signal-lock for an agent always watching (4.8)
+ * - Pulsing node at apex = agent's eye / status dot (4.8)
+ * - Pulse ring animation when live (4.8)
  */
 
 interface HaxJobsMarkProps {
   size?: number
   variant?: "color" | "light" | "dark"
   className?: string
-  animated?: boolean
+  live?: boolean
   glow?: boolean
 }
 
-const COLORS = {
-  color: {
-    primary: "oklch(0.67 0.17 153.85)",
-    secondary: "oklch(0.55 0.14 153.85)",
-    bright: "oklch(0.78 0.16 153.85)",
-    cutout: "oklch(0.13 0.02 153.85)",
-  },
-  light: {
-    primary: "oklch(0.18 0.03 153.85)",
-    secondary: "oklch(0.25 0.03 153.85)",
-    bright: "oklch(0.30 0.04 153.85)",
-    cutout: "#ffffff",
-  },
-  dark: {
-    primary: "oklch(0.92 0.02 153.85)",
-    secondary: "oklch(0.82 0.02 153.85)",
-    bright: "oklch(0.97 0.01 153.85)",
-    cutout: "oklch(0.13 0.02 153.85)",
-  },
+const GREEN = "oklch(0.67 0.17 153.85)"
+const GREEN_BRIGHT = "oklch(0.78 0.16 153.85)"
+const GREEN_DEEP = "oklch(0.55 0.14 153.85)"
+
+const CUTOUT = {
+  color: "oklch(0.13 0.02 153.85)",
+  light: "#ffffff",
+  dark: "oklch(0.13 0.02 153.85)",
+}
+
+const SHIELD_FILL = {
+  color: undefined as string | undefined, // gradient via url()
+  light: "oklch(0.18 0.03 153.85)",
+  dark: "oklch(0.92 0.02 153.85)",
 }
 
 export function HaxJobsMark({
   size = 36,
   variant = "color",
   className = "",
-  animated = false,
+  live = false,
   glow = false,
 }: HaxJobsMarkProps) {
-  const c = COLORS[variant]
-  const uid = `haxmark-${size}-${variant}`
+  const uid = `hax-${size}-${variant}`
 
   return (
     <svg
@@ -62,8 +57,8 @@ export function HaxJobsMark({
     >
       <defs>
         <linearGradient id={`${uid}-grad`} x1="4" y1="4" x2="44" y2="44" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor={c.bright} />
-          <stop offset="100%" stopColor={c.secondary} />
+          <stop offset="0%" stopColor={GREEN_BRIGHT} />
+          <stop offset="100%" stopColor={GREEN_DEEP} />
         </linearGradient>
         {glow && variant === "color" && (
           <filter id={`${uid}-glow`}>
@@ -76,51 +71,80 @@ export function HaxJobsMark({
         )}
       </defs>
 
-      {/* Hexagonal shield */}
+      {/* Hexagonal shield — from 4.6 */}
       <path
         d="M 24 2 L 42 12 C 44.5 13.2 46 15.8 46 18.5 L 46 29.5 C 46 32.2 44.5 34.8 42 36 L 24 46 L 6 36 C 3.5 34.8 2 32.2 2 29.5 L 2 18.5 C 2 15.8 3.5 13.2 6 12 Z"
-        fill={variant === "color" ? `url(#${uid}-grad)` : c.primary}
+        fill={variant === "color" ? `url(#${uid}-grad)` : SHIELD_FILL[variant]}
         filter={glow && variant === "color" ? `url(#${uid}-glow)` : undefined}
       />
 
-      {/* H glyph — negative space */}
-      <path
-        d="M 13 12 L 19 12 L 19 20.5 L 29 20.5 L 29 12 L 35 12 L 35 36 L 29 36 L 29 27.5 L 19 27.5 L 19 36 L 13 36 Z"
-        fill={c.cutout}
+      {/* Left pillar — from 4.8's structure */}
+      <rect
+        x="14"
+        y="16"
+        width="7"
+        height="22"
+        rx="3.5"
+        fill={CUTOUT[variant]}
       />
 
-      {/* Arrow scan tip extending from crossbar */}
-      <path d="M 35 21.5 L 40 24 L 35 26.5 Z" fill={c.cutout} />
+      {/* Right pillar — from 4.8's structure */}
+      <rect
+        x="27"
+        y="16"
+        width="7"
+        height="22"
+        rx="3.5"
+        fill={CUTOUT[variant]}
+      />
 
-      {/* Left flat block — grounding */}
-      <rect x="8" y="21.5" width="5" height="5" rx="0.5" fill={c.cutout} />
+      {/* Upward-chevron crossbar — the "^" of Hax, the rising trajectory */}
+      <path
+        d="M 14 33 L 24 20 L 34 33 L 34 28 L 24 15 L 14 28 Z"
+        fill={CUTOUT[variant]}
+      />
 
-      {/* Animated scan line */}
-      {animated && (
-        <line x1="8" y1="24" x2="40" y2="24" stroke={c.bright} strokeWidth="1" opacity="0.6">
+      {/* Agent-eye node at chevron apex — from 4.8 */}
+      <circle
+        cx="24"
+        cy="9"
+        r="3.5"
+        fill={GREEN}
+      >
+        {live && (
           <animate
-            attributeName="y1"
-            values="14;34;14"
-            dur="3s"
+            attributeName="opacity"
+            values="1;0.35;1"
+            dur="1.8s"
             repeatCount="indefinite"
-            calcMode="spline"
-            keySplines="0.4 0 0.2 1;0.4 0 0.2 1"
           />
+        )}
+      </circle>
+
+      {/* Pulse ring — from 4.8 */}
+      {live && (
+        <circle
+          cx="24"
+          cy="9"
+          r="3.5"
+          fill="none"
+          stroke={GREEN}
+          strokeWidth="1.5"
+          opacity="0.6"
+        >
           <animate
-            attributeName="y2"
-            values="14;34;14"
-            dur="3s"
+            attributeName="r"
+            values="3.5;9;3.5"
+            dur="1.8s"
             repeatCount="indefinite"
-            calcMode="spline"
-            keySplines="0.4 0 0.2 1;0.4 0 0.2 1"
           />
           <animate
             attributeName="opacity"
-            values="0.2;0.8;0.2"
-            dur="3s"
+            values="0.6;0;0.6"
+            dur="1.8s"
             repeatCount="indefinite"
           />
-        </line>
+        </circle>
       )}
     </svg>
   )

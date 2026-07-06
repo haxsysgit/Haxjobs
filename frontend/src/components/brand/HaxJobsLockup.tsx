@@ -15,7 +15,7 @@ interface HaxJobsLockupProps {
   variant?: "color" | "light" | "dark"
   showTagline?: boolean
   className?: string
-  animated?: boolean
+  live?: boolean
 }
 
 export function HaxJobsLockup({
@@ -23,7 +23,7 @@ export function HaxJobsLockup({
   variant = "color",
   showTagline = true,
   className = "",
-  animated = false,
+  live = true,
 }: HaxJobsLockupProps) {
   const textColor =
     variant === "light"
@@ -39,7 +39,7 @@ export function HaxJobsLockup({
       <HaxJobsMark
         size={markSize}
         variant={variant}
-        animated={animated}
+        live={live}
       />
       <div className="flex flex-col" style={{ fontFamily: "'Lato', sans-serif" }}>
         <div className="flex items-baseline">
