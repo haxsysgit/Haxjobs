@@ -12,6 +12,7 @@ import { useRoles } from "@/hooks/useRoles"
 import { useTheme } from "@/hooks/useTheme"
 import { buildSidebarLinks } from "@/lib/sidebarLinks"
 import { IconRecon, IconArena, IconPack, IconControl, IconYou } from "@/components/icons"
+import { HaxJobsLockup } from "@/components/brand/HaxJobsLockup"
 
 const iconMap: Record<string, React.ElementType> = {
   Home,
@@ -49,6 +50,13 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarContent>
+        {/* Brand lockup */}
+        <div className="px-3 pt-5 pb-3">
+          <Link to="/" className="inline-block">
+            <HaxJobsLockup markSize={34} variant="color" showTagline animated />
+          </Link>
+        </div>
+
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
