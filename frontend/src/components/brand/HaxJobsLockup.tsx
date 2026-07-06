@@ -1,11 +1,10 @@
 import { HaxJobsMark } from "./HaxJobsMark"
-import { cn } from "@/lib/utils"
 
 /**
  * HaxJobs full lockup — mark + wordmark + tagline.
- * Designed for the sidebar top (260px wide, dark background).
+ * From Claude Opus 4.6, unchanged.
  *
- * "Hax" in Lato Black 900 (agent personality, weight, confidence)
+ * "Hax" in Lato Black 900 (agent, weight, confidence)
  * "Jobs" in Lato Light 300 (the domain, secondary)
  * Tagline: tracked uppercase, understated
  */
@@ -15,7 +14,7 @@ interface HaxJobsLockupProps {
   variant?: "color" | "light" | "dark"
   showTagline?: boolean
   className?: string
-  live?: boolean
+  animated?: boolean
 }
 
 export function HaxJobsLockup({
@@ -23,7 +22,7 @@ export function HaxJobsLockup({
   variant = "color",
   showTagline = true,
   className = "",
-  live = true,
+  animated = false,
 }: HaxJobsLockupProps) {
   const textColor =
     variant === "light"
@@ -35,12 +34,8 @@ export function HaxJobsLockup({
       : "oklch(0.50 0.02 153.85)"
 
   return (
-    <div className={cn("flex items-center gap-3", className)}>
-      <HaxJobsMark
-        size={markSize}
-        variant={variant}
-        live={live}
-      />
+    <div className={`flex items-center gap-3 ${className}`}>
+      <HaxJobsMark size={markSize} variant={variant} animated={animated} />
       <div className="flex flex-col" style={{ fontFamily: "'Lato', sans-serif" }}>
         <div className="flex items-baseline">
           <span
