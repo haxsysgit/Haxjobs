@@ -2,28 +2,14 @@ import { useQuery } from "@tanstack/react-query"
 import { KeyRound, ServerCog } from "lucide-react"
 import { PageHeader } from "@/components/app/PageHeader"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { apiGet } from "@/lib/api"
+import { ProviderTile } from "@/components/settings/ProviderTile"
 import { SetupPage } from "./SetupPage"
 
 interface SetupStatus {
   configured: boolean
   provider: string | null
   presets: { key: string; name: string; models: string[] }[]
-}
-
-function ProviderTile({ name, detail, status }: { name: string; detail: string; status: string }) {
-  return (
-    <div className="rounded-2xl border bg-background/70 p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-medium">{name}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
-        </div>
-        <Badge variant={status === "Active" ? "default" : "secondary"}>{status}</Badge>
-      </div>
-    </div>
-  )
 }
 
 export function SettingsProvidersPage() {
