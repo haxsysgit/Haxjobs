@@ -53,7 +53,7 @@ export function AppSidebar() {
         {/* Brand lockup */}
         <div className="px-3 pt-5 pb-3">
           <Link to="/" className="inline-block">
-            <HaxJobsLockup markSize={34} variant="color" showTagline animated />
+            <HaxJobsLockup markSize={34} variant={theme === "dark" ? "color" : "light"} showTagline animated />
           </Link>
         </div>
 
