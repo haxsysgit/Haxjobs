@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom"
 import { motion } from "framer-motion"
+import { Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { DiscoveryStatus, HomeJobRow } from "@/lib/homeSummary"
 
@@ -31,22 +32,29 @@ export function AgentBriefingCard({ discovery, jobs = [] }: AgentBriefingCardPro
       className="relative overflow-hidden rounded-3xl border bg-card p-5 shadow-sm sm:p-6"
     >
       <div className="pointer-events-none absolute -right-16 -top-20 size-48 rounded-full bg-primary/20 blur-3xl" />
-      <div className="relative flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">Hax Briefing</p>
-            <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-              Agent Online
-            </span>
+      <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3.5">
+          <div className="shrink-0 pt-0.5">
+            <div className="flex size-9 items-center justify-center rounded-full bg-gradient-to-br from-[oklch(0.72_0.18_153.85)] to-[oklch(0.55_0.17_153.85)] shadow-[0_0_16px_-2px_oklch(0.67_0.17_153.85)]">
+              <Zap className="text-white" size={20} strokeWidth={2.5} fill="currentColor" />
+            </div>
           </div>
-          <h1 className="mt-3 max-w-3xl font-heading text-2xl leading-tight text-foreground sm:text-3xl">
-            {headline}
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            {body}
-          </p>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">Hax Briefing</p>
+              <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                Agent Online
+              </span>
+            </div>
+            <h1 className="mt-3 max-w-3xl font-heading text-2xl leading-tight text-foreground sm:text-3xl">
+              &ldquo;{headline}&rdquo;
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+              {body}
+            </p>
+          </div>
         </div>
-        <div className="flex shrink-0 flex-wrap gap-2">
+        <div className="flex shrink-0 flex-wrap gap-2 pt-2 sm:pt-0">
           <Link to="/jobs/backend_python">
             <Button>Review Matches</Button>
           </Link>

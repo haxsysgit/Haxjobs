@@ -6,9 +6,10 @@ import {
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuSub,
   SidebarMenuSubButton, SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
-import { ChevronDown, Home } from "lucide-react"
+import { ChevronDown, Home, Moon, Sun } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useRoles } from "@/hooks/useRoles"
+import { useTheme } from "@/hooks/useTheme"
 import { buildSidebarLinks } from "@/lib/sidebarLinks"
 import { IconRecon, IconArena, IconPack, IconControl, IconYou } from "@/components/icons"
 
@@ -43,6 +44,7 @@ export function AppSidebar() {
 
   const { roles } = useRoles()
   const sections = useMemo(() => buildSidebarLinks(roles), [roles])
+  const { theme, toggle } = useTheme()
 
   return (
     <Sidebar>
@@ -134,9 +136,18 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        <div className="mx-3 mt-auto rounded-xl border border-sidebar-border/70 bg-sidebar-accent/45 px-3 py-2 text-[11px] text-sidebar-foreground/70">
-          <span className="mr-2 inline-block size-1.5 rounded-full bg-sidebar-primary align-middle" />
-          online, nosy, useful
+        <div className="mx-3 mt-auto flex items-center gap-2 rounded-xl border border-sidebar-border/70 bg-sidebar-accent/45 px-3 py-2 text-[11px] text-sidebar-foreground/70">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <span className="inline-block size-1.5 shrink-0 rounded-full bg-sidebar-primary" />
+            <span className="truncate">online, nosy, useful</span>
+          </div>
+          <button
+            onClick={toggle}
+            className="shrink-0 rounded-md p-1 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+          >
+            {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
+          </button>
         </div>
       </SidebarContent>
     </Sidebar>

@@ -36,7 +36,7 @@ export function DashboardCard({
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -2 }}
       transition={{ duration: 0.2 }}
-      className="group relative overflow-hidden rounded-2xl border bg-card shadow-sm transition-shadow hover:shadow-md"
+      className="group relative overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md"
     >
       <div
         className={cn(
