@@ -8,6 +8,7 @@ import { EmptyState } from "./EmptyState"
 import { PageHeader } from "./PageHeader"
 import { IconRecon, IconFit, IconPack, IconDecision, IconSweep } from "@/components/icons"
 import { apiGet } from "@/lib/api"
+import { decisionCopy } from "@/lib/decisionCopy"
 import { fixtureMode } from "@/lib/fixtures"
 import {
   buildHomeFeedEvents,
@@ -177,14 +178,8 @@ function eventTitle(event: HomeFeedEvent): string {
 }
 
 function decisionTitle(decision: string, target: string): string {
-  const copy: Record<string, string> = {
-    apply: `You applied to ${target}. Nice, this one gets a real shot.`,
-    maybe: `You parked ${target} in maybe.`,
-    save: `You saved ${target} for a second look.`,
-    skip: `You skipped ${target}. Precious mortal attention preserved.`,
-    reject: `You rejected ${target}. Clean exit, no drama.`,
-  }
-  return copy[decision] || `You marked ${target} as ${decision}.`
+  const base = (decisionCopy as Record<string, string>)[decision]
+  return base ? `${base} · ${target}` : `You marked ${target} as ${decision}.`
 }
 
 function eventSubtitle(event: HomeFeedEvent): string {
