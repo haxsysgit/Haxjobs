@@ -1,10 +1,10 @@
 import { Link, useLocation } from "react-router-dom"
-import { useEffect, useState, useMemo } from "react"
+import React, { useEffect, useState, useMemo } from "react"
 import { motion } from "framer-motion"
 import {
-  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
+  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuSub,
-  SidebarMenuSubButton, SidebarMenuSubItem,
+  SidebarMenuSubButton, SidebarMenuSubItem, SidebarSeparator,
 } from "@/components/ui/sidebar"
 import { ChevronDown, LayoutDashboard, MessagesSquare, Radio, Package, SlidersHorizontal, UserRound, Moon, Sun, Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -58,117 +58,84 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {sections.map((section) => {
-                const hasChildren = section.children && section.children.length > 0
-                const secKey = section.title.toLowerCase().replace(/\s+/g, "-")
-
-                // Section label (Workspaces — not clickable, no icon)
-                if (!section.icon && hasChildren) {
-                  const isOpen = expandedSections[secKey] ?? false
-                  return (
-                    <SidebarMenuItem key={section.title}>
-                      <div
-                        onClick={() => setExpandedSections((prev) => ({ ...prev, [secKey]: !isOpen }))}
-                        className="mt-4 flex cursor-pointer items-center gap-2 px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground/50"
-                      >
-                        <span>{section.title}</span>
-                        <ChevronDown
-                          className={cn(
-                            "ml-auto size-3 transition-transform duration-200",
-                            isOpen && "rotate-180"
-                          )}
-                        />
-                      </div>
-                      <div
-                        className={cn(
-                          "grid transition-all duration-200",
-                          isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-                        )}
-                      >
-                        <div className="overflow-hidden">
-                          <SidebarMenuSub>
-                            {section.children?.map((child) => {
-                              const isChildActive = activePath === child.path
-                              return (
-                                <SidebarMenuSubItem key={child.path}>
-                                  <SidebarMenuSubButton
-                                    isActive={isChildActive}
-                                    render={
-                                      <Link to={child.path} onClick={() => setActivePath(child.path)} className="flex w-full items-center gap-2">
-                                        <span>{child.title}</span>
-                                        {isChildActive && (
-                                          <motion.span
-                                            layoutId="active-sidebar-dot"
-                                            className="ml-auto size-1.5 rounded-full bg-sidebar-primary"
-                                          />
-                                        )}
-                                      </Link>
-                                    }
-                                  />
-                                </SidebarMenuSubItem>
-                              )
-                            })}
-                          </SidebarMenuSub>
-                        </div>
-                      </div>
-                    </SidebarMenuItem>
-                  )
-                }
-
-                // Regular clickable items
-                const IconComp = iconMap[section.title] || LayoutDashboard
-                const isActive = section.path === "/" ? activePath === "/" : section.path && activePath.startsWith(section.path)
-
-                if (!hasChildren) {
-                  return (
-                    <SidebarMenuItem key={section.title}>
-                      <SidebarMenuButton
-                        isActive={!!isActive}
-                        render={
-                          <Link to={section.path} onClick={() => setActivePath(section.path)} className="flex w-full items-center gap-2">
-                            <IconComp />
-                            <span>{section.title}</span>
-                            {isActive && (
-                              <motion.span
-                                layoutId="active-sidebar-dot"
-                                className="ml-auto size-2 rounded-full bg-sidebar-primary"
-                              />
-                            )}
-                          </Link>
-                        }
-                      />
-                    </SidebarMenuItem>
-                  )
-                }
-
-                // Dropdown sections (You)
-                const isOpen = expandedSections[secKey] ?? false
-                const isParentActive = section.path && activePath.startsWith(section.path)
-
-                return (
+              {sections
+                .filter((s) => s.title === "Dashboard" || s.title === "Workspace")
+                .map((section) => (
                   <SidebarMenuItem key={section.title}>
+                    <SidebarMenuButton
+                      isActive={!!(section.path === "/" ? activePath === "/" : section.path && activePath.startsWith(section.path))}
+                      render={
+                        <Link to={section.path} onClick={() => setActivePath(section.path)} className="flex w-full items-center gap-2">
+                          {iconMap[section.title] && React.createElement(iconMap[section.title])}
+                          <span>{section.title}</span>
+                          {activePath === section.path && (
+                            <motion.span layoutId="active-sidebar-dot" className="ml-auto size-2 rounded-full bg-sidebar-primary" />
+                          )}
+                        </Link>
+                      }
+                    />
+                  </SidebarMenuItem>
+                ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarSeparator />
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Tools</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {sections
+                .filter((s) => ["Recon", "Packs", "Config"].includes(s.title))
+                .map((section) => (
+                  <SidebarMenuItem key={section.title}>
+                    <SidebarMenuButton
+                      isActive={!!(section.path && activePath.startsWith(section.path))}
+                      render={
+                        <Link to={section.path} onClick={() => setActivePath(section.path)} className="flex w-full items-center gap-2">
+                          {iconMap[section.title] && React.createElement(iconMap[section.title])}
+                          <span>{section.title}</span>
+                          {section.path && activePath.startsWith(section.path) && (
+                            <motion.span layoutId="active-sidebar-dot" className="ml-auto size-2 rounded-full bg-sidebar-primary" />
+                          )}
+                        </Link>
+                      }
+                    />
+                  </SidebarMenuItem>
+                ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarSeparator />
+
+        {/* You dropdown */}
+        {(() => {
+          const youSection = sections.find((s) => s.title === "You")
+          if (!youSection?.children?.length) return null
+          const secKey = "you"
+          const isOpen = expandedSections[secKey] ?? false
+          const isParentActive = activePath.startsWith("/you")
+          const IconComp = iconMap["You"] || UserRound
+          return (
+            <SidebarGroup key="you-group">
+              <SidebarGroupLabel>You</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
                     <SidebarMenuButton
                       isActive={!!isParentActive}
                       onClick={() => setExpandedSections((prev) => ({ ...prev, [secKey]: !isOpen }))}
                     >
                       <IconComp className={cn(isParentActive && "text-sidebar-primary")} />
-                      <span>{section.title}</span>
-                      <ChevronDown
-                        className={cn(
-                          "ml-auto size-4 transition-transform duration-200",
-                          isOpen && "rotate-180"
-                        )}
-                      />
+                      <span>You</span>
+                      <ChevronDown className={cn("ml-auto size-4 transition-transform duration-200", isOpen && "rotate-180")} />
                     </SidebarMenuButton>
-                    <div
-                      className={cn(
-                        "grid transition-all duration-200",
-                        isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-                      )}
-                    >
+                    <div className={cn("grid transition-all duration-200", isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")}>
                       <div className="overflow-hidden">
                         <SidebarMenuSub>
-                          {section.children?.map((child) => {
+                          {youSection.children.map((child) => {
                             const isChildActive = activePath === child.path
                             return (
                               <SidebarMenuSubItem key={child.path}>
@@ -177,12 +144,7 @@ export function AppSidebar() {
                                   render={
                                     <Link to={child.path} onClick={() => setActivePath(child.path)} className="flex w-full items-center gap-2">
                                       <span>{child.title}</span>
-                                      {isChildActive && (
-                                        <motion.span
-                                          layoutId="active-sidebar-dot"
-                                          className="ml-auto size-1.5 rounded-full bg-sidebar-primary"
-                                        />
-                                      )}
+                                      {isChildActive && <motion.span layoutId="active-sidebar-dot" className="ml-auto size-1.5 rounded-full bg-sidebar-primary" />}
                                     </Link>
                                   }
                                 />
@@ -193,11 +155,58 @@ export function AppSidebar() {
                       </div>
                     </div>
                   </SidebarMenuItem>
-                )
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )
+        })()}
+
+        <SidebarSeparator />
+
+        {/* Workspaces dropdown */}
+        {(() => {
+          const wsSection = sections.find((s) => s.title === "Workspaces")
+          if (!wsSection?.children?.length) return null
+          const secKey = "workspaces"
+          const isOpen = expandedSections[secKey] ?? false
+          return (
+            <SidebarGroup key="workspaces-group">
+              <SidebarGroupLabel>Workspaces</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      onClick={() => setExpandedSections((prev) => ({ ...prev, [secKey]: !isOpen }))}
+                    >
+                      <MessagesSquare />
+                      <span>Workspaces</span>
+                      <ChevronDown className={cn("ml-auto size-4 transition-transform duration-200", isOpen && "rotate-180")} />
+                    </SidebarMenuButton>
+                    <div className={cn("grid transition-all duration-200", isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")}>
+                      <div className="overflow-hidden">
+                        <SidebarMenuSub>
+                          {wsSection.children.map((child) => (
+                            <SidebarMenuSubItem key={child.path}>
+                              <SidebarMenuSubButton
+                                isActive={activePath === child.path}
+                                render={
+                                  <Link to={child.path} onClick={() => setActivePath(child.path)} className="flex w-full items-center gap-2">
+                                    <span>{child.title}</span>
+                                    {activePath === child.path && <motion.span layoutId="active-sidebar-dot" className="ml-auto size-1.5 rounded-full bg-sidebar-primary" />}
+                                  </Link>
+                                }
+                              />
+                            </SidebarMenuSubItem>
+                          ))}
+                        </SidebarMenuSub>
+                      </div>
+                    </div>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )
+        })()}
 
         {/* Roadmap card */}
         <div className="mx-3 mt-4 rounded-xl border border-sidebar-border/50 bg-sidebar-accent/30 p-3">
