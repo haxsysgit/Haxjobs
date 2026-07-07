@@ -64,12 +64,15 @@ export function DiscoveryPage() {
   }, [isRunning, status])
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Recon"
-        description="Watch the scrapers and launch new sweeps."
-      />
+    <div className="h-full overflow-y-auto">
+      <div className="sticky top-0 z-10 border-b border-border bg-bg-elev/95 px-6 py-4 backdrop-blur">
+        <PageHeader
+          title="Recon"
+          description="Watch the scrapers and launch new sweeps."
+        />
+      </div>
 
+      <div className="mx-auto max-w-4xl space-y-4 px-6 py-6">
       <ReconControlCard running={Boolean(isRunning)} onStart={start} />
 
       {/* Running state */}
@@ -142,6 +145,7 @@ export function DiscoveryPage() {
           </p>
         </div>
       )}
+      </div>
     </div>
   )
 }
