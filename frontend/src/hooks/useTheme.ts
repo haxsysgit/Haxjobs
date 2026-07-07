@@ -1,21 +1,25 @@
-import { useEffect, useState } from "react"
+"use client";
 
-type Theme = "light" | "dark"
+import { useEffect, useState } from "react";
 
 export function useTheme() {
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window === "undefined") return "light"
-    const stored = localStorage.getItem("haxjobs-theme")
-    if (stored === "dark" || stored === "light") return stored
-    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
-  })
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
 
   useEffect(() => {
-    const root = document.documentElement
-    if (theme === "dark") root.classList.add("dark")
-    else root.classList.remove("dark")
-    localStorage.setItem("haxjobs-theme", theme)
-  }, [theme])
+    const isDark = document.documentElement.classList.contains("dark");
+    setTheme(isDark ? "dark" : "light");
+  }, []);
 
-  return { theme, toggle: () => setTheme((t) => (t === "dark" ? "light" : "dark")) }
+  const toggle = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    document.documentElement.classList.toggle("dark", next === "dark");
+    try {
+      localStorage.setItem("hax-theme", next);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  return { theme, toggle };
 }

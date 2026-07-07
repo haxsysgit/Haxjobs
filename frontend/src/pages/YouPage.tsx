@@ -121,8 +121,8 @@ export function YouPersonaPage() {
         kicker="You / Persona"
         description="A read-only role lens for discovery, evaluation, and packs. Editing lands later."
         action={
-          <Link to={`/jobs/${roleId}`} className={buttonVariants({ variant: "outline" })}>
-            Open Job Arena
+          <Link to={`/workspace/${roleId}`} className={buttonVariants({ variant: "outline" })}>
+            Open role workspace
           </Link>
         }
       />

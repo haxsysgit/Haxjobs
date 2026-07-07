@@ -1,17 +1,16 @@
 import {
-  Home,
+  LayoutDashboard,
+  MessagesSquare,
   Radio,
-  Swords,
   Package,
   SlidersHorizontal,
   UserRound,
-
 } from "lucide-react"
 import { FALLBACK_ROLES, type Role } from "./roles"
 
 export interface SidebarSection {
   title: string
-  icon: React.ElementType
+  icon: React.ElementType | null
   path: string
   children?: SidebarChild[]
 }
@@ -23,27 +22,11 @@ export interface SidebarChild {
 
 export function buildSidebarLinks(roles: Role[] = FALLBACK_ROLES): SidebarSection[] {
   return [
-    { title: "Home", icon: Home, path: "/" },
-    { title: "Recon", icon: Radio, path: "/discovery" },
-    {
-      title: "Job Arena",
-      icon: Swords,
-      path: "/jobs",
-      children: roles.map((r) => ({
-        title: r.displayName,
-        path: `/jobs/${r.id}`,
-      })),
-    },
+    { title: "Dashboard", icon: LayoutDashboard, path: "/" },
+    { title: "Workspace", icon: MessagesSquare, path: "/workspace" },
+    { title: "Recon", icon: Radio, path: "/recon" },
     { title: "Packs", icon: Package, path: "/packs" },
-    {
-      title: "Config",
-      icon: SlidersHorizontal,
-      path: "/settings",
-      children: [
-        { title: "Providers", path: "/settings/providers" },
-        { title: "Preferences", path: "/settings/preferences" },
-      ],
-    },
+    { title: "Config", icon: SlidersHorizontal, path: "/config" },
     {
       title: "You",
       icon: UserRound,
@@ -55,6 +38,15 @@ export function buildSidebarLinks(roles: Role[] = FALLBACK_ROLES): SidebarSectio
         })),
         { title: "Profile", path: "/you/profile" },
       ],
+    },
+    {
+      title: "Workspaces",
+      icon: null,
+      path: "",
+      children: roles.map((r) => ({
+        title: `${r.displayName} hunt`,
+        path: `/workspace/${r.id}`,
+      })),
     },
   ]
 }

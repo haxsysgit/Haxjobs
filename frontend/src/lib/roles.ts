@@ -16,6 +16,6 @@ export function roleDisplayName(id: string): string {
 }
 
 export function roleFromPath(path: string): string | null {
-  const match = path.match(/^\/(?:jobs|you)\/(.+)$/)
+  const match = path.match(/^\/(?:workspace|you)\/(.+)$/)
   return match ? match[1] : null
 }
