@@ -123,7 +123,7 @@ export function AppSidebar() {
                   return (
                     <SidebarMenuItem key={section.title}>
                       <SidebarMenuButton
-                        isActive={isActive}
+                        isActive={!!isActive}
                         render={
                           <Link to={section.path} onClick={() => setActivePath(section.path)} className="flex w-full items-center gap-2">
                             <IconComp />
@@ -148,7 +148,7 @@ export function AppSidebar() {
                 return (
                   <SidebarMenuItem key={section.title}>
                     <SidebarMenuButton
-                      isActive={isParentActive}
+                      isActive={!!isParentActive}
                       onClick={() => setExpandedSections((prev) => ({ ...prev, [secKey]: !isOpen }))}
                     >
                       <IconComp className={cn(isParentActive && "text-sidebar-primary")} />

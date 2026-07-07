@@ -11,7 +11,6 @@ import {
   Sliders,
   Plus,
 } from "lucide-react";
-import { HaxJobsMark } from "../brand/HaxJobsMark";
 import { Button } from "../ui/button";
 import { useTheme } from "../../hooks/useTheme";
 import { cn } from "../../lib/utils";

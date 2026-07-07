@@ -206,7 +206,7 @@ function PrimaryAction({ action, onClick }: { action: string; onClick: () => voi
   const meta = ACTION_META[action] ?? ACTION_META.save;
   const Icon = meta.icon;
   return (
-    <Button variant="primary" size="sm" onClick={onClick}>
+    <Button variant="default" size="sm" onClick={onClick}>
       <Icon size={14} /> {meta.label}
     </Button>
   );
@@ -388,7 +388,7 @@ export function AlertCard({ payload }: { payload: Record<string, unknown> }) {
           <p className="text-sm text-text">{text}</p>
           <Button
             size="sm"
-            variant="subtle"
+            variant="ghost"
             className="mt-2"
             onClick={() => trigger(triggerText)}
           >
@@ -455,7 +455,7 @@ export function CompareCard({ payload }: { payload: Record<string, unknown> }) {
               </p>
               <Button
                 size="sm"
-                variant="subtle"
+                variant="ghost"
                 className="mt-2 w-full"
                 onClick={() => decide(j, e.suggestedAction, null)}
               >

@@ -276,7 +276,20 @@ h1, h2, h3, h4, .font-heading {
 
 @media (prefers-reduced-motion: reduce) {
     .hax-scanline,
-    .animate-in-msg {
+    .animate-in-msg,
+    .radar-sweep,
+    .radar-sweep-fast {
         animation: none;
     }
+}
+
+/* Radar sweep animation for Recon card */
+@keyframes radar-spin {
+    to { transform: rotate(360deg); }
+}
+.radar-sweep {
+    animation: radar-spin 4.5s linear infinite;
+}
+.radar-sweep-fast {
+    animation: radar-spin 2.8s linear infinite;
 }

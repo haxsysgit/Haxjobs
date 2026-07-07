@@ -7,12 +7,22 @@ export function getJobs(): JobView[] {
   const decBySlug = new Map(SEED_DECISIONS.map(d => [d.jobSlug, d]))
   return SEED_JOBS.map(j => ({
     id: idCounter++,
-    ...j,
+    slug: j.slug,
+    company: j.company,
+    role: j.role,
+    location: j.location,
+    remote: j.remote,
+    source: j.source,
     salary: j.salary,
+    postedAt: j.postedAt,
+    track: j.track,
+    stack: j.stack,
+    jd: j.jd,
+    evaluation: j.evaluation as JobView["evaluation"],
     decision: decBySlug.has(j.slug)
       ? { decision: decBySlug.get(j.slug)!.decision, reason: decBySlug.get(j.slug)!.reason, createdAt: new Date().toISOString() }
       : null,
-  }))
+  })) as JobView[]
 }
 
 export function getPacks(): PackView[] {
