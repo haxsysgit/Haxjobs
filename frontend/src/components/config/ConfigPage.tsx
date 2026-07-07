@@ -192,16 +192,19 @@ function ToggleRow({
         <p className="text-[11px] text-text-muted">{sub}</p>
       </div>
       <button
+        type="button"
+        role="switch"
+        aria-checked={on}
         onClick={onToggle}
         className={cn(
-          "relative h-6 w-11 rounded-full transition-colors",
-          on ? "bg-primary" : "bg-surface-hover",
+          "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out",
+          on ? "bg-primary" : "bg-surface-hover"
         )}
       >
         <span
           className={cn(
-            "absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform",
-            on ? "translate-x-[22px]" : "translate-x-0.5",
+            "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ease-in-out",
+            on ? "translate-x-5" : "translate-x-0"
           )}
         />
       </button>
