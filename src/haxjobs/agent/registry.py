@@ -55,11 +55,11 @@ def get_schemas(
 def dispatch(name: str, args: dict[str, Any]) -> str:
     tool = TOOLS.get(name)
     if tool is None:
-        return json.dumps({"error": f"Unknown tool: {name}"})
+        return json.dumps({"ok": False, "code": "unknown_tool", "error": f"Unknown tool: {name}"})
     if not tool.available():
-        return json.dumps({"error": f"Tool unavailable: {name}"})
+        return json.dumps({"ok": False, "code": "tool_unavailable", "error": f"Tool unavailable: {name}"})
     try:
         result = tool.handler(**args)
         return result if isinstance(result, str) else json.dumps(result)
-    except Exception as e:
-        return json.dumps({"error": f"Tool {name} failed: {e}"})
+    except Exception as exc:
+        return json.dumps({"ok": False, "code": "tool_failed", "error": f"Tool {name} failed: {exc}"})

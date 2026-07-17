@@ -1,273 +1,141 @@
-# HaxJobs Product Architecture
+# HaxJobs Product Direction
 
-## What HaxJobs Is
+## One sentence
 
-HaxJobs is a **self-hosted job search platform**. It's a single application you run on your machine that:
+HaxJobs is a career agent that uses the user's evidence, goals, job history, and progress to help them get interviews and become qualified for better roles.
 
-1. Builds a deep structured profile of you (from CV upload + guided questions)
-2. Continuously discovers jobs matching that profile across the web
-3. Evaluates every job against your full profile using LLMs
-4. Generates application packs (CV + cover letter) for good fits
-5. Learns from your decisions — gets smarter the more you use it
-6. Helps you network with hiring managers and track outreach
+## Product boundary
 
-It ships as a **web app** (Python backend + React frontend + SQLite) that runs locally at `localhost:8241`. No cloud, no accounts, no vendor lock-in. Your data lives on your machine.
+The product is the set of career actions, memory, rules, and approvals around the model.
 
----
+The model reasons. HaxJobs decides:
 
-## User Journey
+- what context the model sees
+- which career action it may call
+- what gets saved
+- what needs user approval
+- what evidence supports a claim
+- what happens after a failure
 
-```
-ONBOARD → DISCOVER → REVIEW → APPLY → LEARN → REPEAT
-```
+## Interface order
 
-### Phase 1: Onboarding (one-time, ~10 minutes)
+### 1. CLI
 
-```
-User opens http://localhost:8241
-  ├─ Uploads CV (PDF/DOCX/HTML) — or multiple CVs
-  │   └─ LLM extracts: name, skills, experience, education, projects, work auth
-  ├─ Fills gaps with targeted questions (LLM-driven, minimal)
-  │   └─ "We see you worked at Vigilis. What was your title?"
-  │   └─ "Any roles you'd never accept? (e.g. frontend-only, DevOps)"
-  │   └─ "Salary range?"
-  ├─ Result: profile.json — the backbone of everything
-  │   └─ Confirmed facts with safe_wording rules
-  │   └─ Skills list with proficiency levels
-  │   └─ Role preferences, location preferences, work mode preferences
-  │   └─ Explicit exclusions (companies, keywords, levels)
-  │   └─ Guardrails for evaluation (what the system should penalize/reward)
-  └─ Onboarding complete. System is ready to discover jobs.
+The CLI is the first complete interface. Every real action should be usable without a browser.
+
+Examples of the intended shape:
+
+```text
+haxjobs profile build
+haxjobs jobs discover
+haxjobs jobs evaluate 42
+haxjobs jobs decide 42 apply
+haxjobs packs generate 42
+haxjobs watch run
 ```
 
-### Phase 2: Discovery (continuous)
+These commands are a target, not the current CLI surface.
 
-```
-System wakes up on schedule (configurable, e.g. every 2 weeks)
-  ├─ Web search for jobs matching profile
-  │   └─ Search queries derived from role preferences + locations
-  │   └─ Results normalized into discovered_jobs table
-  ├─ API scrapers for configured ATS boards
-  │   └─ Greenhouse, Ashby, Lever, Workday
-  ├─ Pre-filtering at scraper level (title + location match profile)
-  ├─ Post-discovery hooks (blacklist, duplicate check, already-applied check)
-  └─ Promoted to jobs table
-```
+### 2. Web app
 
-### Phase 3: Classification & Evaluation (automatic)
+The web app calls the same actions through FastAPI. It adds visual review and approval, but owns no separate business logic.
 
-```
-Each new job:
-  ├─ Classified into role family (config-driven from profile)
-  ├─ Evaluated by LLM against full profile
-  │   └─ Direct API call (not subprocess agent wrapper)
-  │   └─ Returns: fit_score, level, matches, gaps, sponsorship risk
-  └─ L1/L2 jobs → auto-pack generated
-      └─ Per-job CV review (JD keywords injected, relevant experience highlighted)
-      └─ Cover letter from role template
-      └─ Pack saved to packs/<cycle>/<job_slug>/
+### 3. Cloud worker
+
+A future always-on worker runs scheduled discovery, company watches, job-site watches, and notifications. It uses the same actions and durable state as the CLI.
+
+The cloud worker is not built. Current automation is a host cron script plus an in-process discovery thread.
+
+## Shared action model
+
+```text
+CLI -------------+
+FastAPI ----------+--> shared product action --> storage and external services
+Cloud worker -----+
+Agent tool -------+
 ```
 
-### Phase 4: User Review (the decision loop)
+One capability means one implementation. An agent tool is a typed adapter over a product action, not another copy of the workflow.
 
-```
-User opens dashboard → sees new cycle report
-  ├─ Jobs sorted by fit score
-  ├─ Each job shows: score, level, strengths, gaps, pack link
-  ├─ User decides:
-  │   ├─ APPLY — "I want this one"
-  │   │   └─ System tracks: applied at <date>
-  │   │   └─ Next cycle: this job/company is remembered
-  │   ├─ SKIP — "Good fit but not right now"
-  │   │   └─ System notes: why was it skipped?
-  │   │   └─ Pattern learning: does user skip certain companies/roles?
-  │   └─ REJECT — "This is wrong for me"
-  │       └─ System notes: what was wrong?
-  │       └─ This company/role/keyword gets deprioritized
-  └─ System learns: profile preferences tighten over time
-```
+Implemented actions:
 
-### Phase 5: Outreach (semi-automatic)
+- discover jobs
+- evaluate job fit
+- generate an application pack
+- record a decision
 
-```
-For APPLY jobs:
-  ├─ Find hiring manager / team lead
-  │   └─ Company LinkedIn page → employees → filter by title
-  │   └─ Company website → team page / about
-  ├─ Generate personalized outreach message
-  │   └─ Template filled with job-specific details
-  │   └─ References specific profile facts that match the role
-  ├─ User reviews and approves message
-  └─ Track outreach status (drafted → sent → replied → interview)
-```
+Planned career actions include profile building, career-memory updates, missing-skill detection, roadmaps, resource curation, application tracking, interview tracking, and next-move recommendations. They should be added only when their data contract and verification rules are clear.
 
-### Phase 6: Learning (the feedback loop)
+## Career memory
 
-```
-Every cycle improves the system:
-  ├─ Applied jobs → marked in DB, excluded from future discovery
-  ├─ Rejected patterns → deprioritized (companies, keywords, role types)
-  ├─ Successful patterns → prioritized (companies that responded, role types that fit)
-  ├─ Profile evolves:
-  │   └─ Salary expectations adjust based on offered ranges
-  │   └─ Preferred locations expand/contract based on market
-  │   └─ Role preferences sharpen based on what gets interviews
-  └─ DB cleanup between cycles:
-      └─ Remove duplicate jobs (same URL, same company+title)
-      └─ Archive jobs older than N cycles with no user action
-      └─ Preserve applied/replied/interviewed jobs permanently
-```
+The current system has SQLite plus `state/profile.json`. That is enough for the present job pipeline, but not for a long-running career agent.
 
----
+The target memory model needs independent career tracks and evidence-linked records for:
 
-## Architecture
+- skills
+- projects
+- work experience
+- education
+- jobs and companies
+- applications and interviews
+- goals and constraints
+- learning plans and resources
+- contacts and outcomes
 
-### Components
+Every important claim should carry its source, confidence, verification date, privacy level, related career tracks, and evidence links.
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Web UI (React)                         │
-│  Dashboard │ Jobs │ Discovery │ Packs │ Outreach │ Profile│
-│  Settings  │ Pipeline │ Activity │ Onboarding Wizard     │
-└────────────────────┬────────────────────────────────────┘
-                     │ HTTP REST API
-┌────────────────────┴────────────────────────────────────┐
-│                 Python API Server                         │
-│  /api/profile  /api/jobs  /api/evaluations  /api/packs   │
-│  /api/discovery  /api/outreach  /api/decisions           │
-│  /api/onboarding (CV upload, profile extraction, wizard) │
-└────────────────────┬────────────────────────────────────┘
-                     │
-┌────────────────────┴────────────────────────────────────┐
-│                   Pipeline Engine                         │
-│                                                           │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐ │
-│  │Discovery │→│Classify  │→│Evaluate  │→│Pack Gen  │ │
-│  │          │  │          │  │(LLM API) │  │          │ │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘ │
-│                                                           │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐               │
-│  │Outreach  │  │Learning  │  │Report    │               │
-│  │          │  │Engine    │  │Generator │               │
-│  └──────────┘  └──────────┘  └──────────┘               │
-└────────────────────┬────────────────────────────────────┘
-                     │
-┌────────────────────┴────────────────────────────────────┐
-│                   SQLite Database                         │
-│  profile │ jobs │ evaluations │ decisions │ outreach     │
-│  discovered_jobs │ activity_log │ learning │ cycle_state │
-└─────────────────────────────────────────────────────────┘
-```
+This career graph is a target. It does not exist in the current database.
 
-### Key Design Decisions
+## Context strategy
 
-**1. Direct LLM API for evaluation, not agent subprocess**
-- Evaluation is a text-in → JSON-out task. Direct API calls are faster, cheaper, more reliable.
-- Keep agent adapters for **interactive** use only (the Pi skill, where the agent's own reasoning adds value).
-- For headless cron: `openai.chat.completions.create()` with `response_format: {type: "json_schema"}`.
+The model should receive the smallest useful context for the current action.
 
-**2. Profile is the backbone — and it evolves**
-- Starts from CV extraction during onboarding.
-- Refined by user answers to targeted questions.
-- Continuously updated by the learning engine based on user decisions.
-- Every pipeline stage reads from profile. The learning engine writes to it.
+1. Select the relevant career track, job, evidence, and recent decisions.
+2. Rank evidence by relevance and trust.
+3. Keep the stable identity and safety prefix unchanged for prompt caching.
+4. Put current profile and task material in the volatile context.
+5. Compact long sessions before they crowd out important facts.
+6. Write durable facts back to storage instead of relying on chat history.
+7. Isolate heavy research or simulation work in child runs.
 
-**3. Three data tiers for jobs**
-- `discovered_jobs` — raw scraped, pre-filtering. Temporary.
-- `jobs` — promoted, classified, evaluated. Active.
-- `job_history` — applied, interviewed, rejected, archived. Permanent record.
+Durable sessions, retrieval, compaction, and child-agent runs are not implemented yet.
 
-**4. Cycle-based operation**
-- Each pipeline run is a "cycle" (e.g., biweekly).
-- Cycle ID groups all jobs/evaluations/packs from that run.
-- Between cycles: DB cleanup, learning engine processes user decisions.
-- Cycle report shows what's new since last cycle plus what changed.
+## Employability loop
 
-**5. Self-contained, local-first**
-- Ships as a single installable package (`pip install haxjobs` or `uv tool install`).
-- Web UI runs on localhost. No cloud dependency.
-- SQLite — no Postgres/MySQL setup needed.
-- LLM API keys are the only external dependency (user brings their own).
+A fit score is not the final product.
 
----
+For a strong fit, HaxJobs should help the user make a truthful application using the best reusable CV variant and verified evidence.
 
-## Data Model Changes Needed
+For a weak fit, HaxJobs should explain the missing evidence or skills, build a realistic roadmap, find useful resources, suggest proof-building projects, track progress, and reevaluate later.
 
-### New tables
-- `cycle_state` — track cycle ID, start/end times, jobs discovered, jobs evaluated, packs generated
-- `job_history` — permanent record of applied/interviewed/rejected/archived jobs (moved from `jobs` after action)
-- `learning_patterns` — learned preferences (preferred companies, rejected keywords, salary trends)
+That loop is the main difference between a career agent and a job-matching script.
 
-### Modified tables
-- `jobs` — add `applied_at`, `decision`, `decision_reason`, `cycle_id`
-- `decisions` — wire up writers (currently orphaned)
-- `outreach_drafts` — wire up writers (currently orphaned)
-- `profile_snapshots` — snapshot profile at each cycle start (currently orphaned)
+## Skills and tools
 
-### Tables to remove
-- `favorites` / `saved_jobs` — replaced by decisions table (favorite = applied + good fit)
-- `evaluation_history` — redundant with evaluations table + cycle_id
+A tool performs one typed action, such as evaluating a stored job or recording a decision.
 
----
+A skill is a reusable procedure that tells the agent when and how to combine tools. For example, an `assess-target-role` skill might select a career track, inspect evidence, evaluate several jobs, compare recurring gaps, and produce a roadmap.
 
-## What We Have vs What We Need
+Do not turn static profile text or fixed labels into tools. Put static rules in instructions and load relevant profile data as context.
 
-### Built and working ✅
-- SQLite schema (11 tables, need restructuring)
-- Discovery scrapers (Greenhouse, Ashby, Lever)
-- Profile JSON format (excellent, keep as target)
-- Classification engine (config-driven, working)
-- Evaluation engine (prompt builder, parser, validator — excellent)
-- Pack generation (auto-pack L1/L2, CV review, templates)
-- Cycle report generator
-- CLI entry point
-- React dashboard shell (10 pages, needs major rework)
-- API server routes (needs new endpoints)
+## Approval rules
 
-### Needs building 🔨
-1. **Onboarding wizard** — CV upload → LLM extraction → guided refinement → profile.json
-2. **Direct LLM API evaluation** — replace agent subprocess with `openai`/`anthropic` API calls
-3. **Decision UI** — user marks jobs as apply/skip/reject from the dashboard
-4. **Learning engine** — processes decisions, updates profile preferences
-5. **Outreach engine** — find hiring managers, generate messages, track status
-6. **DB lifecycle** — cycle state tracking, job history archiving, between-cycle cleanup
-7. **Product packaging** — pip-installable, one-command startup, no git clone needed
-8. **Profile evolution** — profile fields that auto-update based on usage patterns
-9. **Web search discovery** — go beyond ATS scrapers, search the open web for jobs
+Explicit user approval is required before:
 
-### Needs deletion 🗑️
-- Agent adapters for headless evaluation (replace with direct API)
-- `favorites` / `saved_jobs` / `evaluation_history` tables (replace with decisions + cycle_id)
+- submitting an application
+- sending a message
+- connecting with a person
+- publishing profile changes inferred by the model
+- claiming unsupported experience
 
----
+Drafting, research, scoring, and recommendations may run without approval when they do not create an external side effect.
 
-## Implementation Order
+## What HaxJobs is not
 
-### Wave 6 — Product Foundation (make it usable)
-1. **Direct LLM API evaluation** — rip out subprocess adapters, call APIs directly
-2. **Onboarding wizard** — CV upload → extract profile → guided questions
-3. **Profile evolution** — profile fields that update based on usage
-4. **Decision loop** — user marks apply/skip/reject, decisions table wired up
+- a generic chat wrapper
+- a coding-agent clone
+- an automatic application spammer
+- a per-job CV rewriting service
+- a collection of separate CLI, API, and cron implementations
 
-### Wave 7 — Learning & Outreach (make it smart)
-5. **Learning engine** — processes decisions, evolves preferences
-6. **Outreach engine** — hiring manager discovery, message generation
-7. **DB lifecycle** — cycle tracking, job archiving, cleanup
-
-### Wave 8 — Polish & Ship (make it a product)
-8. **Product packaging** — `pip install haxjobs`, one-command start
-9. **Web search discovery** — open web job search
-10. **Comprehensive testing** — end-to-end product tests
-
----
-
-## Success Metrics
-
-A complete product means a stranger can:
-1. Install with one command
-2. Open localhost:8241
-3. Upload their CV, answer ~10 questions
-4. Come back in 10 minutes to see evaluated jobs with packs ready
-5. Mark jobs as apply/skip/reject
-6. Next cycle: system is smarter — better matches, fewer irrelevant jobs
-7. After 3 cycles: profile is sharply tuned to what actually gets interviews
+The shortest description is still the right one: a career agent built around employability.

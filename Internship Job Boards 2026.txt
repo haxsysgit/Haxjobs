@@ -1,0 +1,95 @@
+﻿Internship Job Boards You Need (2026)
+How to use this doc
+* These links are live-updated job boards
+* Check them daily during recruiting season
+* Apply as soon as roles appear (same day if possible)
+🔥 Start Here (Best for Most People)
+Covers multiple majors and roles. Updated constantly.
+
+
+Summer 2026 Tech Internships by Pitt CSC & Simplify
+https://github.com/SimplifyJobs/Summer2026-Internships
+
+
+Summer 2026 Tech Internships by Vansh & Ouckah
+https://github.com/vanshb03/Summer2026-Internships
+
+
+SpeedyApply – AI & College Jobs (2026)
+https://github.com/speedyapply/2026-AI-College-Jobs
+💻 Software Engineering / AI / Engineering
+Best for CS, engineering, and technical majors.
+
+
+SpeedyApply – SWE College Jobs (2026)
+https://github.com/speedyapply/2026-SWE-College-Jobs
+
+
+Jobright – Software Engineer Internship (2026)
+https://github.com/jobright-ai/2026-Software-Engineer-Internship
+
+
+Jobright – Engineering Internship (2026)
+https://github.com/jobright-ai/2026-Engineer-Internship
+📊 Product / Data / Analytics
+Simplify – Product Management Internships (2026)
+https://github.com/SimplifyJobs/Summer2026-Internships/blob/dev/README.md#-product-management-internship-roles
+
+
+Jobright – Product Management Internship
+https://github.com/jobright-ai/2026-Product-Management-Internship
+
+
+Jobright – Data Analysis Internship
+https://github.com/jobright-ai/2026-Data-Analysis-Internship
+
+
+Jobright – Business Analyst Internship
+https://github.com/jobright-ai/2026-Business-Analyst-Internship
+💼 Finance / Quant / Business / Consulting
+Northwestern FinTech – Quant Internships (2026)
+https://github.com/northwesternfintech/2026QuantInternships
+
+
+Jobright – Consulting Internship
+https://github.com/jobright-ai/2026-Consultant-Internship
+
+
+Jobright – Business Analyst Internship
+https://github.com/jobright-ai/2026-Business-Analyst-Internship
+🎨 Marketing / Design / Sales / Creative
+Jobright – Marketing Internship
+https://github.com/jobright-ai/2026-Marketing-Internship
+
+
+Jobright – Design Internship
+https://github.com/jobright-ai/2026-Design-Internship
+
+
+Jobright – Sales Internship
+https://github.com/jobright-ai/2026-Sales-Internship
+
+
+Jobright – Art Internship
+https://github.com/jobright-ai/2026-Art-Internship
+🏛️ Education / Public Sector / HR / Legal
+Jobright – Education Internship
+https://github.com/jobright-ai/2026-Education-Internship
+
+
+Jobright – Public Sector Internship
+https://github.com/jobright-ai/2026-Public-Sector-Internship
+
+
+Jobright – HR Internship
+https://github.com/jobright-ai/2026-HR-Internship
+
+
+Jobright – Legal Internship
+https://github.com/jobright-ai/2026-Legal-Internship
+🕒 Off-Season Internships
+Off-Season Internships
+https://github.com/sharunkumar/Summer-Internships/blob/dev/README-Off-Season.md
+
+
+Useful if you’re recruiting late or outside summer timelines.

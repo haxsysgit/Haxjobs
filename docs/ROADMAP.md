@@ -1,38 +1,76 @@
 # HaxJobs Roadmap
 
-The current product architecture is documented in `PRODUCT_ARCHITECTURE.md`.
-Implementation plans are tracked in `plans/README.md`.
+No numbered execution plans are active. The old plan folders were deleted because they described several superseded products at once.
 
-## Completed (Waves 1-5)
+## Now: reduce drift
 
-All 29 plans from waves 1-5 are DONE. These built the pipeline infrastructure:
-discovery scrapers, config-driven classification, pluggable evaluation,
-auto-pack generation, cycle reports, and multi-agent adapter research.
+- keep one product direction
+- remove placeholder tools and stale docs
+- make current limitations explicit
+- keep the frontend parked while backend foundations move
 
-## Wave 6 — Docs Alignment (current)
+## Next: native agent foundations
 
-Aligning all documentation to the new product architecture.
+Design and build one coherent run lifecycle:
 
-## Wave 6B — Product Foundation (next)
+1. durable sessions and messages
+2. run state, checkpoints, and resume
+3. context selection and assembly
+4. token and context-window tracking
+5. compaction with explicit summaries
+6. tool-call traces, latency, cost, and errors
+7. isolated child runs with restricted tools
+8. verification hooks and stop conditions
 
-Make HaxJobs a usable product:
-- Direct LLM API evaluation (replace agent subprocess)
-- Onboarding wizard (CV upload → profile extraction → guided questions)
-- Profile evolution (fields that update based on usage)
-- Decision loop (apply/skip/reject from dashboard)
+Do this before building the career graph. The agent needs a reliable way to carry and retrieve career context first.
 
-See `plans/README.md` for specific plan numbers when created.
+## Then: CLI parity
 
-## Wave 7 — Learning & Outreach
+Expose the shared actions directly:
 
-Make HaxJobs smart:
-- Learning engine (processes decisions, evolves preferences)
-- Outreach engine (hiring manager discovery, message generation)
-- DB lifecycle (cycle tracking, job archiving, cleanup)
+- profile inspect and build
+- job discovery
+- job listing and inspection
+- fit evaluation
+- decisions
+- pack generation and inspection
+- pipeline and run status
 
-## Wave 8 — Polish & Ship
+The CLI must call `product_tools.py`, not duplicate it.
 
-Make HaxJobs a product anyone can use:
-- Product packaging (`pip install haxjobs`)
-- Web search discovery (beyond ATS scrapers)
-- Comprehensive testing
+## Then: career memory
+
+- replace the flat profile with independent career tracks and evidence-linked records
+- migrate existing profile data once
+- assemble context by career track and current task
+- add source, confidence, verification date, privacy, and evidence metadata
+
+## Then: employability loop
+
+- detect recurring missing skills and evidence
+- build realistic roadmaps
+- find and rank resources
+- suggest proof-building projects
+- track progress
+- reevaluate target roles after progress
+- recommend the next useful move
+
+## Then: continuous operation
+
+- durable scheduled watches
+- worker leases and retry state
+- idempotent discovery runs
+- notifications with approval boundaries
+- one self-hosted cloud deployment path
+
+Start with a single-user worker. Multi-tenant SaaS concerns can wait until there is another user.
+
+## Later
+
+- web UI over the finished actions and session API
+- recruiter, applicant, and evaluator simulations
+- outreach research and drafts
+- approved connector queues and sends
+- packaging and release work
+
+UI polish is deliberately parked. A clean interface over unfinished actions would still be an unfinished product.

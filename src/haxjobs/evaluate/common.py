@@ -70,7 +70,7 @@ def _append_items(lines: list[str], heading: str, items: list[dict], fields: tup
         return
     lines.append(f"\n## {heading}")
     for item in items:
-        summary = " — ".join(_plain(item.get(field)) for field in fields if _plain(item.get(field)))
+        summary = " | ".join(_plain(item.get(field)) for field in fields if _plain(item.get(field)))
         if summary:
             lines.append(f"  - {summary}")
         for extra in ("description", "achievements", "highlights", "technologies"):
@@ -84,29 +84,26 @@ def build_profile_blurb(company: str = "") -> str:
     if not os.path.exists(PROFILE_PATH):
         return "Profile not found."
 
-    p = load_json(PROFILE_PATH)
-    legacy = p.get("user_profile") if isinstance(p.get("user_profile"), dict) else None
-    profile = legacy or p
-    personal = profile.get("personal", {}) if not legacy else profile
-    preferences = profile.get("preferences", {}) if not legacy else profile
-    work_auth = profile.get("work_authorization", {}) if not legacy else {}
+    profile = load_json(PROFILE_PATH)
+    personal = profile.get("personal", {})
+    preferences = profile.get("preferences", {})
+    work_auth = profile.get("work_authorization", {})
 
-    facts = p.get("confirmed_profile_facts", [])
-    eval_context = p.get("evaluation_context", {})
-    company_notes = p.get("company_notes", {})
+    facts = profile.get("confirmed_profile_facts", [])
+    eval_context = profile.get("evaluation_context", {})
+    company_notes = profile.get("company_notes", {})
 
-    work_auth_text = work_auth.get("summary") or work_auth.get("status") or profile.get("work_authorization_summary", "")
-    salary = preferences.get("salary_range") or profile.get("salary_preference", "£35,000-£60,000")
+    work_auth_text = work_auth.get("summary") or work_auth.get("status", "")
 
     lines = [
-        _line("Name", personal.get("name", "Arinze Elenasulu")),
-        _line("Headline", personal.get("preferred_headline") or personal.get("headline", "Python Backend Engineer | AI & Automation")),
-        _line("Location", personal.get("location", "London, UK")),
+        _line("Name", personal.get("name", "")),
+        _line("Headline", personal.get("preferred_headline") or personal.get("headline", "")),
+        _line("Location", personal.get("location", "")),
         _line("Work authorization", work_auth_text),
-        _line("Requires sponsorship now", work_auth.get("requires_sponsorship_now", profile.get("requires_sponsorship", ""))),
+        _line("Requires sponsorship now", work_auth.get("requires_sponsorship_now", "")),
         _line("Requires sponsorship future", work_auth.get("requires_sponsorship_future", "")),
-        _line("Availability", preferences.get("availability") or profile.get("availability", "")),
-        _line("Salary", salary),
+        _line("Availability", preferences.get("availability", "")),
+        _line("Salary", preferences.get("salary_range", "")),
         _line("Email", personal.get("email", "")),
         _line("LinkedIn", personal.get("linkedin_url") or personal.get("linkedin", "")),
         _line("GitHub", personal.get("github_url", "")),
@@ -131,9 +128,6 @@ def build_profile_blurb(company: str = "") -> str:
         _line("Target levels", preferences.get("experience_levels", [])),
         _line("Excluded levels", preferences.get("excluded_levels", [])),
     ])
-
-    if legacy and profile.get("university"):
-        lines.append(_line("University", [profile.get("university"), profile.get("university_location", "")]))
 
     _append_items(lines, "Work Experience", profile.get("work_experience", []), ("title", "company", "start_date", "end_date", "location"))
     _append_items(lines, "Projects", profile.get("projects", []), ("name", "url"))

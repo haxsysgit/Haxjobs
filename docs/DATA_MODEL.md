@@ -1,154 +1,115 @@
-# HaxJobs Data Model
+# Data Model
 
-Single SQLite database (`state/haxjobs.db`). All tables use integer primary keys, foreign keys with CASCADE where appropriate, and ISO-8601 timestamps.
+This file separates current storage from the planned career memory model.
 
-## Core tables
+## Current storage
 
-### discovered_jobs
+SQLite defaults to `state/haxjobs.db`. The profile defaults to `state/profile.json`.
 
-Raw scraped or manually submitted jobs before processing.
+### Active tables
 
-| Column | Type | Notes |
-|--------|------|-------|
-| id | INTEGER PK | |
-| source | TEXT | `manual`, `greenhouse`, `ashby`, `lever` |
-| source_url | TEXT | Unique job URL |
-| apply_url | TEXT | Direct apply link if different |
-| ats | TEXT | ATS platform if detected |
-| external_id | TEXT | Source-specific ID |
-| title | TEXT | |
-| company | TEXT | |
-| location | TEXT | |
-| jd_text | TEXT | Full job description |
-| raw_payload_json | TEXT | Original scraper output |
-| discovery_status | TEXT | `new`, `duplicate`, `blacklisted`, `filtered`, `accepted` |
-| filter_reason | TEXT | Why filtered/skipped |
-| created_at | TEXT | ISO-8601 |
-| updated_at | TEXT | ISO-8601 |
+| Table | Current purpose |
+|---|---|
+| `discovered_jobs` | Raw normalized jobs before promotion |
+| `jobs` | Promoted jobs, classification, pack, and outreach status |
+| `evaluations` | One current evaluation per job, including profile snapshot and report |
+| `decisions` | Append-only apply, maybe, save, skip, or reject events |
+| `profile_snapshots` | Reserved table with no current writer |
+| `activity_log` | Product and pipeline events |
+| `whitelist` | Patterns allowed through filters |
+| `outreach_contacts` | Contact records linked to jobs |
+| `outreach_drafts` | Unsent draft records linked to jobs and contacts |
 
-### jobs
+Foreign keys are enabled. Job deletion cascades to evaluations, decisions, contacts, and drafts. SQLite runs in WAL mode.
 
-Accepted jobs promoted from discovery.
+## Current profile
 
-| Column | Type | Notes |
-|--------|------|-------|
-| id | INTEGER PK | |
-| external_id | TEXT UNIQUE | Links back to discovered_jobs |
-| title | TEXT | |
-| company | TEXT | |
-| location | TEXT | |
-| jd_text | TEXT | |
-| source_url | TEXT | |
-| source | TEXT | |
-| status | TEXT | `pending`, `evaluated`, `skipped` |
-| role_family | TEXT | From classifier |
-| role_family_confidence | REAL | 0.0-1.0 |
-| recommended_cv_variant | TEXT | Which CV variant to use |
-| pack_status | TEXT | `none`, `generated`, `manual_review` |
-| pack_dir | TEXT | Path to pack directory |
-| pack_review_status | TEXT | For L3/L4 manual review |
-| outreach_status | TEXT | |
-| applied_at | TEXT | ISO-8601, when user clicked "apply" |
-| decision | TEXT | apply, skip, reject, pending |
-| decision_reason | TEXT | Why the user chose this |
-| cycle_id | TEXT | Which discovery cycle this job came from |
-| classified_at | TEXT | ISO-8601 |
-| discovered_at | TEXT | ISO-8601 |
-| updated_at | TEXT | ISO-8601 |
+`state/profile.json` is the canonical profile file today. The schema defines personal details, skills, preferences, work authorization, experience, projects, education, profile health, and onboarding state. Current onboarding does not populate every defined field, including profile health.
 
-### evaluations
+It works for onboarding and evaluation, but it has limits:
 
-Fit evaluation results. One row per evaluated job.
+- career tracks are not independent objects
+- evidence is not consistently normalized
+- history and verification dates are weak
+- relationships are stored inside a large document
+- updates are hard to query over time
 
-| Column | Type | Notes |
-|--------|------|-------|
-| id | INTEGER PK | |
-| job_id | INTEGER FK | UNIQUE reference to jobs |
-| fit_score | INTEGER | 0-100 |
-| fit_verdict | TEXT | STRONG_FIT, GOOD_FIT, WEAK_FIT, SKIP |
-| level | INTEGER | 1-4 |
-| level_name | TEXT | Standard, Quick Apply, Lite, Skip |
-| strongest_matches | TEXT | JSON array |
-| major_gaps | TEXT | JSON array |
-| sponsorship_risk | TEXT | low, medium, high |
-| summary | TEXT | Fit summary |
-| decision | TEXT | completed, skipped |
-| skip_reason | TEXT | |
-| agent | TEXT | Which evaluation agent produced this |
-| profile_snapshot_json | TEXT | Profile state at eval time |
-| report_markdown | TEXT | Generated report section for this job |
-| pack_dir | TEXT | Path to generated pack |
-| pack_template_id | TEXT | Which role template was used |
-| report_cycle_id | TEXT | Which cycle report this belongs to |
-| evaluated_by | TEXT | Agent name |
-| evaluated_at | TEXT | ISO-8601 |
+## Target career memory
 
-### cycle_state
+The planned career graph should model records such as:
 
-Tracks each pipeline run cycle for learning and reporting.
+- career track
+- skill
+- evidence
+- project
+- work experience
+- education
+- job
+- company
+- application
+- interview
+- learning plan
+- resource
+- goal
+- constraint
+- preference
+- contact
+- outcome
 
-| Column | Type | Notes |
-|--------|------|-------|
-| id | INTEGER PK | |
-| cycle_id | TEXT UNIQUE | e.g. `2026-07-01` |
-| started_at | TEXT | ISO-8601 |
-| completed_at | TEXT | ISO-8601 |
-| jobs_discovered | INTEGER | |
-| jobs_evaluated | INTEGER | |
-| packs_generated | INTEGER | |
-| decisions_made | INTEGER | |
+Each record should support:
 
-### job_history
+- source
+- confidence
+- last verified date
+- privacy level
+- related career tracks
+- evidence links
 
-Permanent archive of user actions on jobs. Jobs move here after apply/reject/archive.
+This model is not built. Do not add its tables one by one before the session, context, and migration design is agreed.
 
-| Column | Type | Notes |
-|--------|------|-------|
-| id | INTEGER PK | |
-| job_id | INTEGER FK | Reference to jobs |
-| action | TEXT | applied, rejected, archived |
-| action_reason | TEXT | |
-| acted_at | TEXT | ISO-8601 |
-| cycle_id | TEXT | Which cycle |
+## Evidence levels
 
-### learning_patterns
+The target evidence vocabulary is:
 
-Learned preferences from user decisions over time.
+1. `verified_from_cv`
+2. `verified_from_github_project`
+3. `verified_from_uploaded_document`
+4. `user_stated`
+5. `inferred`
+6. `unsupported`
 
-| Column | Type | Notes |
-|--------|------|-------|
-| id | INTEGER PK | |
-| pattern_type | TEXT | preferred_company, rejected_keyword, salary_trend, role_preference |
-| pattern_value | TEXT | The actual pattern value |
-| weight | REAL | Confidence 0.0-1.0 |
-| evidence_count | INTEGER | How many decisions support this |
-| updated_at | TEXT | ISO-8601 |
+Outputs should map those levels to:
 
-### Supporting tables
+- safe to claim
+- phrase carefully
+- not enough evidence
 
-> **Deprecated** — replaced by `decisions` table + `job_history`. Will be removed in a future DB migration.
-- **favorites** — user-starred jobs (job_id UNIQUE FK)
-- **saved_jobs** — user-saved jobs with notes (job_id UNIQUE FK)
-- **evaluation_history** — historical scores on re-evaluation. Replaced by `evaluations.report_cycle_id`
-- **decisions** — approval/rejection/skip decisions per job
-- **outreach_drafts** — generated outreach messages (linked to jobs and contacts)
-- **outreach_contacts** — discovered recruiter/hiring manager contacts
-- **activity_log** — pipeline event log
-- **profile_snapshots** — profile state captured at evaluation time
-- **whitelist** — company/role whitelist patterns for evaluation
+No generated application material should promote inferred or unsupported data into a verified claim.
 
-## Key relationships
+## Missing durable run state
 
-```
-discovered_jobs --(promoted)--> jobs
-jobs --(evaluated)--> evaluations
-jobs --(decided)--> decisions
-decisions --(feed)--> learning_patterns
-jobs --(archived)--> job_history
-jobs --(outreach)--> outreach_drafts --> outreach_contacts
-cycles captured in --> cycle_state
-```
+The database has no proper tables for:
 
-## Config-driven, not schema-driven
+- agent sessions
+- messages
+- tool calls
+- run checkpoints
+- compaction summaries
+- context selections
+- token, latency, and cost records
+- scheduled watches and durable worker leases
+- learning progress
 
-Role families, CV variants, evaluation agent choice, and delivery channels are configured in `haxjobs.toml`, not in the database schema. The DB stores data; the config drives behavior.
+Those records should be designed together so the agent can resume, explain what happened, and avoid conflicting state.
+
+## Migration rule
+
+Do not keep dual write paths for compatibility. When the career-memory model lands:
+
+1. define the new schema
+2. write one explicit migration from `profile.json` and current tables
+3. verify counts and evidence links
+4. switch all readers and writers
+5. remove the old path
+
+Git and database backups are the rollback plan. Permanent compatibility layers are not.

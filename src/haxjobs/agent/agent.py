@@ -25,9 +25,10 @@ class Agent:
         self.model = model or p["model"]
         if tool_mode is not None and tools is None:
             from haxjobs.agent.tool_modes import tools_for_mode
+
             self.tools = tools_for_mode(tool_mode)
         else:
-            self.tools = tools
+            self.tools = tools or []
         self.exclude_tools = exclude_tools
 
     @staticmethod
@@ -130,8 +131,12 @@ class Agent:
             for tc in tool_calls:
                 try:
                     args = json.loads(tc.function.arguments or "{}")
-                except json.JSONDecodeError as e:
-                    result = json.dumps({"error": f"Invalid tool arguments: {e}"})
+                except json.JSONDecodeError as exc:
+                    result = json.dumps({
+                        "ok": False,
+                        "code": "invalid_tool_arguments",
+                        "error": f"Invalid tool arguments: {exc}",
+                    })
                 else:
                     result = dispatch(tc.function.name, args)
                 messages.append({

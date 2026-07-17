@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="drawio" version="30.2.4">
+  <diagram name="Hax Goal and Run Lifecycle">
+    <mxGraphModel dx="1400" dy="820" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="820" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="Hax Goal and Rudimentary Run Lifecycle" style="text;html=1;strokeColor=none;fillColor=none;fontSize=20;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="250" y="20" width="900" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="conversation" value="1. User and Conversation" style="swimlane;html=1;startSize=34;rounded=1;collapsible=0;horizontal=1;fillColor=#dae8fc;swimlaneFillColor=#ffffff;strokeColor=#6c8ebf;strokeWidth=2;fontStyle=1;fontSize=14;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="50" y="100" width="380" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="reasoning" value="2. Hax Reasoning" style="swimlane;html=1;startSize=34;rounded=1;collapsible=0;horizontal=1;fillColor=#e1d5e7;swimlaneFillColor=#ffffff;strokeColor=#9673a6;strokeWidth=2;fontStyle=1;fontSize=14;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="510" y="100" width="380" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="work-shapes" value="3. Composed Work" style="swimlane;html=1;startSize=34;rounded=1;collapsible=0;horizontal=1;fillColor=#f5f5f5;swimlaneFillColor=#ffffff;strokeColor=#666666;strokeWidth=2;fontStyle=1;fontSize=14;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="970" y="100" width="380" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="system" value="4. HaxJobs System" style="swimlane;html=1;startSize=34;rounded=1;collapsible=0;horizontal=1;fillColor=#fff2cc;swimlaneFillColor=#ffffff;strokeColor=#d6b656;strokeWidth=2;fontStyle=1;fontSize=14;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="970" y="400" width="380" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="employment" value="5. Job Search Process" style="swimlane;html=1;startSize=34;rounded=1;collapsible=0;horizontal=1;fillColor=#e1d5e7;swimlaneFillColor=#ffffff;strokeColor=#9673a6;strokeWidth=2;fontStyle=1;fontSize=14;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="510" y="400" width="380" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="results" value="6. Reply, Outcome, and Learning" style="swimlane;html=1;startSize=34;rounded=1;collapsible=0;horizontal=1;fillColor=#d5e8d4;swimlaneFillColor=#ffffff;strokeColor=#82b366;strokeWidth=2;fontStyle=1;fontSize=14;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="50" y="400" width="380" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="conversation-natural" value="Natural conversation with Hax" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e3f2fd;strokeColor=#6c8ebf;fontSize=13;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="80" y="155" width="320" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="conversation-mixed" value="One message can contain mixed goals" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e3f2fd;strokeColor=#6c8ebf;fontSize=13;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="80" y="230" width="320" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="reasoning-understand" value="Understand goals, subjects, and context" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f3e8f7;strokeColor=#9673a6;fontSize=13;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="540" y="155" width="320" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="reasoning-free" value="Reason freely, ask only when needed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f3e8f7;strokeColor=#9673a6;fontSize=13;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="540" y="230" width="320" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="work-discuss" value="Discuss, act, or investigate" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="145" width="320" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="work-act" value="Sequence, parallel work, or branch" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="200" width="320" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="work-continue" value="Monitor, improve, or approval-bound" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="255" width="320" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="system-tools" value="Tools + durable records" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff9e6;strokeColor=#d6b656;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="445" width="320" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="system-automation" value="Automation + later work" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff9e6;strokeColor=#d6b656;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="500" width="320" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="system-safety" value="System permits, blocks, and verifies" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fde8e8;strokeColor=#b85450;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="555" width="320" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="employment-discover" value="Discover + gain access" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f3e8f7;strokeColor=#9673a6;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="540" y="440" width="320" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="employment-position" value="Understand + position" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f3e8f7;strokeColor=#9673a6;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="540" y="480" width="320" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="employment-improve" value="Build evidence + become fit" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f3e8f7;strokeColor=#9673a6;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="540" y="520" width="320" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="employment-convert" value="Apply + interview" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f3e8f7;strokeColor=#9673a6;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="540" y="560" width="320" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="result-now" value="Reply, clarify, or request approval" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f5e9;strokeColor=#82b366;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="80" y="445" width="320" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="result-later" value="Later progress and updates" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f5e9;strokeColor=#82b366;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="80" y="500" width="320" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="result-outcome" value="Interview, hire, or changed strategy" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f5e9;strokeColor=#82b366;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="80" y="555" width="320" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-conversation-reasoning" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#9673a6;strokeWidth=3;endArrow=classic;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="conversation" target="reasoning">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-reasoning-work" value="compose" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#666666;strokeWidth=3;endArrow=classic;fontSize=11;fontFamily=Helvetica;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="reasoning" target="work-shapes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-work-system" value="request execution" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#d6b656;strokeWidth=3;endArrow=classic;fontSize=11;fontFamily=Helvetica;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="work-shapes" target="system">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-system-employment" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#9673a6;strokeWidth=3;endArrow=classic;exitX=0;exitY=0.5;entryX=1;entryY=0.5;" edge="1" parent="1" source="system" target="employment">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-employment-results" value="result" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#82b366;strokeWidth=3;endArrow=classic;fontSize=11;fontFamily=Helvetica;exitX=0;exitY=0.5;entryX=1;entryY=0.5;" edge="1" parent="1" source="employment" target="results">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-results-conversation" value="reply + notify" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6c8ebf;strokeWidth=3;endArrow=classic;fontSize=11;fontFamily=Helvetica;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" edge="1" parent="1" source="results" target="conversation">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-results-system" value="save evidence + update strategy" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#d6b656;strokeWidth=2;dashed=1;endArrow=classic;fontSize=11;fontFamily=Helvetica;exitX=0.5;exitY=1;entryX=0.5;entryY=1;" edge="1" parent="1" source="results" target="system">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="240" y="650" />
+              <mxPoint x="1160" y="650" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="callout" value="Conversational on the surface. The whole job-search process underneath." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;fontSize=15;fontStyle=1;fontFamily=Helvetica;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="250" y="700" width="900" height="55" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -29,6 +29,9 @@ jobs:
       - name: Typecheck frontend
         working-directory: frontend
         run: npx tsc --noEmit
+      - name: Lint frontend
+        working-directory: frontend
+        run: npm run lint
       - name: Build frontend
         working-directory: frontend
         run: npm run build

@@ -1,0 +1,26 @@
+{
+	"nodes":[
+		{"id":"start","type":"file","file":"00-How-An-Agent-Actually-Runs.md","x":0,"y":250,"width":300,"height":220},
+		{"id":"rules","type":"file","file":"01-instructions.md","x":400,"y":0,"width":280,"height":180},
+		{"id":"context","type":"file","file":"02-context-delivery-and-management.md","x":400,"y":250,"width":280,"height":180},
+		{"id":"tools","type":"file","file":"03-tool-interface.md","x":400,"y":500,"width":280,"height":180},
+		{"id":"safety","type":"file","file":"04-execution-environment.md","x":800,"y":500,"width":280,"height":180},
+		{"id":"memory","type":"file","file":"05-durable-state.md","x":800,"y":250,"width":280,"height":180},
+		{"id":"flow","type":"file","file":"06-orchestration.md","x":1200,"y":250,"width":280,"height":180},
+		{"id":"workers","type":"file","file":"07-sub-agents-and-skills.md","x":1600,"y":100,"width":280,"height":180},
+		{"id":"checks","type":"file","file":"08-verification-and-observability.md","x":1600,"y":400,"width":280,"height":180},
+		{"id":"improve","type":"file","file":"09-evolution.md","x":2000,"y":250,"width":280,"height":180},
+		{"id":"note","type":"text","text":"Read left to right:\n\nRules and useful context help the model choose a tool.\nSafety code decides whether it may run.\nMemory keeps useful facts.\nThe system manages order, checks results, and improves from repeated failures.","x":0,"y":0,"width":300,"height":180}
+	],
+	"edges":[
+		{"id":"e1","fromNode":"start","fromSide":"right","toNode":"rules","toSide":"left"},
+		{"id":"e2","fromNode":"start","fromSide":"right","toNode":"context","toSide":"left"},
+		{"id":"e3","fromNode":"context","fromSide":"bottom","toNode":"tools","toSide":"top"},
+		{"id":"e4","fromNode":"tools","fromSide":"right","toNode":"safety","toSide":"left"},
+		{"id":"e5","fromNode":"safety","fromSide":"top","toNode":"memory","toSide":"bottom"},
+		{"id":"e6","fromNode":"memory","fromSide":"right","toNode":"flow","toSide":"left"},
+		{"id":"e7","fromNode":"flow","fromSide":"right","toNode":"workers","toSide":"left"},
+		{"id":"e8","fromNode":"flow","fromSide":"right","toNode":"checks","toSide":"left"},
+		{"id":"e9","fromNode":"checks","fromSide":"right","toNode":"improve","toSide":"left"}
+	]
+}

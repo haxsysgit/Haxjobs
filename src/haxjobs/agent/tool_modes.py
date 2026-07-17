@@ -12,8 +12,6 @@ TOOL_MODES: dict[str, list[str]] = {
     "application": ["generate_pack", "profile_read"],
     "decision": ["record_decision"],
     "admin": ["db_query", "profile_read", "profile_schema"],
-    "outreach_future": ["find_contacts", "draft_message"],
-    "learning_future": ["analyze_patterns"],
 }
 
 
