@@ -19,43 +19,26 @@
 - **Risk:** MED
 - **Depends on:** approved clean design baseline and exact-model availability
 - **Category:** direction, architecture, tests
-- **Planned against design baseline:** commit `5423187`, 2026-07-17, plus the intentional dirty design snapshot described below
-- **Working-tree basis:** the intentional dirty greenfield cleanup and the untracked `discussion/` and `diagram/` trees present on 2026-07-17
-- **Current status:** BLOCKED until that cleanup and the discussion/diagram sources are committed as one reviewed design baseline, then this plan is restamped against that baseline
+- **Planned against design baseline:** commit `7da5786`, 2026-07-17
+- **Current status:** TODO — ready for execution
 - **Index ownership:** the advisor/operator updates `plans/README.md`; the executor must not edit the index
 
 ## Baseline gate, run before dispatch
 
-This plan was written while the repository had broad uncommitted cleanup work. An isolated executor worktree created from `5423187` would not contain the discussion notes, fixtures, diagrams, test deletions, or documentation state used to write this plan.
+The design baseline is committed at `7da5786`. The checkout is clean. DeepSeek v4 Pro and v4 Flash are confirmed available in the Pi subagent runtime.
 
-The advisor or operator must first:
-
-1. Review and commit the intentional cleanup plus `discussion/`, `diagram/`, and `docs/harness-primitives/` work. Call this immutable content baseline `DESIGN_BASE_SHA`.
-2. Leave the main checkout clean.
-3. Update this plan's `Planned against design baseline` field and every `<DESIGN_BASE_SHA>` placeholder to that commit.
-4. Commit the restamped plan files separately. The executor starts from that later clean plan commit, but drift is measured from `DESIGN_BASE_SHA` over source and design paths. Do not try to place a commit's own SHA inside itself.
-5. Confirm the files listed below match the recorded design.
-6. Confirm the orchestration runtime can call the exact models `deepseek-v4-pro` and `deepseek-v4-flash`.
+Before dispatch, the advisor confirms:
 
 Run:
 
 ```bash
-test -z "$(git status --porcelain=v1 --untracked-files=all)"
 git rev-parse --short HEAD
-test -f discussion/004-minimal-job-native-harness.md
-test -f discussion/005-implementation-stack-observability-and-verification.md
-test -f discussion/006-pi-inspired-haxjobs-architecture.md
-test -f discussion/research/2026-07-17-pi-hermes-job-native-harness-study.md
-test -f discussion/fixtures/003-five-job-sample.md
-test -f diagram/README.md
-```
+# expected: 7da5786
 
-Expected: every command exits 0, the status output is empty, and the current commit is recorded into this plan before execution.
-
-Then run the updated drift check from the design baseline to the clean plan commit:
+Then verify no drift from the design baseline:
 
 ```bash
-git diff --stat <DESIGN_BASE_SHA>..HEAD -- \
+git diff --stat 7da5786..HEAD -- \
   pyproject.toml uv.lock src/haxjobs/cli.py \
   src/haxjobs/model src/haxjobs/agent_core \
   src/haxjobs/employment src/haxjobs/interfaces \
@@ -70,7 +53,7 @@ git diff --stat <DESIGN_BASE_SHA>..HEAD -- \
 
 Expected: no output. Plan-file changes are intentionally outside this drift path.
 
-**STOP:** do not dispatch an executor while this plan still says `<DESIGN_BASE_SHA>`, while the checkout is dirty, or when either exact DeepSeek model is unavailable. Do not silently fall back to another model.
+**STOP:** do not dispatch if the checkout is dirty, the current commit is not `7da5786`, or either exact DeepSeek model is unavailable. Do not silently fall back to another model.
 
 ## Why this matters
 
@@ -200,6 +183,7 @@ Do not run frontend commands. The frontend is intentionally removed in the curre
 
 ## Suggested executor toolkit
 
+- Read `docs/harness-primitives/00-How-An-Agent-Actually-Runs.md` before writing the agent core. It explains the model→tool→result loop, the one-way interface→harness→model boundary, and why the model stays behind one stable door.
 - Read `.agents/skills/readable-code/SKILL.md` before writing Python.
 - Read `.agents/skills/clean-drawio/SKILL.md` before creating the diagram.
 - Use standard-library `argparse`, `logging`, `hashlib`, `json`, `pathlib`, `tomllib`, `uuid`, and UTC datetimes where they are enough.
@@ -496,7 +480,7 @@ Stage 0 needs only user and assistant text. Keep the internal message type separ
 
 #### Events in `agent_core/events.py`
 
-Define a versioned Pydantic event envelope and an observer protocol.
+Define a versioned Pydantic event envelope and an observer protocol. The event schema is Stage 0 experiment infrastructure — it is not the final storage model and should not be treated as a long-term contract.
 
 Stage 0 event order:
 
@@ -982,7 +966,7 @@ Manual live validation is separate and recorded in local receipts plus the track
 
 All must hold:
 
-- [ ] Design baseline was committed, clean, and `<DESIGN_BASE_SHA>` was restamped before dispatch.
+- [ ] Design baseline is `7da5786`, checkout is clean, and this plan is restamped.
 - [ ] Orchestration metadata proves exact `deepseek-v4-pro` implemented all code and deliverables.
 - [ ] Orchestration metadata proves three independent `deepseek-v4-flash` reviews on every candidate round and three approvals on the same final SHA.
 - [ ] Pydantic v2 is a direct dependency and `uv lock --check` passes.

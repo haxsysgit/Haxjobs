@@ -1,5 +1,5 @@
 ---
-status: discussing
+status: partially decided (architecture shape and one-package accepted for Stage 0/1; coding/document/bash workspace boundaries remain open)
 created: 2026-07-17
 scope: Decide how HaxJobs should mirror Pi's architecture while adding employment-native tools and controlled coding capabilities
 builds_on:
@@ -561,29 +561,34 @@ The registry may know only what each stage needs. We do not have to register the
 11. Copy Hermes' canonical-history, temporary-context, strict-registry, and side-effect-approval ideas.
 12. Delay compaction, extensions, delegation, skills, and durable workflow machinery until real runs demand them.
 
-# Questions for Arinze
+# Questions for Arinze (resolved for Stage 0/1)
 
-1. **Architecture shape:** Should HaxJobs mirror Pi's provider core, agent core, employment layer, and interface split, while keeping them as modules inside one Python package for now? My recommendation is yes.
-2. **Coding workspace:** Should building real employability projects be a first-class Hax capability with `read`, `grep`, `find`, `ls`, `write`, `edit`, and `bash` inside an explicitly selected project root? My recommendation is yes.
-3. **Document workspace:** Should user-selected intake files receive read-only file tools, while profile and career-state changes continue through typed employment actions? My recommendation is yes.
-4. **Shell boundary:** Should `bash` require explicit project-workspace activation now and a real container or VM boundary before unattended or cloud execution? My recommendation is yes.
+All four questions were answered during planning:
+
+1. **Architecture shape:** Accepted. Mirror Pi's four-layer split inside one Python package for the greenfield build.
+2. **Coding workspace:** Deferred past Stage 0/1. Real job-review traces come first.
+3. **Document workspace:** Deferred past Stage 0/1.
+4. **Shell boundary:** Deferred past Stage 0/1.
+
+Document/coding workspace and bash boundaries remain open for later stages.
 
 # Decision ledger
 
 | Item | Status | Current direction |
 |---|---|---|
-| Pi as architecture reference | Open | Recommend mirroring its layered separation and small loop philosophy. |
+| Pi as architecture reference | Decided for Stage 0/1 | Mirror its layered separation and small loop philosophy inside one Python package. |
 | Hermes as architecture reference | Working recommendation | Borrow selected Python boundaries, not the full runtime. |
-| Physical package split | Open | Keep one Python package initially. |
-| Coding tools in HaxJobs | Open | Include as a scoped project-workspace capability. |
-| Document file tools | Open | Read-only access to user-selected roots. |
+| Physical package split | Decided for this wave | One Python package. Revisit only when independent deployment or test domains justify a split. |
+| Coding tools in HaxJobs | Open | Include as a scoped project-workspace capability later. Deferred past Stage 0/1. |
+| Document file tools | Open | Read-only access to user-selected roots. Deferred past Stage 0/1. |
 | Career-state mutation | Working recommendation | Typed employment actions only. |
 | Tool activation | Working recommendation | Registered catalogue plus per-operation active capability set. |
-| Bash | Open | Explicit project activation; OS isolation before unattended use. |
+| Bash | Open | Explicit project activation; OS isolation before unattended use. Deferred past Stage 0/1. |
 | Stage 0 tools | Decided | None. |
 | Stage 1 tools | Decided | `inspect_job_source(job_ref)` only. |
 | Generic plugin system | Deferred | Native Python registration first. |
 | Session tree, compaction, sub-agents, skills | Deferred | Add from observed needs. |
+| Four-layer architecture for greenfield build | Decided | `haxjobs.model`, `haxjobs.agent_core`, `haxjobs.employment`, `haxjobs.interfaces` inside one package. Document/coding workspace boundaries remain open. |
 
 # Converged technical reference
 

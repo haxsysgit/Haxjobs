@@ -51,7 +51,11 @@ We still design through real employment work, but the job scenario is an evaluat
 
 ## Active discussion
 
-6. [Pi-inspired HaxJobs architecture](006-pi-inspired-haxjobs-architecture.md) (discussing)
+(None — all active architecture decisions for Stage 0/1 are settled.)
+
+## Decided architecture for greenfield build
+
+6. [Pi-inspired HaxJobs architecture](006-pi-inspired-haxjobs-architecture.md) (four-layer split and one-package decided for Stage 0/1; coding/document/bash workspaces remain open for later)
 
 ## Paused discussion
 

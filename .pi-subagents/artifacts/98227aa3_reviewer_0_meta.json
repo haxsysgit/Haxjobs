@@ -1,0 +1,37 @@
+{
+  "runId": "98227aa3",
+  "agent": "reviewer",
+  "task": "Say exactly \"Flash model works\" and nothing else.",
+  "exitCode": 0,
+  "usage": {
+    "input": 5641,
+    "output": 323,
+    "cacheRead": 0,
+    "cacheWrite": 0,
+    "cost": 0.00088018,
+    "turns": 1
+  },
+  "model": "deepseek/deepseek-v4-flash:high",
+  "attemptedModels": [
+    "deepseek/deepseek-v4-flash:high"
+  ],
+  "modelAttempts": [
+    {
+      "model": "deepseek/deepseek-v4-flash:high",
+      "success": true,
+      "exitCode": 0,
+      "usage": {
+        "input": 5641,
+        "output": 323,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "cost": 0.00088018,
+        "turns": 1
+      }
+    }
+  ],
+  "durationMs": 14420,
+  "toolCount": 0,
+  "transcriptPath": "/home/hax/haxjobs/.pi-subagents/artifacts/98227aa3_reviewer_0_transcript.jsonl",
+  "timestamp": 1784309811826
+}

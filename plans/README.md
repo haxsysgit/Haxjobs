@@ -16,48 +16,21 @@ Stage 2 and later plans stay unwritten until Stage 1 traces show the next repeat
 
 ## Current execution blockers
 
-### 1. The design baseline is not committed
+None. The design baseline is committed at `7da5786`. DeepSeek v4 Pro and v4 Flash are both available in the Pi subagent runtime.
 
-At planning time:
+### 1. ~~The design baseline is not committed~~ (resolved)
 
-- HEAD was `5423187` on `main`.
-- The worktree contained a broad intentional cleanup.
-- `discussion/`, `diagram/`, and `docs/harness-primitives/` contained untracked design work.
-- the old tests and frontend were deleted in the working tree.
-- several legacy agent files had uncommitted edits.
+Committed at `7da5786`. The checkout is clean.
 
-An isolated worktree created from `5423187` would not contain the design used by these plans.
+### 2. ~~Exact DeepSeek delivery models are not proved~~ (resolved)
 
-Before Plan 001 execution:
-
-1. Review and commit the current cleanup and design work. Call that commit `DESIGN_BASE_SHA`.
-2. Leave the main checkout clean.
-3. Restamp only Plan 001 against `DESIGN_BASE_SHA`.
-4. Commit the restamped plans as a separate plan-only commit.
-5. Recheck Plan 001 excerpts, scope, and drift commands.
-
-Do not restamp Plan 002 yet. Reconcile it only after Plan 001 is accepted, because its real baseline is the reviewed Plan 001 commit.
-
-The executor must not stash, reset, absorb, or overwrite the current work.
-
-### 2. Exact DeepSeek delivery models are not proved
-
-The inspected Pi subagent runtime currently lists GPT-based defaults. It does not prove exact runtime access to:
-
-- `deepseek-v4-pro`
-- `deepseek-v4-flash`
-
-Before execution, the Pi advisor/orchestrator must launch minimal fresh health tasks with explicit model overrides and inspect orchestration metadata for the canonical model IDs. Model prose is not identity proof.
-
-No Codex, Claude, Gemini, other DeepSeek alias, or fallback may substitute without Arinze's explicit approval.
-
-The model used by Hax's live fixture experiment is a separate product-runtime setting. It does not need to be the Pro executor or Flash reviewer model.
+`deepseek-v4-pro` is the session model. `deepseek-v4-flash` confirmed via subagent model override. Health tasks return canonical model IDs from orchestration metadata.
 
 ## Execution order and status
 
 | Plan | Title | Priority | Effort | Depends on | Status | Final commit | Report SHA-256 |
 |---|---|---:|---:|---|---|---|---|
-| [001](001-stage0-observed-job-review.md) | Build the Stage 0 observed job review | P1 | L | approved clean design baseline, exact DeepSeek models | BLOCKED: baseline commit and restamp required | pending | pending |
+| [001](001-stage0-observed-job-review.md) | Build the Stage 0 observed job review | P1 | L | clean checkout at `7da5786` | TODO | pending | pending |
 | [002](002-stage1-source-inspection-loop.md) | Add the Stage 1 bounded source-inspection loop | P1 | L | accepted Plan 001 plus Job 328 evidence gate | BLOCKED: Plan 001 not executed | pending | pending |
 
 The advisor/operator owns this table. Executors do not edit it.
@@ -73,15 +46,6 @@ Status values:
 ## Dependency graph
 
 ```text
-commit the current design baseline
-        |
-        v
-restamp Plan 001 only
-        |
-        v
-prove exact Pro and Flash model access
-        |
-        v
 Plan 001: Stage 0
   Job 49 -> human review
   Job 328 -> human review
