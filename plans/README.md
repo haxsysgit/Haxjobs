@@ -33,6 +33,15 @@ None.
 
 The advisor/operator owns this table. Executors do not edit it.
 
+## Deliverable folder convention
+
+Every plan collects its deliverable artifacts into one labelled folder
+under `deliverables/<plan-slug>/`: the implementation report, diagram
+source and PNG, fixture files, rubric, and a short `README.md`. The
+plan text is copied in as `plan.md`. Code in `src/` and test fixtures
+in `tests/` stay where they are. Do not symlink — copy sources so the
+folder can be archived or shared independently.
+
 Status values:
 
 - `TODO`

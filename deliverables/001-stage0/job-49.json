@@ -1,0 +1,18 @@
+{
+  "fixture_id": "job-49",
+  "fixture_version": 1,
+  "job_ref": 49,
+  "observed_at": "2026-06-07T20:50:29+00:00",
+  "source_type": "ashby_api",
+  "source_url": "https://jobs.ashbyhq.com/trainline/f240bf55-4683-4284-8222-e7cd0c227d70/application",
+  "source_status": "direct",
+  "title": "IT Support Analyst",
+  "employer_name": "Trainline",
+  "location": "London",
+  "description": "Trainline is a rail and coach travel platform. The role sits in Workplace Technology and the Tech Support team as a Tier 2 internal IT-support role. The estate includes managed MacOS devices, Windows devices, Azure Active Directory, Windows Server, meeting-room equipment, and internal event support.\n\nResponsibilities include managing the ticket lifecycle, dashboards, workloads, and reporting; resolving incidents within service-level targets and escalating to Tier 3 teams; troubleshooting issues and performing root-cause analysis; progressing service requests and supporting internal employees through the IT-service platform, collaboration tools, and an onsite Tech Bar; managing IT assets, hardware refreshes, inventory, secure disposal, onboarding, offboarding, laptop builds, access changes, and asset retrieval; supporting meeting-room audio and video equipment, remote administration, internal events, security checks, audits, technical documentation, and knowledge sharing; exploring automation, AI, and ML for internal process improvements.\n\nTechnical requirements include Windows 11, MacOS, Android, and Linux familiarity; JAMF, Intune, mobile-device management, Microsoft 365, Slack, and Atlassian products; Active Directory, Azure Active Directory, SaaS systems, and cloud-migration knowledge; PCI-DSS, ISO 20071, IT governance, TCP/IP, DNS, DHCP, LAN, WAN, and wireless networking; basic PowerShell, Windows command line, Apple scripting, Bash, security tools, IT-service systems, video-conferencing equipment, Autopilot, MFA, SSO, SAML, and cloud printing. Desirable certifications include Microsoft Endpoint Administrator Associate, Apple or JAMF certificates, and CompTIA A+.",
+  "description_kind": "curated_source_summary",
+  "content_complete": false,
+  "warnings": [
+    "Original stored description truncated at 5,000 characters mid-sentence. Content beyond the cut point was not preserved by the old ingestion path."
+  ]
+}

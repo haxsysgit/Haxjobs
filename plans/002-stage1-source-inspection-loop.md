@@ -211,6 +211,23 @@ New tracked files:
 - `diagram/004-stage1-source-inspection-loop.png`
 - `docs/implementation-reports/002-stage1-source-inspection-loop.md`
 
+### Deliverable folder
+
+After implementation, collect every deliverable artifact into
+**one labelled folder**:
+
+```text
+deliverables/002-stage1/
+├── plan.md
+├── report.md
+├── 004-stage1-source-inspection-loop.drawio
+├── 004-stage1-source-inspection-loop.png
+└── README.md
+```
+
+Copy sources in — do not symlink. Code and test fixtures stay in `src/`
+and `tests/`. This folder is for the reviewer.
+
 Local ignored outputs:
 
 - `state/harness-runs/<stage1-run-id>/`
