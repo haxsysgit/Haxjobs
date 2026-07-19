@@ -190,6 +190,22 @@ def test_openai_client_max_retries_zero():
     assert "max_retries=0" in source
 
 
+def test_openai_client_raises_on_missing_model_key():
+    """OpenAIModelClient must raise ValueError when provider config lacks a 'model' key."""
+    from haxjobs.model.client import OpenAIModelClient
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+        f.write('[provider]\napi_key = "sk-test"\nbase_url = "https://api.example.com/v1"\n')
+        config_path = Path(f.name)
+
+    try:
+        client = OpenAIModelClient(credentials_path=config_path)
+        with pytest.raises(ValueError, match="model"):
+            client._ensure_client()
+    finally:
+        config_path.unlink()
+
+
 # ── test 8: zero tools ──
 
 @pytest.mark.asyncio
