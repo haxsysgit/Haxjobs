@@ -7,12 +7,8 @@ license = {text = "MIT"}
 authors = [{name = "Arinze Elenasulu"}]
 readme = "README.md"
 dependencies = [
-    "fastapi>=0.115",
-    "uvicorn[standard]>=0.34",
-    "markdown>=3.10.2",
     "openai>=2.44.0",
     "pydantic>=2.13,<3",
-    "python-multipart>=0.0.32",
 ]
 
 [project.scripts]
