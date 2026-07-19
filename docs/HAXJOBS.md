@@ -81,24 +81,10 @@ All of these rebuild from scratch on the greenfield runtime, one stage at a time
 
 ### Docs
 
-- `docs/PRODUCT.md` — product direction (current)
-- `docs/HAXJOBS.md` — this file (current)
-- `discussion/001-006` — architecture decisions (current, historical)
-- `docs/PRODUCT_ARCHITECTURE.md` — deleted (pre-reset)
-- `docs/ARCHITECTURE.md` — deleted (pre-reset)
-- `docs/ROADMAP.md` — deleted (pre-reset)
-- `docs/HAXJOBS_AGENT_HARNESS.md` — stale (describes deleted legacy agent)
-- `docs/DATA_MODEL.md` — stale (describes deleted SQLite schema)
-- `docs/CV_BEST_PRACTICES.md` — current (CV design rules)
-
-### Stale files
-
-- `discussion/003-company-watch-vertical-slice.md` — paused domain modelling
-- `design-culmination.md`, `ui-redesign-prompt.md`, `GPT5_HANDOFF.md`, `PI_HANDOFF.md` (repo root) — old pre-reset notes
-- `temp.txt`, CSV files at repo root — research inputs
-- `onboarding-welcome.png` — old UI asset
-- `intake/` — old CV uploads
-- `packs/` — old generated packs
+- `docs/PRODUCT.md` — product direction
+- `docs/HAXJOBS.md` — this file
+- `docs/harness-primitives/` — agent harness teaching vault
+- `discussion/` — architecture decisions and research
 
 ## Verification
 

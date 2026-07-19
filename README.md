@@ -1,79 +1,40 @@
 # HaxJobs
 
-HaxJobs is a career agent built for one job: help the user get interviews and become more employable.
+A career agent platform. One job: get the user interviews and make them more employable.
 
-The product is moving toward a CLI-first design. The CLI, current web app, and future cloud worker must call the same Python actions. There should be one implementation of discovery, evaluation, decisions, packs, and profile work.
+Stage 0 is built. The greenfield runtime has four layers (model → agent_core → employment → interfaces), 27 tests, and one CLI command. Everything else rebuilds from scratch.
 
 ## Current state
 
-Working today:
+```
+src/haxjobs/
+├── model/          provider boundary (OpenAI adapter, fake client)
+├── agent_core/     domain-free runtime (events, artifacts, one-call loop)
+├── employment/     Hax identity, truth rules, fixtures, context assembly
+├── interfaces/     experiment CLI
+├── config.py       paths from haxjobs.toml
+└── cv_variants/    user CV variant templates (data, not code)
+```
 
-- CV upload and deterministic profile extraction
-- Agent-assisted onboarding questions
-- Greenhouse, Ashby, and Lever discovery
-- Job classification and fit evaluation
-- Reusable role-specific CV variants
-- Application pack generation
-- Apply, maybe, save, skip, and reject decisions
-- FastAPI endpoints and a React frontend
-- A small native agent loop with 11 registered tools
-
-Still missing:
-
-- First-class CLI commands for the product actions
-- Durable agent sessions, context assembly, and compaction
-- Career graph and proper multi-track memory
-- Employability roadmaps and learning progress
-- A durable cloud worker for continuous monitoring
-- Working outreach and learning actions
-
-## Run locally
+## Quick start
 
 ```bash
 uv sync
-uv run haxjobs start
-```
-
-The local app starts on `http://127.0.0.1:8241`.
-
-The current CLI also exposes the agent playground:
-
-```bash
-uv run haxjobs agent ask "Show me what you can do"
-uv run haxjobs agent ask --tools web_search,fetch_page "Find the careers page for Example Ltd"
-```
-
-These are playground commands, not the finished product CLI.
-
-## Development
-
-```bash
-./dev start
-./dev status
-./dev test
-```
-
-Full verification:
-
-```bash
-PYTHONPATH=src:. uv run python3 -m pytest -q tests/
-PYTHONPATH=src:. uv run python3 -m py_compile $(find src tests cron -name '*.py')
-bash -n cron/run_pipeline.sh
-cd frontend
-npx tsc --noEmit
-npm run lint -- --quiet
-npm run build
+uv run haxjobs experiment review-job --job 49 --fake --career-fixture tests/fixtures/job_review/career.json
+uv run haxjobs experiment review-job --job 49 --live
 ```
 
 ## Docs
 
-- [`docs/PRODUCT.md`](docs/PRODUCT.md): what HaxJobs is, what Hax does, how it works
-- [`docs/HAXJOBS.md`](docs/HAXJOBS.md): technical reality, concerns, and improvement areas
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): what the code does today
-- [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md): current storage model and known gaps
-- [`docs/ROADMAP.md`](docs/ROADMAP.md): build order
-- [`docs/harness-primitives/`](docs/harness-primitives/): plain-language agent-system notes
+- [`docs/PRODUCT.md`](docs/PRODUCT.md) — what HaxJobs is, Hax persona, product direction
+- [`docs/HAXJOBS.md`](docs/HAXJOBS.md) — technical reality, architecture, limitations
+- [`discussion/`](discussion/) — architecture decisions and research
+- [`docs/harness-primitives/`](docs/harness-primitives/) — agent harness teaching vault
 
-## Safety
+## Verification
 
-HaxJobs does not submit applications, send outreach, or connect with people without explicit user approval. Generated claims must be backed by the user's profile evidence. Runtime data, credentials, databases, packs, reports, and generated CV files stay out of git.
+```bash
+uv lock --check
+PYTHONPATH=src:. uv run python3 -m pytest -q tests/
+PYTHONPATH=src:. uv run python3 -m py_compile $(find src tests -name '*.py')
+```
