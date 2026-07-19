@@ -17,43 +17,50 @@
 - **Priority:** P1
 - **Effort:** L
 - **Risk:** MED
-- **Depends on:** approved clean design baseline and exact-model availability
+- **Depends on:** clean reconciled plan baseline, exact-model availability, configured product provider, and approved career fixture
 - **Category:** direction, architecture, tests
-- **Planned against design baseline:** commit `7da5786`, 2026-07-17
-- **Current status:** TODO — ready for execution
+- **Design baseline:** commit `7da5786`, 2026-07-17
+- **Execution baseline:** the clean HEAD containing this reconciled plan; record its SHA immediately before dispatch
+- **Current status:** TODO, ready for execution
 - **Index ownership:** the advisor/operator updates `plans/README.md`; the executor must not edit the index
 
 ## Baseline gate, run before dispatch
 
-The design baseline is committed at `7da5786`. The checkout is clean. DeepSeek v4 Pro and v4 Flash are confirmed available in the Pi subagent runtime.
+The immutable design baseline is `7da5786`. Reconciliation was committed later, so execution starts from the clean commit containing this plan rather than pretending HEAD is still the design baseline.
 
-Before dispatch, the advisor confirms:
-
-Run:
+Before dispatch, run:
 
 ```bash
-git rev-parse --short HEAD
-# expected: 7da5786
+test -z "$(git status --porcelain=v1 --untracked-files=all)"
+PLAN_BASE_SHA="$(git rev-parse HEAD)"
+printf 'execution baseline: %s\n' "$PLAN_BASE_SHA"
 
-Then verify no drift from the design baseline:
-
-```bash
-git diff --stat 7da5786..HEAD -- \
-  pyproject.toml uv.lock src/haxjobs/cli.py \
-  src/haxjobs/model src/haxjobs/agent_core \
-  src/haxjobs/employment src/haxjobs/interfaces \
-  tests discussion/001-hax-goal-and-run-lifecycle.md \
-  discussion/002-durable-work-and-continuity.md \
-  discussion/003-company-watch-vertical-slice.md \
-  discussion/004-minimal-job-native-harness.md \
-  discussion/005-implementation-stack-observability-and-verification.md \
-  discussion/006-pi-inspired-haxjobs-architecture.md \
-  discussion/research discussion/fixtures diagram docs/implementation-reports
+git diff --name-only 7da5786.."$PLAN_BASE_SHA"
 ```
 
-Expected: no output. Plan-file changes are intentionally outside this drift path.
+Expected tracked differences from the design baseline are limited to:
 
-**STOP:** do not dispatch if the checkout is dirty, the current commit is not `7da5786`, or either exact DeepSeek model is unavailable. Do not silently fall back to another model.
+```text
+discussion/006-pi-inspired-haxjobs-architecture.md
+discussion/README.md
+plans/001-stage0-observed-job-review.md
+plans/README.md
+```
+
+The plan files record reconciliation. The discussion files record the accepted four-layer, one-package decision. No product source, tests, fixture source, or runtime code may have drifted.
+
+Also confirm:
+
+```bash
+test -f state/experiments/fixtures/backend-career.json
+git check-ignore -q state/experiments/fixtures/backend-career.json
+test "$(stat -c '%a' state/experiments/fixtures/backend-career.json)" = "600"
+test "$(stat -c '%a' "$HOME/.haxjobs/haxjobs.toml")" = "600"
+```
+
+DeepSeek v4 Pro and v4 Flash are confirmed available through Pi. The separate HaxJobs configured provider has also completed an authenticated `deepseek-v4-flash` response using `max_retries=0`.
+
+**STOP:** do not dispatch if the checkout is dirty, the drift list contains anything else, the private fixture is absent or tracked, either file permission check fails, or either exact delivery model is unavailable. Do not silently fall back to another model.
 
 ## Why this matters
 
@@ -665,17 +672,19 @@ Expected: all Stage 0 tests pass.
 
 The Pro writer must not read raw CVs, intake files, `state/profile.json`, the old database, or private files from the main checkout.
 
-Before dispatch, the operator creates and approves `state/experiments/fixtures/backend-career.json` from the user's real evidence. Copy or mount only that bounded ignored fixture into the isolated run environment. It may contain:
+The operator has created and approved `state/experiments/fixtures/backend-career.json` as fixture version 2. Its canonical source is the hand-maintained `src/haxjobs/cv_profile.typed.json`. `src/haxjobs/cv_variants/registry.json` supplies role-view names only; repeated CV variants are not counted as independent evidence.
 
-- one backend career direction
-- relevant location and work-mode constraints
-- sponsorship requirement as user-stated truth
-- a small evidence list with source type, evidence strength, and opaque source references
-- fixture creation date and version
+The bounded fixture contains:
 
-It must exclude contact data, credential material, raw document text, immigration-document identifiers, unrelated career tracks, and private local paths.
+- one backend-focused career direction with related role families
+- current location, UK relocation preference, salary range, availability, and work-authorization statements from the typed profile
+- a small evidence list covering locked work history, education, and public project evidence
+- source versions and SHA-256 hashes
+- explicit claim and privacy guardrails
 
-The operator owns its truthfulness. The writer only validates and consumes it with the same Pydantic contract as the synthetic fixture. Create a SHA-256 hash and record only that hash and fixture version in tracked reports.
+It excludes name, email, phone, profile URLs, credential material, raw CV text, immigration-document identifiers, private local paths, and unrelated CV-generation rules. More ingrained personal detail is deliberately deferred to later profile enrichment.
+
+The operator owns its truthfulness. The writer validates and consumes the supplied fixture with the same Pydantic contract as the synthetic fixture. Record only its hash and version in tracked reports; never copy its contents into those reports.
 
 **Verify:**
 
@@ -966,7 +975,7 @@ Manual live validation is separate and recorded in local receipts plus the track
 
 All must hold:
 
-- [ ] Design baseline is `7da5786`, checkout is clean, and this plan is restamped.
+- [ ] Design baseline is `7da5786`; execution baseline is the clean commit containing this reconciled plan and its SHA is recorded before dispatch.
 - [ ] Orchestration metadata proves exact `deepseek-v4-pro` implemented all code and deliverables.
 - [ ] Orchestration metadata proves three independent `deepseek-v4-flash` reviews on every candidate round and three approvals on the same final SHA.
 - [ ] Pydantic v2 is a direct dependency and `uv lock --check` passes.

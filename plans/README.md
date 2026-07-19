@@ -16,21 +16,19 @@ Stage 2 and later plans stay unwritten until Stage 1 traces show the next repeat
 
 ## Current execution blockers
 
-None. The design baseline is committed at `7da5786`. DeepSeek v4 Pro and v4 Flash are both available in the Pi subagent runtime.
+None.
 
-### 1. ~~The design baseline is not committed~~ (resolved)
-
-Committed at `7da5786`. The checkout is clean.
-
-### 2. ~~Exact DeepSeek delivery models are not proved~~ (resolved)
-
-`deepseek-v4-pro` is the session model. `deepseek-v4-flash` confirmed via subagent model override. Health tasks return canonical model IDs from orchestration metadata.
+- Design baseline: `7da5786`
+- Execution baseline: the clean commit containing the reconciled plan; record its SHA before dispatch
+- Delivery models: `deepseek-v4-pro` and `deepseek-v4-flash` confirmed through Pi
+- Product provider: authenticated `deepseek-v4-flash` call confirmed with the HaxJobs configuration
+- Private fixture: `state/experiments/fixtures/backend-career.json` version 2, derived from `src/haxjobs/cv_profile.typed.json`, ignored by git, mode `0600`
 
 ## Execution order and status
 
 | Plan | Title | Priority | Effort | Depends on | Status | Final commit | Report SHA-256 |
 |---|---|---:|---:|---|---|---|---|
-| [001](001-stage0-observed-job-review.md) | Build the Stage 0 observed job review | P1 | L | clean checkout at `7da5786` | TODO | pending | pending |
+| [001](001-stage0-observed-job-review.md) | Build the Stage 0 observed job review | P1 | L | clean reconciled execution baseline | TODO | pending | pending |
 | [002](002-stage1-source-inspection-loop.md) | Add the Stage 1 bounded source-inspection loop | P1 | L | accepted Plan 001 plus Job 328 evidence gate | BLOCKED: Plan 001 not executed | pending | pending |
 
 The advisor/operator owns this table. Executors do not edit it.
