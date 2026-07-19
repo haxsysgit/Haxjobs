@@ -67,9 +67,9 @@ npm run build
 
 ## Docs
 
-- [`docs/PRODUCT_ARCHITECTURE.md`](docs/PRODUCT_ARCHITECTURE.md): product direction
+- [`docs/PRODUCT.md`](docs/PRODUCT.md): what HaxJobs is, what Hax does, how it works
+- [`docs/HAXJOBS.md`](docs/HAXJOBS.md): technical reality, concerns, and improvement areas
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): what the code does today
-- [`docs/HAXJOBS_AGENT_HARNESS.md`](docs/HAXJOBS_AGENT_HARNESS.md): agent loop and tool boundary
 - [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md): current storage model and known gaps
 - [`docs/ROADMAP.md`](docs/ROADMAP.md): build order
 - [`docs/harness-primitives/`](docs/harness-primitives/): plain-language agent-system notes

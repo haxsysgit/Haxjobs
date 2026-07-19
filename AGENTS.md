@@ -4,11 +4,11 @@ HaxJobs is a career agent focused on getting the user interviews and making them
 
 Read these before changing direction:
 
-1. `docs/PRODUCT_ARCHITECTURE.md`
-2. `docs/ARCHITECTURE.md`
-3. `docs/HAXJOBS_AGENT_HARNESS.md`
-4. `docs/DATA_MODEL.md`
-5. `docs/ROADMAP.md`
+1. `docs/PRODUCT.md` — what HaxJobs is and what Hax does
+2. `docs/HAXJOBS.md` — current tech, concerns, and improvement areas
+3. `docs/ARCHITECTURE.md` — what the code does today
+4. `docs/DATA_MODEL.md` — current storage and planned career memory
+5. `docs/ROADMAP.md` — build order
 
 ## Direction
 

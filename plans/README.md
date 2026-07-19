@@ -28,8 +28,8 @@ None.
 
 | Plan | Title | Priority | Effort | Depends on | Status | Final commit | Report SHA-256 |
 |---|---|---:|---:|---|---|---|---|
-| [001](001-stage0-observed-job-review.md) | Build the Stage 0 observed job review | P1 | L | clean reconciled execution baseline | TODO | pending | pending |
-| [002](002-stage1-source-inspection-loop.md) | Add the Stage 1 bounded source-inspection loop | P1 | L | accepted Plan 001 plus Job 328 evidence gate | BLOCKED: Plan 001 not executed | pending | pending |
+| [001](001-stage0-observed-job-review.md) | Build the Stage 0 observed job review | P1 | L | clean reconciled execution baseline | DONE | `e396fd2` | pending |
+| [002](002-stage1-source-inspection-loop.md) | Add the Stage 1 bounded source-inspection loop | P1 | L | accepted Plan 001 plus Job 328 evidence gate | TODO | pending | pending |
 
 The advisor/operator owns this table. Executors do not edit it.
 
