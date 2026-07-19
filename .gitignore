@@ -49,6 +49,7 @@ coverage/
 
 .claude/
 /.agents/
+/.pi-subagents/
 /shadcnzenith/
 /diagrams/
 /advisor-plans/

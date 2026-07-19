@@ -38,16 +38,23 @@ printf 'execution baseline: %s\n' "$PLAN_BASE_SHA"
 git diff --name-only 7da5786.."$PLAN_BASE_SHA"
 ```
 
-Expected tracked differences from the design baseline are limited to:
+Review the full list. Expected differences are limited to:
 
-```text
-discussion/006-pi-inspired-haxjobs-architecture.md
-discussion/README.md
-plans/001-stage0-observed-job-review.md
-plans/README.md
+- `.gitignore`, which now blocks local `.pi-subagents/` artifacts
+- deleted `.pi-subagents/artifacts/**` files accidentally tracked during planning
+- `discussion/006-pi-inspired-haxjobs-architecture.md`
+- `discussion/README.md`
+- `plans/001-stage0-observed-job-review.md`
+- `plans/README.md`
+
+The plan files record reconciliation. The discussion files record the accepted four-layer, one-package decision. No product source, tests, fixture source, runtime code, or other design note may have drifted.
+
+Confirm the accidental artifact tree contains deletions only:
+
+```bash
+non_deletions="$(git diff --name-only --diff-filter=ACMRTUXB "7da5786..$PLAN_BASE_SHA" -- .pi-subagents)"
+test -z "$non_deletions"
 ```
-
-The plan files record reconciliation. The discussion files record the accepted four-layer, one-package decision. No product source, tests, fixture source, or runtime code may have drifted.
 
 Also confirm:
 
