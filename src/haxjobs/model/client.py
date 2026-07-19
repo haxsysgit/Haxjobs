@@ -43,7 +43,11 @@ class OpenAIModelClient:
             return self._client
         raw = tomllib.loads(self._credentials_path.read_text())
         provider = raw.get("provider", {})
-        self._model = provider.get("model", "deepseek-chat")
+        if "model" not in provider:
+            raise ValueError(
+                f"provider config missing required 'model' key — check {self._credentials_path}"
+            )
+        self._model = provider["model"]
         self._provider = provider.get("name", "deepseek")
         self._client = AsyncOpenAI(
             api_key=provider["api_key"],
