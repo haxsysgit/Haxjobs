@@ -1,13 +1,13 @@
 {
   "$schema": "cv-profile-v1",
   "description": "Single source of truth for CV generation. Immutable fields are NEVER generated — only interpolated. This file is hand-maintained by Arinze. The LLM never edits it.",
-  "updated_at": "2026-06-08",
+  "updated_at": "2026-07-17",
   "application_defaults": {
-    "visa_status": "UK student visa (graduating 25 June 2026). Will immediately apply for Graduate visa route (2 years unrestricted work rights). No sponsorship required now or in foreseeable future.",
+    "visa_status": "Authorized to work in the UK. No sponsorship required now or in the foreseeable future.",
     "preferred_screening_time": "1pm to 6pm UK time, weekdays",
     "available_for_relocation_uk": true,
     "salary_range_gbp": "35000-45000",
-    "notice_period": "Immediate (available from 16 June 2026)"
+    "notice_period": "Immediate"
   },
   "locked_constants": {
     "headline": {
@@ -157,11 +157,13 @@
       "pypi_url": "https://pypi.org/project/haxaml",
       "tech_stack": ["Python", "MCP", "FRAME"],
       "public_evidence": [
-        "Governance runtime enforcing FRAME correctness contract — blocks AI-generated code until mechanical checks pass",
+        "Governance runtime enforcing the FRAME correctness contract before AI-generated code is accepted",
         "Five-stage pipeline: Admission → Scoped Context → Agent Work → Verification → Recording",
-        "MCP server so AI coding tools can read/write project memory during sessions",
+        "Five-part FRAME memory model: Facts, Rules, Acts, Map, and Expect",
+        "MCP server so AI coding tools can read and write project memory during sessions",
         "Local dashboard for inspecting agent session history and project state",
-        "Published on PyPI with documentation, setup flow, and adoption guides"
+        "Published on PyPI with documentation, setup flow, and adoption guides",
+        "CLI tooling for managing project memory files"
       ],
       "forbidden_claims": []
     },
@@ -192,23 +194,6 @@
         "LLM-powered",
         "AI features"
       ]
-    },
-    "haxaml": {
-      "display_name": "Haxaml",
-      "subtitle": "AI Agent Governance & Project Memory",
-      "repo_url": "https://github.com/haxsysgit/haxaml",
-      "repo_visibility": "public",
-      "include_url_in_cv": true,
-      "pypi_url": "https://pypi.org/project/haxaml",
-      "tech_stack": ["Python", "MCP", "FRAME"],
-      "public_evidence": [
-        "Five-part FRAME memory model (Facts, Rules, Acts, Map, Expect) for AI agent context",
-        "MCP server so AI coding tools can read/write project memory during sessions",
-        "Local dashboard for inspecting agent session history and project state",
-        "Published on PyPI with documentation, setup flow, and adoption guides",
-        "CLI tooling for managing project memory files"
-      ],
-      "forbidden_claims": []
     },
     "caseframe": {
       "display_name": "CaseFRAME",

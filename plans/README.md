@@ -22,7 +22,7 @@ None.
 - Execution baseline: the clean commit containing the reconciled plan; record its SHA before dispatch
 - Delivery models: `deepseek-v4-pro` and `deepseek-v4-flash` confirmed through Pi
 - Product provider: authenticated `deepseek-v4-flash` call confirmed with the HaxJobs configuration
-- Private fixture: `state/experiments/fixtures/backend-career.json` version 2, derived from `src/haxjobs/cv_profile.typed.json`, ignored by git, mode `0600`
+- Private fixture: `state/experiments/fixtures/backend-career.json` version 3, derived from the corrected `src/haxjobs/cv_profile.typed.json`, ignored by git, mode `0600`
 
 ## Execution order and status
 

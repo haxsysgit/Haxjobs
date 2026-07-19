@@ -46,8 +46,9 @@ Review the full list. Expected differences are limited to:
 - `discussion/README.md`
 - `plans/001-stage0-observed-job-review.md`
 - `plans/README.md`
+- `src/haxjobs/cv_profile.typed.json`, limited to deduplicating Haxaml evidence and refreshing dated application defaults
 
-The plan files record reconciliation. The discussion files record the accepted four-layer, one-package decision. No product source, tests, fixture source, runtime code, or other design note may have drifted.
+The plan files record reconciliation. The discussion files record the accepted four-layer, one-package decision. The typed profile correction is the approved source for the private fixture. No runtime source, tests, other fixture source, or other design note may have drifted.
 
 Confirm the accidental artifact tree contains deletions only:
 
@@ -679,7 +680,7 @@ Expected: all Stage 0 tests pass.
 
 The Pro writer must not read raw CVs, intake files, `state/profile.json`, the old database, or private files from the main checkout.
 
-The operator has created and approved `state/experiments/fixtures/backend-career.json` as fixture version 2. Its canonical source is the hand-maintained `src/haxjobs/cv_profile.typed.json`. `src/haxjobs/cv_variants/registry.json` supplies role-view names only; repeated CV variants are not counted as independent evidence.
+The operator has created and approved `state/experiments/fixtures/backend-career.json` as fixture version 3. Its canonical source is the hand-maintained `src/haxjobs/cv_profile.typed.json`. `src/haxjobs/cv_variants/registry.json` supplies role-view names only; repeated CV variants are not counted as independent evidence.
 
 The bounded fixture contains:
 
