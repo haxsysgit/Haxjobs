@@ -1,5 +1,5 @@
 ---
-status: partially decided (architecture shape and one-package accepted for Stage 0/1; coding/document/bash workspace boundaries remain open)
+status: implementation-boundary-accepted (Stage 0/1: four-layer model/agent-core/employment/interfaces in one Python package; document/coding/bash workspace boundaries remain open)
 created: 2026-07-17
 scope: Decide how HaxJobs should mirror Pi's architecture while adding employment-native tools and controlled coding capabilities
 builds_on:
@@ -588,7 +588,7 @@ Document/coding workspace and bash boundaries remain open for later stages.
 | Stage 1 tools | Decided | `inspect_job_source(job_ref)` only. |
 | Generic plugin system | Deferred | Native Python registration first. |
 | Session tree, compaction, sub-agents, skills | Deferred | Add from observed needs. |
-| Four-layer architecture for greenfield build | Decided | `haxjobs.model`, `haxjobs.agent_core`, `haxjobs.employment`, `haxjobs.interfaces` inside one package. Document/coding workspace boundaries remain open. |
+| Four-layer architecture for greenfield build | Accepted for Stage 0/1 implementation | `haxjobs.model`, `haxjobs.agent_core`, `haxjobs.employment`, `haxjobs.interfaces` inside one package. Pi's conceptual split accepted, one Python distribution for now, Stage 0/1 as the first experiment sequence. Document/coding workspace boundaries remain open. |
 
 # Converged technical reference
 

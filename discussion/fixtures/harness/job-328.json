@@ -1,0 +1,18 @@
+{
+  "fixture_id": "job-328",
+  "fixture_version": 1,
+  "job_ref": 328,
+  "observed_at": "2026-06-13T21:25:02+00:00",
+  "source_type": "linkedin_local",
+  "source_url": "https://uk.linkedin.com/jobs/view/software-engineer-mid-level-%E2%80%93-full-stack-at-oritain-4422048576",
+  "source_status": "lead_only",
+  "title": "Software Engineer (Mid-Level) - Full Stack",
+  "employer_name": null,
+  "location": "London, United Kingdom",
+  "description": "Software Engineer (Mid-Level) - Full Stack, https://uk.linkedin.com/jobs/view/software-engineer-mid-level-%E2%80%93-full-stack-at-oritain-4422048576",
+  "description_kind": "title_and_url_stub",
+  "content_complete": false,
+  "warnings": [
+    "No responsibilities, requirements, employer description, salary, closing date, work mode, or sponsorship wording are stored. Only a title and LinkedIn URL stub exist."
+  ]
+}

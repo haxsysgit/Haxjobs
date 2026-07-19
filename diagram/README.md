@@ -37,3 +37,11 @@ Shows the difference between:
 - the saved result and curated user update
 
 The main rule is: continuous work means remembering to return, not keeping one process alive forever.
+
+### 003. Stage 0 Observed Job Review
+
+- Source: [003-stage0-observed-job-review.drawio](003-stage0-observed-job-review.drawio)
+- Preview: [003-stage0-observed-job-review.png](003-stage0-observed-job-review.png)
+- Report: [../docs/implementation-reports/001-stage0-observed-job-review.md](../docs/implementation-reports/001-stage0-observed-job-review.md)
+
+The five-layer Stage 0 architecture: CLI experiment, employment context, no-tool agent core, model boundary, and local artifacts with human verification.

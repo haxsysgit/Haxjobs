@@ -1,0 +1,37 @@
+{
+  "fixture_id": "synthetic-test-career",
+  "fixture_version": 3,
+  "career_direction": "Python backend engineer and AI/ML product developer, targeting mid-level roles in London or remote UK. Building on applied experience with FastAPI, Django, PyTorch, Hugging Face, and agent-based applications.",
+  "hard_constraints": [
+    "Must be a software-engineering, backend, AI/ML, or data-engineering role",
+    "Must use Python as a primary or significant language",
+    "Must operate in London or accept remote UK candidates",
+    "Must not require existing security clearance"
+  ],
+  "evidence": [
+    {
+      "label": "Pharmax AI product",
+      "source": "user-reported work history",
+      "content": "Built and deployed a FastAPI microservice for drug interaction prediction using Hugging Face transformers. Trained and fine-tuned models. Integrated with existing Django monolith."
+    },
+    {
+      "label": "Vigilis platform",
+      "source": "user-reported work history",
+      "content": "Developed dashboard and alerting features in a Django and React application for a compliance SaaS product. Used PostgreSQL, Redis, and Celery."
+    },
+    {
+      "label": "Bucca Hut ordering system",
+      "source": "user-reported work history",
+      "content": "Contributed to a FastAPI ordering backend and React admin panel for a restaurant group. Handled Stripe payments and menu management."
+    },
+    {
+      "label": "Haxaml agent framework",
+      "source": "user-reported project",
+      "content": "Designed and built an LLM agent harness in Python with tool dispatch, context assembly, and structured output. Used Pydantic for message and event contracts."
+    }
+  ],
+  "preferred_locations": ["London", "Remote UK"],
+  "target_role_families": ["backend", "ai_engineer_llm", "platform_backend"],
+  "excluded_role_families": ["it_support", "frontend_only", "java_enterprise"],
+  "work_authorization": "UK right to work — no sponsorship required"
+}

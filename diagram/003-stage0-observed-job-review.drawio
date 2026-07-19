@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="drawio" version="30.2.4">
+  <diagram name="Stage 0 Observed Job Review">
+    <mxGraphModel dx="1200" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="700" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="Stage 0: Observed Job Review" style="text;html=1;strokeColor=none;fillColor=none;fontSize=22;fontStyle=1;fontFamily=Helvetica;align=center;" vertex="1" parent="1">
+          <mxGeometry x="350" y="15" width="500" height="35" as="geometry" />
+        </mxCell>
+
+        <!-- Group 1: CLI Experiment -->
+        <mxCell id="g1" value="CLI Experiment" style="swimlane;html=1;startSize=30;rounded=1;fillColor=#dae8fc;swimlaneFillColor=#ffffff;strokeColor=#6c8ebf;strokeWidth=2;fontStyle=1;fontSize=13;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="40" y="70" width="200" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="g1a" value="haxjobs experiment&lt;br&gt;review-job" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e3f2fd;strokeColor=#6c8ebf;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="g1">
+          <mxGeometry x="15" y="45" width="170" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="g1b" value="--fake | --live" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e3f2fd;strokeColor=#6c8ebf;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="g1">
+          <mxGeometry x="15" y="105" width="170" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="g1c" value="prints answer,&lt;br&gt;run ID, artifact path" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e3f2fd;strokeColor=#6c8ebf;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="g1">
+          <mxGeometry x="15" y="150" width="170" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Group 2: Employment Context -->
+        <mxCell id="g2" value="Employment Context" style="swimlane;html=1;startSize=30;rounded=1;fillColor=#e1d5e7;swimlaneFillColor=#ffffff;strokeColor=#9673a6;strokeWidth=2;fontStyle=1;fontSize=13;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="280" y="70" width="220" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="g2a" value="Career fixture&lt;br&gt;+ job fixture" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f3e8f7;strokeColor=#9673a6;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="g2">
+          <mxGeometry x="15" y="45" width="190" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="g2b" value="Hax identity&lt;br&gt;+ truth rules" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f3e8f7;strokeColor=#9673a6;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="g2">
+          <mxGeometry x="15" y="100" width="190" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="g2c" value="4 context blocks&lt;br&gt;in fixed order" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f3e8f7;strokeColor=#9673a6;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="g2">
+          <mxGeometry x="15" y="150" width="190" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Group 3: No-Tool Agent Core -->
+        <mxCell id="g3" value="Agent Core" style="swimlane;html=1;startSize=30;rounded=1;fillColor=#fff2cc;swimlaneFillColor=#ffffff;strokeColor=#d6b656;strokeWidth=2;fontStyle=1;fontSize=13;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="540" y="70" width="220" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="g3a" value="RunRequest → RunResult" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff9e6;strokeColor=#d6b656;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="g3">
+          <mxGeometry x="15" y="45" width="190" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="g3b" value="&lt;b&gt;No tools in Stage 0&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;fontFamily=Helvetica;" vertex="1" parent="g3">
+          <mxGeometry x="20" y="95" width="180" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="g3c" value="Exactly one&lt;br&gt;model call" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff9e6;strokeColor=#d6b656;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="g3">
+          <mxGeometry x="15" y="145" width="190" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Group 4: Model Boundary -->
+        <mxCell id="g4" value="Model Boundary" style="swimlane;html=1;startSize=30;rounded=1;fillColor=#f5f5f5;swimlaneFillColor=#ffffff;strokeColor=#666666;strokeWidth=2;fontStyle=1;fontSize=13;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="800" y="70" width="200" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="g4a" value="ModelClient protocol" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9f9f9;strokeColor=#666666;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="g4">
+          <mxGeometry x="15" y="45" width="170" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="g4b" value="FakeModelClient&lt;br&gt;(deterministic)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f5e9;strokeColor=#4caf50;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="g4">
+          <mxGeometry x="15" y="95" width="170" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="g4c" value="OpenAIModelClient&lt;br&gt;(max_retries=0)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9f9f9;strokeColor=#666666;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="g4">
+          <mxGeometry x="15" y="145" width="170" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Group 5: Local Artifacts / Verification -->
+        <mxCell id="g5" value="Local Artifacts / Verification" style="swimlane;html=1;startSize=30;rounded=1;fillColor=#d5e8d4;swimlaneFillColor=#ffffff;strokeColor=#82b366;strokeWidth=2;fontStyle=1;fontSize=13;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="280" y="350" width="520" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="g5a" value="events.jsonl | manifest.json | context.json" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f5e9;strokeColor=#82b366;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="g5">
+          <mxGeometry x="20" y="45" width="230" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="g5b" value="transcript.json | result.json | review.md" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f5e9;strokeColor=#82b366;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="g5">
+          <mxGeometry x="270" y="45" width="230" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="g5c" value="dir 0700, files 0600&lt;br&gt;human review rubric" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f5e9;strokeColor=#82b366;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="g5">
+          <mxGeometry x="140" y="100" width="240" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Arrows between groups -->
+        <mxCell id="a1" style="edgeStyle=elbowEdgeStyle;rounded=1;strokeWidth=3;strokeColor=#6c8ebf;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="g1" target="g2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a2" style="edgeStyle=elbowEdgeStyle;rounded=1;strokeWidth=3;strokeColor=#9673a6;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="g2" target="g3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a3" style="edgeStyle=elbowEdgeStyle;rounded=1;strokeWidth=3;strokeColor=#d6b656;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="g3" target="g4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a4" style="edgeStyle=elbowEdgeStyle;rounded=1;strokeWidth=3;strokeColor=#d6b656;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="g3" target="g5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Verification note -->
+        <mxCell id="vnote" value="26 deterministic tests | no network | no haxjobs.agent imports" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f5e9;strokeColor=#82b366;strokeWidth=2;fontSize=11;fontFamily=Helvetica;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="340" y="560" width="400" height="30" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

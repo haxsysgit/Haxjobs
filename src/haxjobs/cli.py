@@ -2,6 +2,8 @@
 import argparse
 import sys
 
+from haxjobs.interfaces.experiment_cli import cmd_experiment_review_job
+
 
 def _csv(value: str | None) -> list[str] | None:
     if not value:
@@ -166,6 +168,23 @@ def main(argv: list[str] | None = None):
         prog="haxjobs", description="Self-hosted job search platform"
     )
     sub = parser.add_subparsers(dest="command")
+
+    # ── experiment sub-group ──
+    experiment = sub.add_parser("experiment", help="Greenfield experiments")
+    exp_sub = experiment.add_subparsers(dest="experiment_command")
+
+    review_job = exp_sub.add_parser("review-job", help="Run the Stage 0 job review")
+    review_job.add_argument("--job", type=int, required=True, choices=[49, 328],
+                            help="Job fixture ref (49 or 328)")
+    review_job.add_argument("--fake", action="store_true",
+                            help="Use fake model — no network")
+    review_job.add_argument("--live", action="store_true",
+                            help="Use configured provider (requires private career fixture)")
+    review_job.add_argument("--career-fixture", default=None,
+                            help="Path to career fixture JSON")
+    review_job.add_argument("--artifacts-dir", default="state/harness-runs",
+                            help="Artifact output directory")
+    review_job.set_defaults(func=cmd_experiment_review_job)
 
     start = sub.add_parser("start", help="Start the server")
     start.add_argument("--host", default="127.0.0.1")
