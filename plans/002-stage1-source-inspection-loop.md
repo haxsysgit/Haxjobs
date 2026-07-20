@@ -25,19 +25,19 @@
 
 Do not execute this plan from commit `5423187`.
 
-Before dispatch, the advisor must replace `<PLAN_001_SHA>` with the immutable commit accepted after Plan 001's final Flash review. The advisor must also mark Plan 001 DONE and record that commit plus the report hash in `plans/README.md`. Reconcile this plan's expected files and symbols against the live Plan 001 implementation before restamping.
+Before dispatch, the advisor must replace `a28d5ba` with the immutable commit accepted after Plan 001's final Flash review. The advisor must also mark Plan 001 DONE and record that commit plus the report hash in `plans/README.md`. Reconcile this plan's expected files and symbols against the live Plan 001 implementation before restamping.
 
 Run:
 
 ```bash
 test -z "$(git status --porcelain=v1 --untracked-files=all)"
-test -f docs/implementation-reports/001-stage0-observed-job-review.md
+test -f deliverables/001-stage0/report.md
 test -f diagram/003-stage0-observed-job-review.drawio
 test -f diagram/003-stage0-observed-job-review.png
 rg -n "Job 49|Job 328|source inspection|human_review_status" \
-  docs/implementation-reports/001-stage0-observed-job-review.md
-rg -n "001.*DONE.*<PLAN_001_SHA>" plans/README.md
-test "$(git rev-parse --short=7 HEAD)" = "$(printf '%s' '<PLAN_001_SHA>' | cut -c1-7)"
+  deliverables/001-stage0/report.md
+rg -n "001.*DONE.*a28d5ba" plans/README.md
+test "$(git rev-parse --short=7 HEAD)" = "$(printf '%s' 'a28d5ba' | cut -c1-7)"
 ```
 
 Expected:
@@ -46,13 +46,13 @@ Expected:
 - Plan 001 report and diagram exist
 - report shows Job 49 passed its control rubric
 - report shows Job 328 lacked enough source evidence and named source inspection as the next useful check
-- `plans/README.md` records Plan 001 as DONE with `<PLAN_001_SHA>` and the external advisor verdict
-- current commit equals `<PLAN_001_SHA>`
+- `plans/README.md` records Plan 001 as DONE with `a28d5ba` and the external advisor verdict
+- current commit equals `a28d5ba`
 
 Then run:
 
 ```bash
-git diff --stat <PLAN_001_SHA>..HEAD -- \
+git diff --stat a28d5ba..HEAD -- \
   src/haxjobs/model src/haxjobs/agent_core \
   src/haxjobs/employment src/haxjobs/interfaces \
   src/haxjobs/cli.py tests discussion/fixtures/harness \
@@ -234,14 +234,11 @@ Local ignored outputs:
 
 ### Out of scope
 
-Do not modify:
+Do not modify: (resolved by greenfield wipe at a28d5ba)
 
-- `src/haxjobs/agent/`
-- current product tools, database, discovery scrapers, evaluators, packs, routes, or services
 - provider credential setup UI or config writer
 - application, outreach, messaging, approval, or submission code
 - frontend code
-- old database or profile schema
 - company-watch records or schedulers
 - document or project workspace tools
 - any generic `read`, `grep`, `find`, `ls`, `write`, `edit`, or `bash` tool
@@ -819,7 +816,7 @@ if PYTHONPATH=src:. uv run haxjobs experiment review-job \
   --job 328 --fake --inspect-source --max-model-steps 6; then exit 1; fi
 git check-ignore state/harness-runs
 git diff --check
-git diff --name-only <PLAN_001_SHA>..HEAD
+git diff --name-only a28d5ba..HEAD
 git status --short
 ```
 
