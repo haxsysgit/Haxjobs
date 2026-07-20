@@ -1,0 +1,102 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Career Graph Schema">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- Person -->
+        <mxCell id="person" value="Person" style="swimlane;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="200" height="120"/>
+        </mxCell>
+        <mxCell id="p-id" value="person_id (PK)" style="text;" vertex="1" parent="person"><mxGeometry y="30" width="200" height="20"/></mxCell>
+        <mxCell id="p-name" value="name" style="text;" vertex="1" parent="person"><mxGeometry y="50" width="200" height="20"/></mxCell>
+        <mxCell id="p-loc" value="location" style="text;" vertex="1" parent="person"><mxGeometry y="70" width="200" height="20"/></mxCell>
+        <mxCell id="p-wa" value="work_authorization" style="text;" vertex="1" parent="person"><mxGeometry y="90" width="200" height="20"/></mxCell>
+
+        <!-- CareerTrack -->
+        <mxCell id="track" value="CareerTrack" style="swimlane;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="320" y="40" width="200" height="110"/>
+        </mxCell>
+        <mxCell id="t-id" value="track_id (PK)" style="text;" vertex="1" parent="track"><mxGeometry y="30" width="200" height="20"/></mxCell>
+        <mxCell id="t-pid" value="person_id (FK→Person)" style="text;" vertex="1" parent="track"><mxGeometry y="50" width="200" height="20"/></mxCell>
+        <mxCell id="t-name" value="name" style="text;" vertex="1" parent="track"><mxGeometry y="70" width="200" height="20"/></mxCell>
+        <mxCell id="t-roles" value="target_role_families" style="text;" vertex="1" parent="track"><mxGeometry y="90" width="200" height="20"/></mxCell>
+
+        <!-- Skill -->
+        <mxCell id="skill" value="Skill" style="swimlane;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="320" y="220" width="200" height="110"/>
+        </mxCell>
+        <mxCell id="s-id" value="skill_id (PK)" style="text;" vertex="1" parent="skill"><mxGeometry y="30" width="200" height="20"/></mxCell>
+        <mxCell id="s-tid" value="track_id (FK→CareerTrack)" style="text;" vertex="1" parent="skill"><mxGeometry y="50" width="200" height="20"/></mxCell>
+        <mxCell id="s-name" value="name" style="text;" vertex="1" parent="skill"><mxGeometry y="70" width="200" height="20"/></mxCell>
+        <mxCell id="s-pid" value="parent_skill_id (FK→Skill)" style="text;" vertex="1" parent="skill"><mxGeometry y="90" width="200" height="20"/></mxCell>
+
+        <!-- EvidenceItem -->
+        <mxCell id="evidence" value="EvidenceItem" style="swimlane;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="240" width="200" height="110"/>
+        </mxCell>
+        <mxCell id="e-id" value="evidence_id (PK)" style="text;" vertex="1" parent="evidence"><mxGeometry y="30" width="200" height="20"/></mxCell>
+        <mxCell id="e-label" value="label" style="text;" vertex="1" parent="evidence"><mxGeometry y="50" width="200" height="20"/></mxCell>
+        <mxCell id="e-source" value="source" style="text;" vertex="1" parent="evidence"><mxGeometry y="70" width="200" height="20"/></mxCell>
+        <mxCell id="e-verified" value="verified_at" style="text;" vertex="1" parent="evidence"><mxGeometry y="90" width="200" height="20"/></mxCell>
+
+        <!-- SkillEvidence (join) -->
+        <mxCell id="se" value="SkillEvidence" style="swimlane;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="320" y="390" width="200" height="70"/>
+        </mxCell>
+        <mxCell id="se-sk" value="skill_id (FK→Skill)" style="text;" vertex="1" parent="se"><mxGeometry y="30" width="200" height="20"/></mxCell>
+        <mxCell id="se-ev" value="evidence_id (FK→Evidence)" style="text;" vertex="1" parent="se"><mxGeometry y="50" width="200" height="20"/></mxCell>
+
+        <!-- SkillGap -->
+        <mxCell id="gap" value="SkillGap" style="swimlane;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="600" y="220" width="200" height="110"/>
+        </mxCell>
+        <mxCell id="g-id" value="gap_id (PK)" style="text;" vertex="1" parent="gap"><mxGeometry y="30" width="200" height="20"/></mxCell>
+        <mxCell id="g-tid" value="track_id (FK→CareerTrack)" style="text;" vertex="1" parent="gap"><mxGeometry y="50" width="200" height="20"/></mxCell>
+        <mxCell id="g-name" value="skill_name" style="text;" vertex="1" parent="gap"><mxGeometry y="70" width="200" height="20"/></mxCell>
+        <mxCell id="g-prof" value="target_proficiency" style="text;" vertex="1" parent="gap"><mxGeometry y="90" width="200" height="20"/></mxCell>
+
+        <!-- HardConstraint -->
+        <mxCell id="hc" value="HardConstraint" style="swimlane;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="600" y="40" width="200" height="90"/>
+        </mxCell>
+        <mxCell id="hc-id" value="constraint_id (PK)" style="text;" vertex="1" parent="hc"><mxGeometry y="30" width="200" height="20"/></mxCell>
+        <mxCell id="hc-tid" value="track_id (FK→CareerTrack)" style="text;" vertex="1" parent="hc"><mxGeometry y="50" width="200" height="20"/></mxCell>
+        <mxCell id="hc-text" value="constraint_text" style="text;" vertex="1" parent="hc"><mxGeometry y="70" width="200" height="20"/></mxCell>
+
+        <!-- Preference -->
+        <mxCell id="pref" value="Preference" style="swimlane;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="600" y="390" width="200" height="110"/>
+        </mxCell>
+        <mxCell id="pref-id" value="preference_id (PK)" style="text;" vertex="1" parent="pref"><mxGeometry y="30" width="200" height="20"/></mxCell>
+        <mxCell id="pref-tid" value="track_id (FK→CareerTrack)" style="text;" vertex="1" parent="pref"><mxGeometry y="50" width="200" height="20"/></mxCell>
+        <mxCell id="pref-key" value="key" style="text;" vertex="1" parent="pref"><mxGeometry y="70" width="200" height="20"/></mxCell>
+        <mxCell id="pref-val" value="value | weight" style="text;" vertex="1" parent="pref"><mxGeometry y="90" width="200" height="20"/></mxCell>
+
+        <!-- Edges -->
+        <mxCell edge="1" parent="1" source="person" target="track" style="edgeStyle=orthogonalEdgeStyle;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell edge="1" parent="1" source="track" target="skill" style="edgeStyle=orthogonalEdgeStyle;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell edge="1" parent="1" source="skill" target="se" style="edgeStyle=orthogonalEdgeStyle;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell edge="1" parent="1" source="evidence" target="se" style="edgeStyle=orthogonalEdgeStyle;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell edge="1" parent="1" source="track" target="gap" style="edgeStyle=orthogonalEdgeStyle;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell edge="1" parent="1" source="track" target="hc" style="edgeStyle=orthogonalEdgeStyle;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell edge="1" parent="1" source="track" target="pref" style="edgeStyle=orthogonalEdgeStyle;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

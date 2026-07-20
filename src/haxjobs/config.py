@@ -42,6 +42,9 @@ PROFILE_PATH = Path(_env("HAXJOBS_PROFILE", str(STATE_DIR / "profile.json")))
 CV_PROFILE_PATH = Path(_env("HAXJOBS_CV_PROFILE",
     str(HAXJOBS_HOME / _cfg["paths"]["profile"]["cv_typed"])))
 
+# ── Career graph ──
+CAREER_DB_PATH = Path(_env("HAXJOBS_CAREER_DB", str(STATE_DIR / "career_graph.db")))
+
 # ── Registry ──
 REGISTRY_PATH = HAXJOBS_HOME / _cfg["paths"]["registry"]["cv_variants"]
 

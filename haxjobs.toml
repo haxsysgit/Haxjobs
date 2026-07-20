@@ -1,10 +1,12 @@
-# HaxJobs configuration
-# Canonical defaults. Environment variables override any value.
-# Edit this file, never hardcode paths in scripts.
+# HaxJobs provider configuration
+[provider]
+name = 'deepseek'
+api_key = 'sk-5e832e57ece94c87a37debfe9f3c5684'
+base_url = 'https://api.deepseek.com'
+model = 'deepseek-v4-flash'
 
 [paths]
-# Root — everything derives from here
-home = "/home/hax/haxjobs"
+home = "."
 
 [paths.state]
 dir = "state"
@@ -12,249 +14,22 @@ db = "haxjobs.db"
 log = "pipeline.log"
 
 [paths.runtime]
-intake = "intake"
 packs = "packs"
 reports = "reports"
 outreach = "outreach"
 
 [paths.profile]
 dir = "profile"
-local = "arinze_profile.local.json"
-cv_typed = "cv_profile.typed.json"
+cv_typed = "src/haxjobs/cv_profile.typed.json"
 
 [paths.registry]
-cv_variants = "cv_variants/registry.json"
+cv_variants = "src/haxjobs/cv_variants"
 
 [paths.dashboard]
 dir = "dashboard"
 
 [email]
-imap_host = "imap.gmail.com"
+imap_host = "imap.example.com"
 imap_port = 993
-address = "elenasuluarinze@gmail.com"
-allowed_senders = ["elenasuluarinze@gmail.com", "pentacker@gmail.com"]
-
-# ── User profile (drives evaluation prompts and pack generation) ──
-
-[user]
-name = "Arinze Elenasulu"
-location = "London, UK"
-headline = "Python Backend Engineer | AI & Automation"
-
-# ── Job search preferences (drives discovery filtering and classification) ──
-
-[job_search]
-preferred_locations = ["London", "Remote UK", "Manchester", "Leeds"]
-work_modes = ["remote", "hybrid", "onsite"]
-employment_types = ["full_time", "contract", "graduate"]
-target_levels = ["graduate", "junior", "mid"]
-excluded_levels = ["senior", "lead", "principal", "staff", "manager"]
-blacklisted_companies = []
-blacklisted_keywords = ["sales", "marketing", "legal", "finance", "admin"]
-lenient_filtering = true
-
-[discovery]
-# Public ATS boards to scrape. Keep these small and profile-aligned; the
-# scrapers filter titles before inserting, so we don't mass-ingest giant boards.
-greenhouse_companies = [
-    "monzo",
-]
-ashby_companies = [
-    "posthog",
-    "incident",
-    "paddle",
-    "sequence",
-    "faculty",
-]
-lever_companies = [
-    "zopa",
-]
-profile_search_terms = [
-    "backend",
-    "back end",
-    "software engineer",
-    "software developer",
-    "python",
-    "ai engineer",
-    "machine learning engineer",
-    "ml engineer",
-    "platform engineer",
-    "infrastructure engineer",
-    "data engineer",
-    "automation engineer",
-    "full stack",
-    "fullstack",
-    "junior",
-    "graduate",
-]
-profile_excluded_terms = [
-    "account",
-    "sales",
-    "marketer",
-    "customer success",
-    "support specialist",
-    "people",
-    "talent",
-    "recruiter",
-    "designer",
-]
-
-# ── Role families (drives classification — matches CV variants 1:1) ──
-
-[[roles]]
-id = "backend_python"
-label = "Python Backend Engineer"
-cv_variant = "backend_python"
-priority = 1
-titles = [
-    "Python Developer", "Python Engineer",
-    "Backend Developer", "Backend Engineer", "Back End Developer", "Back End Engineer",
-    "FastAPI Developer", "API Engineer", "Django Developer", "Flask Developer",
-    "Software Engineer, Backend", "Backend Software Engineer",
-]
-positive_keywords = [
-    "python", "fastapi", "django", "flask", "backend", "back end",
-    "api", "rest", "sqlalchemy", "postgresql", "postgres", "redis",
-    "asyncio", "pydantic", "microservices",
-]
-negative_keywords = [
-    "ios", "android", "frontend only", "front-end only",
-    "manager", "director", "principal", "staff", "embedded", "c++",
-]
-
-[[roles]]
-id = "fullstack_python_react"
-label = "Full Stack Python and React Developer"
-cv_variant = "fullstack_python_react"
-priority = 2
-titles = [
-    "Full Stack Developer", "Full Stack Engineer", "Fullstack Engineer", "Fullstack Developer",
-    "Python React Developer", "React Python Developer", "Web Engineer",
-    "Software Engineer, Full Stack",
-]
-positive_keywords = [
-    "full stack", "fullstack", "react", "typescript", "javascript",
-    "frontend", "front end", "web engineer", "vite", "tanstack",
-    "node", "python", "api",
-]
-negative_keywords = [
-    "mobile only", "ios", "android", "manager", "designer",
-]
-
-[[roles]]
-id = "ai_engineer_llm"
-label = "AI Engineer and LLM Engineer"
-cv_variant = "ai_engineer_llm"
-priority = 3
-titles = [
-    "AI Engineer", "Junior AI Engineer", "Graduate AI Engineer",
-    "LLM Engineer", "Applied AI Engineer", "Machine Learning Engineer", "ML Engineer",
-    "Forward Deployed AI Engineer",
-]
-positive_keywords = [
-    "ai", "artificial intelligence", "llm", "rag", "machine learning", "ml",
-    "openai", "langchain", "agents", "agentic", "evaluation", "ragas",
-    "embeddings", "vector", "prompt engineering", "applied ai",
-]
-negative_keywords = [
-    "research scientist", "phd required", "manager", "director", "principal", "staff",
-]
-
-[[roles]]
-id = "ai_automation_agents"
-label = "AI Automation and Agent Tooling Developer"
-cv_variant = "ai_automation_agents"
-priority = 4
-titles = [
-    "AI Tooling Developer", "Automation Engineer", "Agent Designer",
-    "Agentic Platform Engineer", "AI Automation Developer",
-    "Workflow Automation Developer", "Integrations Developer",
-]
-positive_keywords = [
-    "automation", "agent", "agentic", "workflow", "tooling",
-    "integration", "integrations", "internal tools", "business systems",
-    "orchestration", "playwright", "browser automation", "zapier", "n8n", "ai ops",
-]
-negative_keywords = [
-    "manager", "sales", "customer success only", "support only",
-]
-
-[[roles]]
-id = "junior_software"
-label = "Junior or Graduate Software Engineer"
-cv_variant = "junior_software"
-priority = 5
-titles = [
-    "Junior Software Engineer", "Graduate Software Engineer",
-    "Software Developer", "Software Engineer", "Junior Developer", "Graduate Developer",
-]
-positive_keywords = [
-    "junior", "graduate", "entry level", "entry-level", "apprenticeship",
-    "intern", "internship", "early career", "software engineer",
-    "software developer", "developer",
-]
-negative_keywords = [
-    "senior", "staff", "principal", "lead", "manager", "head of", "director",
-]
-
-[[roles]]
-id = "data_python"
-label = "Python Data and Analytics Developer"
-cv_variant = "data_python"
-priority = 6
-titles = [
-    "Data Engineer", "Data Developer", "Python Data Developer",
-    "Data Mining Developer", "Analytics Engineer", "Tableau Developer",
-]
-positive_keywords = [
-    "data", "analytics", "data mining", "tableau", "python", "sql",
-    "etl", "elt", "warehouse", "pipeline", "pandas", "postgresql", "snowflake",
-]
-negative_keywords = [
-    "manager", "lead", "senior manager", "principal", "bi only",
-]
-
-[[roles]]
-id = "platform_backend"
-label = "Platform and Cloud Backend Engineer"
-cv_variant = "platform_backend"
-priority = 7
-titles = [
-    "Platform Engineer", "Backend Infrastructure Engineer",
-    "Cloud Backend Developer", "Production Engineer", "Reliability Engineer",
-    "Infrastructure Engineer",
-]
-positive_keywords = [
-    "platform", "infrastructure", "cloud", "aws", "azure", "gcp",
-    "docker", "kubernetes", "devops", "reliability", "sre",
-    "observability", "deployment", "ci/cd", "terraform", "production engineer",
-]
-negative_keywords = [
-    "network engineer only", "helpdesk", "support only", "manager", "director",
-]
-
-# ── Evaluation (pluggable agent and level thresholds) ──
-
-[evaluation]
-agent = "hermes"
-timeout_seconds = 180
-
-[evaluation.levels]
-auto_pack = [1, 2]
-manual_review = [3]
-skip = [4]
-
-# ── Delivery (how cycle reports reach Arinze) ──
-
-[delivery]
-channels = ["email"]
-report_format = "markdown"
-
-# ── Cron (automated pipeline scheduling) ──
-
-[cron]
-# Jobs to evaluate per pipeline tick (cron fires every 30 min)
-evaluate_batch = 1
-# How often discovery runs (minutes). 720 = 12 hours.
-# Cron skips discovery if the last run was within this interval.
-discovery_interval_minutes = 720
+address = "user@example.com"
+allowed_senders = []
