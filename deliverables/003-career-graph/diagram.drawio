@@ -1,100 +1,63 @@
-<mxfile host="app.diagrams.net">
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="drawio" version="30.2.4">
   <diagram name="Career Graph Schema">
-    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="900" pageHeight="550">
       <root>
-        <mxCell id="0"/>
-        <mxCell id="1" parent="0"/>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
 
-        <!-- Person -->
-        <mxCell id="person" value="Person" style="swimlane;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
-          <mxGeometry x="40" y="40" width="200" height="120"/>
+        <mxCell id="person" value="Person&#xa;(person_id PK)" style="swimlane;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;fontStyle=1;startSize=28;" vertex="1" parent="1">
+          <mxGeometry x="30" y="30" width="160" height="70" as="geometry" />
         </mxCell>
-        <mxCell id="p-id" value="person_id (PK)" style="text;" vertex="1" parent="person"><mxGeometry y="30" width="200" height="20"/></mxCell>
-        <mxCell id="p-name" value="name" style="text;" vertex="1" parent="person"><mxGeometry y="50" width="200" height="20"/></mxCell>
-        <mxCell id="p-loc" value="location" style="text;" vertex="1" parent="person"><mxGeometry y="70" width="200" height="20"/></mxCell>
-        <mxCell id="p-wa" value="work_authorization" style="text;" vertex="1" parent="person"><mxGeometry y="90" width="200" height="20"/></mxCell>
 
-        <!-- CareerTrack -->
-        <mxCell id="track" value="CareerTrack" style="swimlane;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
-          <mxGeometry x="320" y="40" width="200" height="110"/>
+        <mxCell id="track" value="CareerTrack&#xa;(track_id PK, person_id FK)" style="swimlane;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;fontStyle=1;startSize=28;" vertex="1" parent="1">
+          <mxGeometry x="260" y="30" width="200" height="70" as="geometry" />
         </mxCell>
-        <mxCell id="t-id" value="track_id (PK)" style="text;" vertex="1" parent="track"><mxGeometry y="30" width="200" height="20"/></mxCell>
-        <mxCell id="t-pid" value="person_id (FK→Person)" style="text;" vertex="1" parent="track"><mxGeometry y="50" width="200" height="20"/></mxCell>
-        <mxCell id="t-name" value="name" style="text;" vertex="1" parent="track"><mxGeometry y="70" width="200" height="20"/></mxCell>
-        <mxCell id="t-roles" value="target_role_families" style="text;" vertex="1" parent="track"><mxGeometry y="90" width="200" height="20"/></mxCell>
 
-        <!-- Skill -->
-        <mxCell id="skill" value="Skill" style="swimlane;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
-          <mxGeometry x="320" y="220" width="200" height="110"/>
+        <mxCell id="skill" value="Skill&#xa;(skill_id PK, track_id FK, parent_skill_id FK→self)" style="swimlane;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontStyle=1;startSize=28;" vertex="1" parent="1">
+          <mxGeometry x="260" y="200" width="220" height="70" as="geometry" />
         </mxCell>
-        <mxCell id="s-id" value="skill_id (PK)" style="text;" vertex="1" parent="skill"><mxGeometry y="30" width="200" height="20"/></mxCell>
-        <mxCell id="s-tid" value="track_id (FK→CareerTrack)" style="text;" vertex="1" parent="skill"><mxGeometry y="50" width="200" height="20"/></mxCell>
-        <mxCell id="s-name" value="name" style="text;" vertex="1" parent="skill"><mxGeometry y="70" width="200" height="20"/></mxCell>
-        <mxCell id="s-pid" value="parent_skill_id (FK→Skill)" style="text;" vertex="1" parent="skill"><mxGeometry y="90" width="200" height="20"/></mxCell>
 
-        <!-- EvidenceItem -->
-        <mxCell id="evidence" value="EvidenceItem" style="swimlane;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
-          <mxGeometry x="40" y="240" width="200" height="110"/>
+        <mxCell id="evidence" value="EvidenceItem&#xa;(evidence_id PK)" style="swimlane;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;fontStyle=1;startSize=28;" vertex="1" parent="1">
+          <mxGeometry x="30" y="200" width="160" height="70" as="geometry" />
         </mxCell>
-        <mxCell id="e-id" value="evidence_id (PK)" style="text;" vertex="1" parent="evidence"><mxGeometry y="30" width="200" height="20"/></mxCell>
-        <mxCell id="e-label" value="label" style="text;" vertex="1" parent="evidence"><mxGeometry y="50" width="200" height="20"/></mxCell>
-        <mxCell id="e-source" value="source" style="text;" vertex="1" parent="evidence"><mxGeometry y="70" width="200" height="20"/></mxCell>
-        <mxCell id="e-verified" value="verified_at" style="text;" vertex="1" parent="evidence"><mxGeometry y="90" width="200" height="20"/></mxCell>
 
-        <!-- SkillEvidence (join) -->
-        <mxCell id="se" value="SkillEvidence" style="swimlane;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
-          <mxGeometry x="320" y="390" width="200" height="70"/>
+        <mxCell id="se" value="SkillEvidence (join)&#xa;(skill_id FK, evidence_id FK)" style="swimlane;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;fontStyle=1;startSize=28;" vertex="1" parent="1">
+          <mxGeometry x="260" y="370" width="220" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="se-sk" value="skill_id (FK→Skill)" style="text;" vertex="1" parent="se"><mxGeometry y="30" width="200" height="20"/></mxCell>
-        <mxCell id="se-ev" value="evidence_id (FK→Evidence)" style="text;" vertex="1" parent="se"><mxGeometry y="50" width="200" height="20"/></mxCell>
 
-        <!-- SkillGap -->
-        <mxCell id="gap" value="SkillGap" style="swimlane;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
-          <mxGeometry x="600" y="220" width="200" height="110"/>
+        <mxCell id="gap" value="SkillGap&#xa;(gap_id PK, track_id FK)" style="swimlane;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;fontStyle=1;startSize=28;" vertex="1" parent="1">
+          <mxGeometry x="560" y="200" width="200" height="70" as="geometry" />
         </mxCell>
-        <mxCell id="g-id" value="gap_id (PK)" style="text;" vertex="1" parent="gap"><mxGeometry y="30" width="200" height="20"/></mxCell>
-        <mxCell id="g-tid" value="track_id (FK→CareerTrack)" style="text;" vertex="1" parent="gap"><mxGeometry y="50" width="200" height="20"/></mxCell>
-        <mxCell id="g-name" value="skill_name" style="text;" vertex="1" parent="gap"><mxGeometry y="70" width="200" height="20"/></mxCell>
-        <mxCell id="g-prof" value="target_proficiency" style="text;" vertex="1" parent="gap"><mxGeometry y="90" width="200" height="20"/></mxCell>
 
-        <!-- HardConstraint -->
-        <mxCell id="hc" value="HardConstraint" style="swimlane;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
-          <mxGeometry x="600" y="40" width="200" height="90"/>
+        <mxCell id="hc" value="HardConstraint&#xa;(constraint_id PK, track_id FK)" style="swimlane;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;fontStyle=1;startSize=28;" vertex="1" parent="1">
+          <mxGeometry x="560" y="30" width="220" height="70" as="geometry" />
         </mxCell>
-        <mxCell id="hc-id" value="constraint_id (PK)" style="text;" vertex="1" parent="hc"><mxGeometry y="30" width="200" height="20"/></mxCell>
-        <mxCell id="hc-tid" value="track_id (FK→CareerTrack)" style="text;" vertex="1" parent="hc"><mxGeometry y="50" width="200" height="20"/></mxCell>
-        <mxCell id="hc-text" value="constraint_text" style="text;" vertex="1" parent="hc"><mxGeometry y="70" width="200" height="20"/></mxCell>
 
-        <!-- Preference -->
-        <mxCell id="pref" value="Preference" style="swimlane;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
-          <mxGeometry x="600" y="390" width="200" height="110"/>
+        <mxCell id="pref" value="Preference&#xa;(preference_id PK, track_id FK)" style="swimlane;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;fontStyle=1;startSize=28;" vertex="1" parent="1">
+          <mxGeometry x="560" y="370" width="220" height="70" as="geometry" />
         </mxCell>
-        <mxCell id="pref-id" value="preference_id (PK)" style="text;" vertex="1" parent="pref"><mxGeometry y="30" width="200" height="20"/></mxCell>
-        <mxCell id="pref-tid" value="track_id (FK→CareerTrack)" style="text;" vertex="1" parent="pref"><mxGeometry y="50" width="200" height="20"/></mxCell>
-        <mxCell id="pref-key" value="key" style="text;" vertex="1" parent="pref"><mxGeometry y="70" width="200" height="20"/></mxCell>
-        <mxCell id="pref-val" value="value | weight" style="text;" vertex="1" parent="pref"><mxGeometry y="90" width="200" height="20"/></mxCell>
 
-        <!-- Edges -->
-        <mxCell edge="1" parent="1" source="person" target="track" style="edgeStyle=orthogonalEdgeStyle;">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell edge="1" parent="1" source="person" target="track" style="edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;strokeWidth=2;strokeColor=#6c8ebf;" value="1:N">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell edge="1" parent="1" source="track" target="skill" style="edgeStyle=orthogonalEdgeStyle;">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell edge="1" parent="1" source="track" target="skill" style="edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;strokeWidth=2;strokeColor=#d6b656;" value="1:N">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell edge="1" parent="1" source="skill" target="se" style="edgeStyle=orthogonalEdgeStyle;">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell edge="1" parent="1" source="skill" target="se" style="edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;strokeWidth=2;strokeColor=#b85450;" value="N:M">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell edge="1" parent="1" source="evidence" target="se" style="edgeStyle=orthogonalEdgeStyle;">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell edge="1" parent="1" source="evidence" target="se" style="edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;strokeWidth=2;strokeColor=#b85450;" value="N:M">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell edge="1" parent="1" source="track" target="gap" style="edgeStyle=orthogonalEdgeStyle;">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell edge="1" parent="1" source="track" target="gap" style="edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;strokeWidth=2;strokeColor=#d79b00;" value="1:N">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell edge="1" parent="1" source="track" target="hc" style="edgeStyle=orthogonalEdgeStyle;">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell edge="1" parent="1" source="track" target="hc" style="edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;strokeWidth=2;strokeColor=#82b366;" value="1:N">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell edge="1" parent="1" source="track" target="pref" style="edgeStyle=orthogonalEdgeStyle;">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell edge="1" parent="1" source="track" target="pref" style="edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;strokeWidth=2;strokeColor=#82b366;" value="1:N">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>

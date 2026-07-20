@@ -6,7 +6,6 @@ import json
 import os
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -33,7 +32,7 @@ def _valid_career_fixture() -> CareerFixture:
 
 
 def _temp_db() -> str:
-    return str(Path(tempfile.mkdtemp()) / "test.db")
+    return ":memory:"
 
 
 # ══════════════════════════════════════════════
