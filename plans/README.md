@@ -29,7 +29,7 @@ None.
 | Plan | Title | Priority | Effort | Depends on | Status | Final commit | Report SHA-256 |
 |---|---|---:|---:|---|---|---|---|
 | [001](001-stage0-observed-job-review.md) | Build the Stage 0 observed job review | P1 | L | clean reconciled execution baseline | DONE | `e396fd2` | pending |
-| [002](002-stage1-source-inspection-loop.md) | Stage 1 bounded source-inspection loop | P1 | L | Plan 001 DONE at a28d5ba, reconciled for wipe | TODO | pending | pending |
+| [002](002-stage1-source-inspection-loop.md) | Stage 1 bounded source-inspection loop | P1 | L | Plan 001 DONE at a28d5ba | DONE | `6d64624` | deliverables/002-stage1/ |
 
 The advisor/operator owns this table. Executors do not edit it.
 
