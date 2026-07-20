@@ -3,8 +3,8 @@
 # Edit this file, never hardcode paths in scripts.
 
 [paths]
-# Root — everything derives from here
-home = "/home/hax/haxjobs"
+# Root — everything derives from here. Relative "." resolves to the repo root at runtime.
+home = "."
 
 [paths.state]
 dir = "state"
