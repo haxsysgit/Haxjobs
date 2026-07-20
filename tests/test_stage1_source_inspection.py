@@ -360,6 +360,69 @@ async def test_handler_exception_returns_safe_failure():
     assert "RuntimeError" not in json.dumps(result)
 
 
+# ── Test 9b: output model validated after handler ──
+
+@pytest.mark.asyncio
+async def test_output_model_validated_after_handler():
+    """Handler result that does not match output_model returns invalid_output."""
+    registry = ToolRegistry()
+    from haxjobs.employment.review_job import _InspectJobSourceInput, _InspectJobSourceOutput
+
+    async def handler(input_obj):
+        return {"wrong_field": 123}
+
+    registry.register(
+        ToolDefinition(
+            name="inspect_job_source",
+            description="test",
+            input_model=_InspectJobSourceInput,
+            output_model=_InspectJobSourceOutput,
+            handler=handler,
+        )
+    )
+
+    result = await registry.dispatch(
+        name="inspect_job_source",
+        arguments='{"job_ref": "328"}',
+        active_names=("inspect_job_source",),
+    )
+
+    assert result["ok"] is False
+    assert result["code"] == "invalid_output"
+
+
+# ── Test 9c: runtime loop survives handler_error without NameError ──
+
+@pytest.mark.asyncio
+async def test_runtime_loop_survives_handler_error():
+    """Full runtime loop does not crash on handler_error (regression for undefined 'code')."""
+    job = _valid_job328()
+
+    # Use a fake fetcher whose fetch() raises
+    broken = _FakeFetcher([RuntimeError("boom")])
+    registry, active = _build_registry(job, broken)
+
+    fake = FakeModelClient(responses=[
+        _tool_call_response(
+            calls=[_tc("c1", "inspect_job_source", '{"job_ref": "328"}')],
+        ),
+        _text_response("source failed, uncertain"),
+    ])
+    request = RunRequest(system_message="sys", user_message="usr")
+
+    result = await run_stage0(
+        request,
+        model=fake,
+        tool_registry=registry,
+        active_tools=active,
+        max_model_steps=3,
+    )
+
+    assert result.exit_reason == RunExitReason.COMPLETED
+    assert result.artifact_dir is not None
+    # The handler error was caught, no NameError crash
+
+
 # ── Test 10: truncated tool calls produce failure results ──
 
 @pytest.mark.asyncio

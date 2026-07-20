@@ -143,19 +143,18 @@ person's tracks, constraints, and evidence
 
 ## What is built
 
-Working today:
+Stage 0 and Stage 1 of the greenfield runtime:
 
-- CV upload and deterministic profile extraction
-- Agent-assisted onboarding questions
-- Greenhouse, Ashby, and Lever job discovery
-- Job fit evaluation against profile evidence
-- Reusable role-specific CV variants
-- Application pack generation with verified claims
-- Apply, maybe, save, skip, and reject decision recording
-- A React frontend with Dashboard, Workspace, Recon, Jobs, Packs, Config, and You pages
-- A native agent loop with 11 registered tools
-- FastAPI endpoints for all product actions
-- Stage 0 greenfield agent harness (one model call, no tools, redacted local traces)
+- Provider boundary with OpenAI-compatible adapter and fake client (DeepSeek v4 flash configured)
+- Domain-free agent core with one-call and bounded tool-loop execution
+- Explicit tool registry with active-set enforcement, Pydantic argument validation, output-model validation, and structured error envelopes
+- Employment layer with Hax identity, truth rules, career fixtures, job fixtures, and context assembly
+- One employment tool: `inspect_job_source(job_ref)` — HTTPS-only, no redirects, public-DNS check, bounded bytes/text, untrusted-content labelling
+- `haxjobs experiment review-job` CLI with `--fake`/`--live`/`--inspect-source` modes
+- Redacted local JSONL traces, 0700 run dirs, 0600 artifact files
+- 62 tests across Stage 0 and Stage 1, zero network in pytest
+
+Everything from the legacy product (web app, discovery scrapers, evaluation pipeline, pack builder, decisions engine, cron scripts, FastAPI routes, React frontend) was deleted at the greenfield wipe. These rebuild from scratch on the new runtime.
 
 ## What is planned
 

@@ -459,7 +459,8 @@ async def run_stage0(
                         )
                         observer_errors.extend(obs_errs)
                     else:
-                        if result.get("code") not in (
+                        code = result.get("code", "handler_error")
+                        if code not in (
                             "unknown_tool", "tool_inactive", "malformed_arguments", "invalid_arguments"
                         ):
                             tool_starts += 1

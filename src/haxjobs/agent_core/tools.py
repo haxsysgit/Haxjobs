@@ -119,6 +119,17 @@ class ToolRegistry:
                 "error": "tool execution failed",
             }
 
+        # Validate output against the declared output model
+        try:
+            tool.output_model.model_validate(result)
+        except Exception as exc:
+            logger.warning("tool output validation failed for %s: %s", name, exc)
+            return {
+                "ok": False,
+                "code": "invalid_output",
+                "error": "tool output does not match declared schema",
+            }
+
         # Truncate if needed
         result_str = json.dumps(result, default=str)
         if len(result_str) > tool.max_result_chars:
