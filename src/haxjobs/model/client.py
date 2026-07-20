@@ -14,6 +14,8 @@ from haxjobs.model.types import (
     ModelRequest,
     ModelResponse,
     ModelUsage,
+    ToolCall,
+    ToolSchema,
 )
 
 
@@ -59,12 +61,28 @@ class OpenAIModelClient:
     async def complete(self, request: ModelRequest) -> ModelResponse | ModelFailure:
         try:
             client = self._ensure_client()
-            response = await client.chat.completions.create(
-                model=self._model,
-                messages=[m.model_dump() for m in request.messages],
-                max_tokens=request.max_tokens,
-            )
+            kwargs: dict = {
+                "model": self._model,
+                "messages": [
+                    m.model_dump(exclude_none=True) for m in request.messages
+                ],
+                "max_tokens": request.max_tokens,
+            }
+            if request.tools:
+                kwargs["tools"] = [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": t.name,
+                            "description": t.description,
+                            "parameters": t.input_schema,
+                        },
+                    }
+                    for t in request.tools
+                ]
+            response = await client.chat.completions.create(**kwargs)
             choice = response.choices[0]
+            finish_reason = choice.finish_reason or "stop"
             usage = None
             if response.usage:
                 usage = ModelUsage(
@@ -72,9 +90,28 @@ class OpenAIModelClient:
                     completion_tokens=response.usage.completion_tokens,
                     total_tokens=response.usage.total_tokens,
                 )
+            # Map provider tool calls to internal ToolCall
+            tool_calls: list[ToolCall] = []
+            tool_calls_unsafe = False
+            msg = choice.message
+            if msg.tool_calls:
+                # If the response was cut off by output length and included tool calls,
+                # mark them unsafe for execution
+                if finish_reason == "length":
+                    tool_calls_unsafe = True
+                for tc in msg.tool_calls:
+                    tool_calls.append(
+                        ToolCall(
+                            call_id=tc.id,
+                            name=tc.function.name,
+                            arguments=tc.function.arguments,
+                        )
+                    )
             return ModelResponse(
-                text=choice.message.content or "",
-                finish_reason=choice.finish_reason or "stop",
+                text=msg.content or "",
+                finish_reason=finish_reason,
+                tool_calls=tool_calls,
+                tool_calls_unsafe=tool_calls_unsafe,
                 usage=usage,
                 model=self._model,
                 provider=self._provider,

@@ -6,6 +6,7 @@
   "source_type": "linkedin_local",
   "source_url": "https://uk.linkedin.com/jobs/view/software-engineer-mid-level-%E2%80%93-full-stack-at-oritain-4422048576",
   "source_status": "lead_only",
+  "allowed_source_hosts": ["uk.linkedin.com"],
   "title": "Software Engineer (Mid-Level) - Full Stack",
   "employer_name": null,
   "location": "London, United Kingdom",

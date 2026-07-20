@@ -1,13 +1,18 @@
-"""Job-review instruction strings and context assembly.
+"""Job-review instruction strings, context assembly, and Stage 1 tool registration.
 
 Two stable instruction strings: Hax identity/truth rules, and the job-review flow.
-The employment host assembles context blocks and creates a frozen RunRequest.
+The employment host assembles context blocks, creates a frozen RunRequest,
+and builds the Stage 1 tool registry.
 """
 
 from __future__ import annotations
 
+from pydantic import BaseModel, Field
+
+from haxjobs.agent_core.tools import ToolDefinition, ToolRegistry
 from haxjobs.agent_core.types import RunRequest
 from haxjobs.employment.fixtures import CareerFixture, JobFixture
+from haxjobs.employment.job_source import JobSourceFetcher, SourceObservation
 
 _HAX_IDENTITY = """You are Hax, a career agent. You help people get interviews and become more employable.
 You speak naturally, like a helpful colleague who knows the market — not a recruiter, not an automated scorer, not an academic reviewer.
@@ -119,3 +124,64 @@ def assemble_job_review_request(
     if run_id:
         kwargs["run_id"] = run_id
     return RunRequest(**kwargs)
+
+
+class _InspectJobSourceInput(BaseModel):
+    """Tool input: the job_ref string from the context."""
+
+    job_ref: str = Field(description="The job reference number from the context, e.g. '328'")
+
+
+class _InspectJobSourceOutput(BaseModel):
+    """Tool output: the source observation."""
+
+    ok: bool
+    job_ref: int
+    status: str
+    visible_text: str = ""
+    error: str = ""
+
+
+_INSPECT_SOURCE_DESCRIPTION = """Retrieve the current page content for a job from its trusted source URL.
+
+Use this tool ONLY when the supplied job evidence is insufficient or may be stale.
+
+Arguments:
+  job_ref: the job reference number (a string like "328")
+
+Returns:
+  Current source evidence (visible text, status, warnings), NOT a fit judgement.
+  A blocked, unavailable, or missing source is a valid and useful result.
+  Never infer facts beyond what the tool actually returns."""
+
+
+def build_stage1_tools(
+    job_fixture: JobFixture,
+    fetcher: JobSourceFetcher,
+) -> tuple[ToolRegistry, tuple[str, ...]]:
+    """Build a ToolRegistry containing exactly inspect_job_source for Stage 1.
+
+    Returns (registry, active_tools) where active_tools is exactly ("inspect_job_source",).
+    """
+    registry = ToolRegistry()
+    allowed_hosts = tuple(job_fixture.allowed_source_hosts)
+
+    async def handler(input_obj: _InspectJobSourceInput) -> dict:
+        observation = await fetcher.fetch(
+            job_ref=input_obj.job_ref,
+            job_fixture=job_fixture,
+            allowed_hosts=allowed_hosts,
+        )
+        return observation.model_dump()
+
+    registry.register(
+        ToolDefinition(
+            name="inspect_job_source",
+            description=_INSPECT_SOURCE_DESCRIPTION,
+            input_model=_InspectJobSourceInput,
+            output_model=_InspectJobSourceOutput,
+            handler=handler,
+        )
+    )
+
+    return registry, ("inspect_job_source",)

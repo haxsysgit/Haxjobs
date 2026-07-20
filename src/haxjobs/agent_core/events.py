@@ -19,6 +19,10 @@ class RunEventType(str, Enum):
     MODEL_STARTED = "model_started"
     MODEL_COMPLETED = "model_completed"
     MODEL_FAILED = "model_failed"
+    TOOL_REQUESTED = "tool_requested"
+    TOOL_STARTED = "tool_started"
+    TOOL_COMPLETED = "tool_completed"
+    TOOL_FAILED = "tool_failed"
     RUN_COMPLETED = "run_completed"
     RUN_FAILED = "run_failed"
 
@@ -35,6 +39,11 @@ class RunEvent(BaseModel):
     duration_seconds: float = 0.0
     error: str = ""
     error_category: str = ""
+    call_id: str = ""
+    tool_name: str = ""
+    tool_status: str = ""
+    tool_duration_ms: float = 0.0
+    model_step: int = 0
 
     model_config = {"extra": "forbid"}
 

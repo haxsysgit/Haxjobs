@@ -6,6 +6,8 @@ from haxjobs.model.types import (
     ModelResponse,
     ModelUsage,
     ModelFailure,
+    ToolCall,
+    ToolSchema,
 )
 from haxjobs.model.client import ModelClient
 from haxjobs.model.fake import FakeModelClient
@@ -18,4 +20,6 @@ __all__ = [
     "ModelResponse",
     "ModelUsage",
     "FakeModelClient",
+    "ToolCall",
+    "ToolSchema",
 ]

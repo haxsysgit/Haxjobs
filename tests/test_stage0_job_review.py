@@ -206,19 +206,23 @@ def test_openai_client_raises_on_missing_model_key():
         config_path.unlink()
 
 
-# ── test 8: zero tools ──
+# ── test 8: zero tools by default ──
 
 @pytest.mark.asyncio
-async def test_stage0_has_zero_tools():
-    """Stage 0 runtime must not reference tool registries, tool dispatch, or tool schemas."""
-    import inspect
-    from haxjobs.agent_core.runtime import run_stage0
+async def test_stage0_has_zero_tools_by_default():
+    """Stage 0 runtime: when called without active_tools, behaves like single-call, no-tool path."""
+    fake = FakeModelClient(responses=[_fake_response("ok")])
+    request = RunRequest(system_message="sys", user_message="usr")
+    result = await run_stage0(request, model=fake)
 
-    source = inspect.getsource(run_stage0)
-    # The function has no tool_registry, tool_dispatch, tool_schema, or tool_call references
-    forbidden = ["tool_registry", "tool_dispatch", "tool_schema", "tool_call"]
-    for term in forbidden:
-        assert term not in source.lower(), f"found {term} in run_stage0 source"
+    # Stage 0: one call, no tool schemas in request, zero tool starts
+    assert result.exit_reason == RunExitReason.COMPLETED
+    assert fake.call_count == 1
+    assert result.tool_starts == 0
+    assert result.model_steps == 1
+    # Verify no tool schemas were sent to the model
+    assert len(fake.requests) == 1
+    assert fake.requests[0].tools == []
 
 
 # ── test 9: event order ──

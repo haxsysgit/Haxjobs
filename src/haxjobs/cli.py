@@ -15,17 +15,22 @@ def main(argv: list[str] | None = None):
     experiment = sub.add_parser("experiment", help="Greenfield experiments")
     exp_sub = experiment.add_subparsers(dest="experiment_command")
 
-    review_job = exp_sub.add_parser("review-job", help="Run the Stage 0 job review")
+    review_job = exp_sub.add_parser("review-job", help="Run the job review experiment (Stage 0/1)")
     review_job.add_argument("--job", type=int, required=True, choices=[49, 328],
                             help="Job fixture ref (49 or 328)")
-    review_job.add_argument("--fake", action="store_true",
-                            help="Use fake model — no network")
-    review_job.add_argument("--live", action="store_true",
-                            help="Use configured provider (requires private career fixture)")
+    mode = review_job.add_mutually_exclusive_group()
+    mode.add_argument("--fake", action="store_true",
+                      help="Use fake model — no network")
+    mode.add_argument("--live", action="store_true",
+                      help="Use configured provider (requires private career fixture)")
     review_job.add_argument("--career-fixture", default=None,
                             help="Path to career fixture JSON")
     review_job.add_argument("--artifacts-dir", default="state/harness-runs",
                             help="Artifact output directory")
+    review_job.add_argument("--inspect-source", action="store_true",
+                            help="Activate Stage 1 source inspection tool")
+    review_job.add_argument("--max-model-steps", type=int, default=3,
+                            help="Maximum model calls (1-5, default 3)")
     review_job.set_defaults(func=cmd_experiment_review_job)
 
     args = parser.parse_args(argv)

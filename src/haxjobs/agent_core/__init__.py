@@ -14,6 +14,7 @@ from haxjobs.agent_core.events import (
 )
 from haxjobs.agent_core.artifacts import ArtifactWriter
 from haxjobs.agent_core.runtime import run_stage0
+from haxjobs.agent_core.tools import ToolDefinition, ToolRegistry
 
 __all__ = [
     "AgentMessage",
@@ -24,6 +25,8 @@ __all__ = [
     "RunObserver",
     "RunRequest",
     "RunResult",
+    "ToolDefinition",
+    "ToolRegistry",
     "redact_event_for_jsonl",
     "run_stage0",
 ]

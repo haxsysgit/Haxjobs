@@ -55,6 +55,7 @@ class JobFixture(BaseModel):
     source_type: str
     source_url: str
     source_status: str
+    allowed_source_hosts: list[str] = Field(default_factory=list)
     title: str
     employer_name: str | None
     location: str

@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="drawio" version="30.2.4">
+  <diagram name="Stage 1 Source Inspection Loop">
+    <mxGraphModel dx="1400" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="800" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="Stage 1: Bounded Source-Inspection Loop" style="text;html=1;strokeColor=none;fillColor=none;fontSize=22;fontStyle=1;fontFamily=Helvetica;align=center;" vertex="1" parent="1">
+          <mxGeometry x="350" y="10" width="600" height="35" as="geometry" />
+        </mxCell>
+
+        <!-- Group 1: CLI Experiment -->
+        <mxCell id="g1" value="CLI Experiment" style="swimlane;html=1;startSize=30;rounded=1;fillColor=#dae8fc;swimlaneFillColor=#ffffff;strokeColor=#6c8ebf;strokeWidth=2;fontStyle=1;fontSize=13;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="30" y="60" width="190" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="g1a" value="haxjobs experiment review-job" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e3f2fd;strokeColor=#6c8ebf;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="g1">
+          <mxGeometry x="10" y="40" width="170" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="g1b" value="--inspect-source (Stage 1)&lt;br&gt;--max-model-steps 1-5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e3f2fd;strokeColor=#6c8ebf;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="g1">
+          <mxGeometry x="10" y="90" width="170" height="40" as="geometry" />
+        </mxCell>
+
+
+        <!-- Group 2: Employment Context -->
+        <mxCell id="g2" value="Employment Context" style="swimlane;html=1;startSize=30;rounded=1;fillColor=#e1d5e7;swimlaneFillColor=#ffffff;strokeColor=#9673a6;strokeWidth=2;fontStyle=1;fontSize=13;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="250" y="60" width="210" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="g2a" value="Career + Job fixtures" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f3e8f7;strokeColor=#9673a6;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="g2">
+          <mxGeometry x="10" y="40" width="190" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="g2b" value="build_stage1_tools() →&lt;br&gt;1 active tool: inspect_job_source" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f3e8f7;strokeColor=#9673a6;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="g2">
+          <mxGeometry x="10" y="85" width="190" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="g2c" value="trusted source_url +&lt;br&gt;allowed_source_hosts" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f3e8f7;strokeColor=#9673a6;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="g2">
+          <mxGeometry x="10" y="130" width="190" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Group 3: Bounded Agent Core -->
+        <mxCell id="g3" value="Bounded Agent Core" style="swimlane;html=1;startSize=30;rounded=1;fillColor=#fff2cc;swimlaneFillColor=#ffffff;strokeColor=#d6b656;strokeWidth=2;fontStyle=1;fontSize=13;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="490" y="60" width="220" height="240" as="geometry" />
+        </mxCell>
+        <mxCell id="g3a" value="run_stage0(request, model,&lt;br&gt;tool_registry, active_tools)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff9e6;strokeColor=#d6b656;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="g3">
+          <mxGeometry x="10" y="40" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="g3b" value="&lt;b&gt;Active tools empty → Stage 0&lt;/b&gt;&lt;br&gt;(one call, zero tools)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="g3">
+          <mxGeometry x="10" y="90" width="200" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="g3c" value="&lt;b&gt;Active tools non-empty → loop:&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff9e6;strokeColor=#d6b656;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="g3">
+          <mxGeometry x="10" y="135" width="200" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="g3d" value="call model → tool calls?&lt;br&gt;→ dispatch (active-set check)&lt;br&gt;→ append results → loop&lt;br&gt;max 3 steps, 1 handler start" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff9e6;strokeColor=#d6b656;fontSize=9;fontFamily=Helvetica;align=left;" vertex="1" parent="g3">
+          <mxGeometry x="10" y="165" width="200" height="65" as="geometry" />
+        </mxCell>
+
+        <!-- Group 4: Model Boundary -->
+        <mxCell id="g4" value="Model Boundary" style="swimlane;html=1;startSize=30;rounded=1;fillColor=#f5f5f5;swimlaneFillColor=#ffffff;strokeColor=#666666;strokeWidth=2;fontStyle=1;fontSize=13;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="30" y="250" width="190" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="g4a" value="ModelClient.complete()" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9f9f9;strokeColor=#666666;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="g4">
+          <mxGeometry x="10" y="40" width="170" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="g4b" value="ToolSchema → provider format&lt;br&gt;ToolCall ← provider response" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9f9f9;strokeColor=#666666;fontSize=9;fontFamily=Helvetica;" vertex="1" parent="g4">
+          <mxGeometry x="10" y="80" width="170" height="35" as="geometry" />
+        </mxCell>
+
+        <!-- Group 5: Active Tool Registry -->
+        <mxCell id="g5" value="Active Tool Registry" style="swimlane;html=1;startSize=30;rounded=1;fillColor=#ffe6cc;swimlaneFillColor=#ffffff;strokeColor=#d79b00;strokeWidth=2;fontStyle=1;fontSize=13;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="250" y="250" width="210" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="g5a" value="ToolRegistry — explicit" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2e6;strokeColor=#d79b00;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="g5">
+          <mxGeometry x="10" y="40" width="190" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="g5b" value="dispatch(name, args, active_set)&lt;br&gt;→ ok/error envelope&lt;br&gt;1 handler start budget" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2e6;strokeColor=#d79b00;fontSize=9;fontFamily=Helvetica;" vertex="1" parent="g5">
+          <mxGeometry x="10" y="75" width="190" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Group 6: Trusted Source Retrieval -->
+        <mxCell id="g6" value="Trusted Source Retrieval" style="swimlane;html=1;startSize=30;rounded=1;fillColor=#f8cecc;swimlaneFillColor=#ffffff;strokeColor=#b85450;strokeWidth=2;fontStyle=1;fontSize=13;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="490" y="340" width="220" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="g6a" value="JobSourceFetcher.fetch()" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fce4e4;strokeColor=#b85450;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="g6">
+          <mxGeometry x="10" y="40" width="200" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="g6b" value="job_ref → fixture source_url&lt;br&gt;(model cannot supply URL)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fce4e4;strokeColor=#b85450;fontSize=9;fontFamily=Helvetica;" vertex="1" parent="g6">
+          <mxGeometry x="10" y="80" width="200" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="g6c" value="HTTPS only, no redirects&lt;br&gt;public DNS, 512KB/12K char cap&lt;br&gt;html.parser text extraction" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fce4e4;strokeColor=#b85450;fontSize=9;fontFamily=Helvetica;" vertex="1" parent="g6">
+          <mxGeometry x="10" y="115" width="200" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Group 7: Local Evidence &amp; Verification -->
+        <mxCell id="g7" value="Local Evidence &amp; Verification" style="swimlane;html=1;startSize=30;rounded=1;fillColor=#d5e8d4;swimlaneFillColor=#ffffff;strokeColor=#82b366;strokeWidth=2;fontStyle=1;fontSize=13;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="30" y="420" width="680" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="g7a" value="6 receipt files (0700/0600) — events.jsonl (no tool args/content), manifest.json, context.json, transcript.json (full tool results), result.json, review.md" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f5e9;strokeColor=#82b366;fontSize=9;fontFamily=Helvetica;" vertex="1" parent="g7">
+          <mxGeometry x="10" y="35" width="660" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="g7b" value="SourceObservation — safe for model. Fetched content = untrusted tool output, never system prompt." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f5e9;strokeColor=#82b366;fontSize=10;fontFamily=Helvetica;" vertex="1" parent="g7">
+          <mxGeometry x="10" y="70" width="660" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Arrows -->
+        <mxCell id="a1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=3;strokeColor=#6c8ebf;endArrow=block;" edge="1" parent="1" source="g1" target="g2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=3;strokeColor=#9673a6;endArrow=block;" edge="1" parent="1" source="g2" target="g3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=3;strokeColor=#d6b656;endArrow=block;" edge="1" parent="1" source="g3" target="g4">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="600" y="240" />
+              <mxPoint x="125" y="240" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="a4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=3;strokeColor=#d6b656;endArrow=block;" edge="1" parent="1" source="g3" target="g5">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="600" y="240" />
+              <mxPoint x="355" y="240" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="a5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=3;strokeColor=#d79b00;endArrow=block;" edge="1" parent="1" source="g5" target="g6">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="355" y="340" />
+              <mxPoint x="600" y="340" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="a6" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=3;strokeColor=#b85450;endArrow=block;" edge="1" parent="1" source="g6" target="g3">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="600" y="500" />
+              <mxPoint x="600" y="500" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="a7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=3;strokeColor=#d6b656;endArrow=block;" edge="1" parent="1" source="g3" target="g7">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="600" y="450" />
+              <mxPoint x="370" y="450" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

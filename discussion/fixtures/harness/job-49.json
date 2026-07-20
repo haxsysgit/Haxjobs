@@ -6,6 +6,7 @@
   "source_type": "ashby_api",
   "source_url": "https://jobs.ashbyhq.com/trainline/f240bf55-4683-4284-8222-e7cd0c227d70/application",
   "source_status": "direct",
+  "allowed_source_hosts": ["jobs.ashbyhq.com"],
   "title": "IT Support Analyst",
   "employer_name": "Trainline",
   "location": "London",

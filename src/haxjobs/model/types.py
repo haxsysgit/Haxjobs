@@ -3,11 +3,29 @@
 from pydantic import BaseModel, Field
 
 
+class ToolSchema(BaseModel):
+    """Provider-neutral tool schema for the model."""
+
+    name: str
+    description: str
+    input_schema: dict = Field(default_factory=dict)
+
+
+class ToolCall(BaseModel):
+    """One tool call from the model — call_id, name, raw argument JSON."""
+
+    call_id: str
+    name: str
+    arguments: str  # raw JSON string, never auto-repaired here
+
+
 class ModelMessage(BaseModel):
-    """One message in a model request."""
+    """One message in a model request — provider-compatible projection."""
 
     role: str
     content: str
+    tool_calls: list[dict] | None = None
+    tool_call_id: str | None = None
 
 
 class ModelRequest(BaseModel):
@@ -15,6 +33,7 @@ class ModelRequest(BaseModel):
 
     messages: list[ModelMessage]
     max_tokens: int = Field(default=4096, ge=1)
+    tools: list[ToolSchema] = Field(default_factory=list)
 
 
 class ModelUsage(BaseModel):
@@ -30,6 +49,8 @@ class ModelResponse(BaseModel):
 
     text: str
     finish_reason: str
+    tool_calls: list[ToolCall] = Field(default_factory=list)
+    tool_calls_unsafe: bool = False  # true when response cut off mid-tool-call
     usage: ModelUsage | None = None
     model: str
     provider: str

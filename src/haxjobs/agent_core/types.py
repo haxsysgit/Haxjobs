@@ -22,6 +22,8 @@ class AgentMessage:
 class RunExitReason(str, Enum):
     COMPLETED = "completed"
     MODEL_FAILED = "model_failed"
+    LIMIT_REACHED = "limit_reached"
+    EMPTY_MODEL_RESPONSE = "empty_model_response"
 
 
 @dataclass
@@ -40,6 +42,8 @@ class RunResult:
     observer_errors: list[str] = field(default_factory=list)
     artifact_errors: list[str] = field(default_factory=list)
     receipt_complete: bool = True
+    model_steps: int = 0
+    tool_starts: int = 0
 
 
 @dataclass
