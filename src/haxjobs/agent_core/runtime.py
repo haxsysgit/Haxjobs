@@ -463,28 +463,6 @@ async def run_stage0(
                             "unknown_tool", "tool_inactive", "malformed_arguments", "invalid_arguments"
                         ):
                             tool_starts += 1
-                        # What dispatch() adds is JSON parsing and Pydantic validation failure.
-                        # Those also don't consume budget per the plan.
-                        #
-                        # OK let me trace through the plan's intent:
-                        # 1. Unknown tool → early failure, no budget consumed
-                        # 2. Inactive tool → early failure, no budget consumed
-                        # 3. Malformed JSON → early failure (inside dispatch), no budget consumed
-                        # 4. Pydantic-invalid → early failure (inside dispatch), no budget consumed
-                        # 5. Handler exception → handler did start, budget consumed
-                        #
-                        # But dispatch doesn't distinguish 3/4 from 5 easily in its return
-                        # value. Let me check: I can use the error code.
-                        # "unknown_tool" / "tool_inactive" → no budget (but we already catch
-                        # these before dispatch)
-                        # "malformed_arguments" → no budget
-                        # "invalid_arguments" → no budget
-                        # "handler_error" → budget consumed (handler did execute)
-
-                        code = result.get("code", "")
-                        if code in ("handler_error",):
-                            tool_starts += 1
-                        # All other failure codes: no budget consumed
 
                         obs_errs = _emit(
                             observers,
