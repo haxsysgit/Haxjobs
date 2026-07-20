@@ -14,6 +14,16 @@ from haxjobs.interfaces.profile_cli import (
 )
 
 
+def _launch_tui():
+    """Launch the Textual TUI."""
+    from haxjobs.interfaces.tui import run_tui
+    run_tui()
+
+
+def _cmd_tui(args):
+    _launch_tui()
+
+
 def main(argv: list[str] | None = None):
     parser = argparse.ArgumentParser(
         prog="haxjobs", description="Career agent platform"
@@ -94,10 +104,22 @@ def main(argv: list[str] | None = None):
                               help="Path to career fixture JSON")
     prof_migrate.set_defaults(func=cmd_profile_migrate)
 
+    # ── shortcut: haxjobs migrate ──
+    migrate_cmd = sub.add_parser("migrate", help="Quick: migrate career fixture to graph")
+    migrate_cmd.add_argument("--fixture", default=None,
+                             help="Path to career fixture JSON")
+    migrate_cmd.set_defaults(func=cmd_profile_migrate)
+
+    # ── tui ──
+    tui_cmd = sub.add_parser("tui", help="Launch the interactive terminal UI")
+    tui_cmd.set_defaults(func=_cmd_tui)
+
     args = parser.parse_args(argv)
     if not hasattr(args, "func"):
-        parser.print_help()
-        sys.exit(0)
+        # No subcommand — launch TUI
+        print("Launching HaxJobs TUI...")
+        _launch_tui()
+        return
     args.func(args)
 
 
