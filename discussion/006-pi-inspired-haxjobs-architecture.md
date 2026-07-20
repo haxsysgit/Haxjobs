@@ -601,6 +601,6 @@ It keeps the detailed runtime findings, exact source links, shipped-versus-plann
 # Current-state implementation references
 
 - Stage 0 diagram: [003-stage0-observed-job-review.drawio](../diagram/003-stage0-observed-job-review.drawio) | [PNG](../diagram/003-stage0-observed-job-review.png)
-- Stage 0 report: [001-stage0-observed-job-review.md](../docs/implementation-reports/001-stage0-observed-job-review.md)
+- Stage 0 report: [001-stage0-observed-job-review.md](../deliverables/001-stage0/report.md)
 - Stage 1 diagram: [004-stage1-source-inspection-loop.drawio](../diagram/004-stage1-source-inspection-loop.drawio) | [PNG](../diagram/004-stage1-source-inspection-loop.png)
-- Stage 1 report: [002-stage1-source-inspection-loop.md](../docs/implementation-reports/002-stage1-source-inspection-loop.md)
+- Stage 1 report: [002-stage1-source-inspection-loop.md](../deliverables/002-stage1/report.md)

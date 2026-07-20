@@ -42,7 +42,7 @@ The main rule is: continuous work means remembering to return, not keeping one p
 
 - Source: [003-stage0-observed-job-review.drawio](003-stage0-observed-job-review.drawio)
 - Preview: [003-stage0-observed-job-review.png](003-stage0-observed-job-review.png)
-- Report: [../docs/implementation-reports/001-stage0-observed-job-review.md](../docs/implementation-reports/001-stage0-observed-job-review.md)
+- Report: [../deliverables/001-stage0/report.md](../deliverables/001-stage0/report.md)
 
 The five-layer Stage 0 architecture: CLI experiment, employment context, no-tool agent core, model boundary, and local artifacts with human verification.
 
@@ -50,6 +50,6 @@ The five-layer Stage 0 architecture: CLI experiment, employment context, no-tool
 
 - Source: [004-stage1-source-inspection-loop.drawio](004-stage1-source-inspection-loop.drawio)
 - Preview: [004-stage1-source-inspection-loop.png](004-stage1-source-inspection-loop.png)
-- Report: [../docs/implementation-reports/002-stage1-source-inspection-loop.md](../docs/implementation-reports/002-stage1-source-inspection-loop.md)
+- Report: [../deliverables/002-stage1/report.md](../deliverables/002-stage1/report.md)
 
 The seven-group Stage 1 architecture: CLI experiment, employment context, bounded agent core (Stage 0 or loop), model boundary, active tool registry, trusted source retrieval, and local evidence with verification. Zero tools in Stage 0, exactly one active tool (`inspect_job_source`) in Stage 1. The model provides a job_ref string; the employment layer resolves it to a trusted fixture URL. Fetched content is untrusted tool output — never system instructions.

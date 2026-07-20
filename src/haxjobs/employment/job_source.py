@@ -26,11 +26,6 @@ _MAX_VISIBLE_CHARS = 12_000
 _TIMEOUT = 15.0
 _USER_AGENT = "HaxJobs-Stage1/1.0 (trusted-fixture-experiment; +https://haxjobs.local)"
 
-# Allow only literal hostname matching — no wildcards.
-# Hosts are checked case-insensitively but stored as-is from the fixture.
-_ALLOWED_HOST_MAP: dict[str, set[str]] = {}
-
-
 class SourceObservation(BaseModel):
     """Structured source retrieval observation — safe for model and JSONL."""
 

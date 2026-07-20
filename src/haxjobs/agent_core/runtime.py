@@ -443,12 +443,6 @@ async def run_stage0(
                     t_duration_ms = (time.monotonic() - t_start) * 1000
 
                     if result.get("ok"):
-                        # Budget consumed on first successful or failed dispatch
-                        # Actually, the plan says: "the first valid active call consumes the execution budget when its handler starts"
-                        # But budget check is BEFORE dispatch. Let me re-read...
-                        # "The first valid active call consumes the execution budget when its handler starts"
-                        # This means: once a handler starts (which we checked above), we increment.
-                        # But the budget check happens above. So after dispatch, we increment.
                         tool_starts += 1
                         obs_errs = _emit(
                             observers,
@@ -465,58 +459,10 @@ async def run_stage0(
                         )
                         observer_errors.extend(obs_errs)
                     else:
-                        # Only count as a start if it was a valid dispatch attempt
-                        # (unknown/inactive/malformed checked inside dispatch, not here)
-                        # But the budget_above check already determined this was a valid
-                        # active known tool. If dispatch returned error (malformed, invalid
-                        # args, handler exception), it doesn't consume budget.
-                        # Wait, looking at the plan more carefully:
-                        # "malformed, unknown, inactive, Pydantic-invalid, and truncated calls
-                        #  do not consume the handler budget because no handler starts"
-                        # "the first valid active call consumes the execution budget when its handler starts"
-                        # So: only consume when handler actually executes. dispatch() returns
-                        # failure before handler if args are bad. Those don't consume.
-                        # But the dispatch already ran... hmm.
-                        # Let me re-read: the handler is called inside dispatch.
-                        # If dispatch returned {"ok": false}, it could be:
-                        # - unknown tool (no handler)
-                        # - inactive tool (no handler)
-                        # - malformed JSON (no handler)
-                        # - invalid args (no handler)
-                        # - handler error (handler was called!)
-                        # For handler_error, the handler did execute, so it should consume budget.
-                        # But dispatch doesn't tell us which error. Let me adjust: the plan
-                        # says "malformed, unknown, inactive, Pydantic-invalid, and truncated
-                        # calls do not consume the handler budget because no handler starts."
-                        # Handler exception ("handler_error") is not in that list, so it
-                        # should consume budget? Actually the plan says the FIRST valid active
-                        # call consumes budget. A handler exception is still a valid active
-                        # call that started.
-                        #
-                        # Let me simplify: dispatch now returns the code, and I can check
-                        # whether it was a pre-handler failure (unknown, inactive, malformed,
-                        # invalid) vs handler_error.
-                        # But the plan also says "after one handler starts, every later valid
-                        # active call returns tool_budget_exhausted"
-                        # This implies the budget check is BEFORE dispatch, not after.
-                        # So I'll track: once ONE handler has been dispatched (regardless of
-                        # outcome), all subsequent calls get budget_exhausted.
-                        # But wait, the budget check above uses tool_starts, which I only
-                        # increment after a successful dispatch.
-                        # Let me reconsider: the plan says malformed/inactive/etc don't
-                        # consume budget. The budget is consumed by the FIRST handler start.
-                        # So: check if tool_starts > 0 BEFORE dispatching. If so, return
-                        # budget_exhausted WITHOUT dispatching. Otherwise, dispatch. After
-                        # dispatch, increment tool_starts IF it was a valid dispatch (not
-                        # malformed/inactive/unknown). But how do I know if dispatch was
-                        # valid? I can check the result code.
-                        # Actually: "malformed, unknown, inactive, Pydantic-invalid, and
-                        # truncated calls do not consume the handler budget because no handler starts"
-                        # This is about the pre-dispatch check we already did. When we check
-                        # at the top of the loop (tc.name not in registry, not active, etc.),
-                        # those don't consume.
-                        # The dispatch() function internally handles these cases and returns
-                        # error codes. But we already filtered most of these cases above.
+                        if result.get("code") not in (
+                            "unknown_tool", "tool_inactive", "malformed_arguments", "invalid_arguments"
+                        ):
+                            tool_starts += 1
                         # What dispatch() adds is JSON parsing and Pydantic validation failure.
                         # Those also don't consume budget per the plan.
                         #
