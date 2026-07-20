@@ -30,6 +30,7 @@ None.
 |---|---|---:|---:|---|---|---|---|
 | [001](001-stage0-observed-job-review.md) | Build the Stage 0 observed job review | P1 | L | clean reconciled execution baseline | DONE | `e396fd2` | pending |
 | [002](002-stage1-source-inspection-loop.md) | Stage 1 bounded source-inspection loop | P1 | L | Plan 001 DONE at a28d5ba | DONE | `6d64624` | deliverables/002-stage1/ | Live runs completed 2026-07-20; Flash reviewers found 0 blockers, 1 minor (code NameError fixed in follow-up). |
+| [003](003-career-graph-schema.md) | Career graph schema — tracks, skills, evidence, persistence, CLI, TUI | P1 | M | Plan 002 DONE | TODO | — | — |
 
 The advisor/operator owns this table. Executors do not edit it.
 
@@ -57,17 +58,17 @@ Plan 001: Stage 0
   Job 49 -> human review
   Job 328 -> human review
         |
-        | only when Job 328 proves source inspection is needed
-        v
-advisor signs off Plan 001 and reconciles Plan 002
-        |
         v
 Plan 002: Stage 1
-  same runtime + one source tool -> comparison evidence
+  inspect_job_source(job_ref) tool
+  bounded model-tool loop
         |
         v
-stop and choose the next plan from observed failures
+Plan 003: Career Graph Schema
+  tracks, skills, evidence, gaps, persistence, CLI, TUI
 ```
+
+Later plans (004+) stay unwritten until Plan 003 is accepted.
 
 Tests passing alone do not admit Plan 002. Arinze's completed Job 328 rubric and the Plan 001 report must identify source inspection as the next missing capability.
 
