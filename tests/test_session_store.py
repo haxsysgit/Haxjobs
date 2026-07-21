@@ -42,7 +42,7 @@ def file_store() -> SessionStore:
 # ── Session creation ──
 
 def test_create_session(store: SessionStore):
-    store.create_session("s1")
+    store.create_session("s1", configuration_json='{"scope": "test"}')
     session = store.get_session("s1")
     assert session is not None
     assert session["session_id"] == "s1"
@@ -56,8 +56,8 @@ def test_get_session_missing(store: SessionStore):
 
 def test_latest_session_id(store: SessionStore):
     assert store.latest_session_id() is None
-    store.create_session("s1")
-    store.create_session("s2")
+    store.create_session("s1", configuration_json='{"scope": "test"}')
+    store.create_session("s2", configuration_json='{"scope": "test"}')
     assert store.latest_session_id() == "s2"
 
 
@@ -68,7 +68,7 @@ def test_latest_session_id_returns_none_when_empty(store: SessionStore):
 # ── Message append and load ──
 
 def test_append_and_load_user_message(store: SessionStore):
-    store.create_session("s1")
+    store.create_session("s1", configuration_json='{"scope": "test"}')
     msg = UserMessage(message_id="u1", turn_id="t1", content="hello")
     store.append_message("s1", msg)
     messages = store.load_messages("s1")
@@ -78,7 +78,7 @@ def test_append_and_load_user_message(store: SessionStore):
 
 
 def test_append_and_load_assistant_message(store: SessionStore):
-    store.create_session("s1")
+    store.create_session("s1", configuration_json='{"scope": "test"}')
     msg = AssistantMessage(
         message_id="a1", turn_id="t1", content="hi there", status="complete"
     )
@@ -90,7 +90,7 @@ def test_append_and_load_assistant_message(store: SessionStore):
 
 
 def test_append_and_load_tool_call_message(store: SessionStore):
-    store.create_session("s1")
+    store.create_session("s1", configuration_json='{"scope": "test"}')
     msg = ToolCallMessage(
         message_id="tc1",
         turn_id="t1",
@@ -106,7 +106,7 @@ def test_append_and_load_tool_call_message(store: SessionStore):
 
 
 def test_append_and_load_tool_result_message(store: SessionStore):
-    store.create_session("s1")
+    store.create_session("s1", configuration_json='{"scope": "test"}')
     msg = ToolResultMessage(
         message_id="tr1",
         turn_id="t1",
@@ -123,7 +123,7 @@ def test_append_and_load_tool_result_message(store: SessionStore):
 
 
 def test_append_and_load_interrupted_assistant(store: SessionStore):
-    store.create_session("s1")
+    store.create_session("s1", configuration_json='{"scope": "test"}')
     msg = AssistantMessage(
         message_id="a1",
         turn_id="t1",
@@ -140,7 +140,7 @@ def test_append_and_load_interrupted_assistant(store: SessionStore):
 # ── All message kinds round-trip ──
 
 def test_all_message_kinds_round_trip(store: SessionStore):
-    store.create_session("s1")
+    store.create_session("s1", configuration_json='{"scope": "test"}')
     msgs = [
         UserMessage(message_id="u1", turn_id="t1", content="first"),
         AssistantMessage(
@@ -170,7 +170,7 @@ def test_all_message_kinds_round_trip(store: SessionStore):
 # ── Ordered message replay ──
 
 def test_ordered_message_replay(store: SessionStore):
-    store.create_session("s1")
+    store.create_session("s1", configuration_json='{"scope": "test"}')
     for i in range(10):
         store.append_message(
             "s1", UserMessage(message_id=f"u{i}", turn_id=f"t{i}", content=f"msg{i}")
@@ -185,7 +185,7 @@ def test_ordered_message_replay(store: SessionStore):
 # ── Mark turn settled ──
 
 def test_mark_turn_settled(store: SessionStore):
-    store.create_session("s1")
+    store.create_session("s1", configuration_json='{"scope": "test"}')
     store.mark_turn_settled("s1", 1)
     session = store.get_session("s1")
     assert session["turn_count"] == 1
@@ -194,7 +194,7 @@ def test_mark_turn_settled(store: SessionStore):
 # ── Mark session closed ──
 
 def test_mark_session_closed(store: SessionStore):
-    store.create_session("s1")
+    store.create_session("s1", configuration_json='{"scope": "test"}')
     store.mark_session_closed("s1")
     session = store.get_session("s1")
     assert session["status"] == "closed"
@@ -237,7 +237,7 @@ def test_wal_enabled_for_file_backed_db(file_store: SessionStore):
 # ── Empty messages load ──
 
 def test_load_messages_empty(store: SessionStore):
-    store.create_session("s1")
+    store.create_session("s1", configuration_json='{"scope": "test"}')
     messages = store.load_messages("s1")
     assert messages == []
 
@@ -266,18 +266,20 @@ def test_session_and_config_created_in_one_transaction(store: SessionStore):
     assert store.get_session_configuration("sc2") == config
 
 
-def test_create_session_without_config(store: SessionStore):
-    """create_session without configuration_json works (backwards compat, will fail on resume)."""
-    store.create_session("sc3")
-    session = store.get_session("sc3")
-    assert session is not None
-    # No config
+def test_create_session_requires_valid_configuration(store: SessionStore):
+    """Invalid configuration is rejected before a session row is created."""
+    with pytest.raises(TypeError):
+        store.create_session("missing")  # type: ignore[call-arg]
+    for value in ("", "   ", "not-json", "[]"):
+        with pytest.raises(ValueError, match="configuration_json"):
+            store.create_session("sc3", configuration_json=value)
+    assert store.get_session("sc3") is None
     assert store.get_session_configuration("sc3") is None
 
 
 def test_duplicate_create_session_fails(store: SessionStore):
     """Duplicate session_id on create_session must raise IntegrityError."""
     import sqlite3
-    store.create_session("sc4")
+    store.create_session("sc4", configuration_json='{"scope": "test"}')
     with pytest.raises(sqlite3.IntegrityError):
-        store.create_session("sc4")
+        store.create_session("sc4", configuration_json='{"scope": "test"}')

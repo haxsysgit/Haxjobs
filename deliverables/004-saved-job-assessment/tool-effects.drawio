@@ -46,22 +46,22 @@
         <mxCell id="resume-synth" value="Unmatched TC → synthetic&#xa;ToolResultMessage(ok=False,&#xa;error_code='unknown_outcome')" style="text;fontSize=10;" vertex="1" parent="group-resume">
           <mxGeometry x="10" y="55" width="180" height="55" as="geometry"/>
         </mxCell>
-        <mxCell id="edge-model-tc" value="" style="endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-model" target="group-persist-tc">
+        <mxCell id="edge-model-tc" value="" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-model" target="group-persist-tc">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="edge-tc-handler" value="OK" style="endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-persist-tc" target="group-handler">
+        <mxCell id="edge-tc-handler" value="OK" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-persist-tc" target="group-handler">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="edge-handler-tr" value="" style="endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-handler" target="group-persist-tr">
+        <mxCell id="edge-handler-tr" value="" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-handler" target="group-persist-tr">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="edge-tc-fail" value="FAIL" style="endArrow=block;endFill=1;strokeWidth=3;strokeColor=#b85450;" edge="1" parent="1" source="group-persist-tc" target="group-fail">
+        <mxCell id="edge-tc-fail" value="FAIL" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;strokeColor=#b85450;" edge="1" parent="1" source="group-persist-tc" target="group-fail">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="edge-tr-fail" value="FAIL" style="endArrow=block;endFill=1;strokeWidth=3;strokeColor=#b85450;" edge="1" parent="1" source="group-persist-tr" target="group-fail">
+        <mxCell id="edge-tr-fail" value="FAIL" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;strokeColor=#b85450;" edge="1" parent="1" source="group-persist-tr" target="group-fail">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="edge-death-resume" value="process death →" style="endArrow=block;endFill=1;strokeWidth=3;dashed=1;" edge="1" parent="1" source="group-handler" target="group-resume">
+        <mxCell id="edge-death-resume" value="process death →" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;dashed=1;" edge="1" parent="1" source="group-handler" target="group-resume">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
       </root>

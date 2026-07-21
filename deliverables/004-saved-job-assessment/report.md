@@ -2,7 +2,7 @@
 
 ## Status
 
-**IMPLEMENTED — FINAL REVIEW PENDING** — All 223 automated tests pass in an isolated fresh worktree with no private fixture. The approved substitute final reviewer blocked commit `626890c` with reproducible correctness findings; this focused repair addresses those findings. Final review remains pending and is not approved. Live provider verification is deferred (controller-owned).
+**IMPLEMENTED — FINAL REVIEW PENDING** — All 223 automated tests pass in this worktree with no private fixture. Fresh Luna reviews blocked the candidate at `65dd9d6`; this focused repair addresses the accepted findings. Final review remains pending and is not approved. Live provider verification is deferred (controller-owned).
 
 ## Files created
 
@@ -71,22 +71,22 @@
 
 Verified: `uv lock --check` ok, `py_compile` all src/ and tests/ ok, `git diff --check` ok.
 
-Breakdown:
-- `tests/test_career_graph.py`: 28 passed (23 original + 5 new Phase A)
-- `tests/test_turn_runtime.py`: 25 passed (20 original + 5 new Phase B)
-- `tests/test_session.py`: 28 passed (18 original + 10 new Phase C/D)
-- `tests/test_session_store.py`: 21 passed (17 original + 4 new Phase C)
-- `tests/test_employment_host.py`: 16 passed (9 original + 7 new Phase C/H)
-- `tests/test_job_actions.py`: 13 passed (all new Phase E/F)
-- `tests/test_job_source.py`: 1 passed (blocking transport heartbeat)
-- `tests/test_employment_tools.py`: 7 passed (all new Phase G)
-- `tests/test_trajectory_job_328.py`: 2 passed (all new Phase K)
-- `tests/test_durable_tool_effects.py`: 9 passed (all new Phase K)
-- `tests/test_conversation_messages.py`: 10 passed
-- `tests/test_live_events.py`: 7 passed
-- `tests/test_model_streaming.py`: 5 passed
-- `tests/test_terminal.py`: 44 passed
-- `tests/test_terminal_pty.py`: 2 passed (isolated temp career DB, synthetic fixture)
+Exact collected/tested per-file count (from `pytest --collect-only -q tests/`, 223 collected and 223 passed):
+- `tests/test_career_graph.py`: 28
+- `tests/test_conversation_messages.py`: 20
+- `tests/test_durable_tool_effects.py`: 9
+- `tests/test_employment_host.py`: 20
+- `tests/test_employment_tools.py`: 7
+- `tests/test_job_actions.py`: 13
+- `tests/test_job_source.py`: 1
+- `tests/test_live_events.py`: 19
+- `tests/test_model_streaming.py`: 11
+- `tests/test_session.py`: 31
+- `tests/test_session_store.py`: 21
+- `tests/test_terminal.py`: 14
+- `tests/test_terminal_pty.py`: 2
+- `tests/test_trajectory_job_328.py`: 2
+- `tests/test_turn_runtime.py`: 25
 
 ## Architecture invariants confirmed
 
@@ -140,7 +140,7 @@ Three independent Flash reviews identified three deliverable blockers against ca
 
 1. **Missing review-ledger.md and manual-proof.md.** Created with factual review record and controller-owned proof procedure + verified `--help` output.
 2. **Oversized employment-models.drawio (36 non-root cells).** Simplified to 32 non-root cells. PNG re-exported at 640×524.
-3. **Stale doc references.** Test counts updated to 216; `--ignore=tests/test_terminal_pty.py` removed; deleted module/CLI descriptions corrected; `state/experiments/` path removed from user-facing docs.
+3. **Stale doc references.** Test counts updated to 223; `--ignore=tests/test_terminal_pty.py` removed; deleted module/CLI descriptions corrected; `state/experiments/` path removed from user-facing docs.
 
 Architecture and correctness reviews were approved on the initial repair candidate with one nonblocking close observation (test-career-store exercises synthetic fixture only; real private DB migration is controller-owned).
 
@@ -150,17 +150,18 @@ Initial controller verification round identified three blocking findings against
 
 1. **PTY test isolation (tests/test_terminal_pty.py):** Both `test_terminal_pty_enter_submits_and_escape_interrupts` and `test_terminal_pty_escape_during_streaming_interrupts` defaulted `HAXJOBS_CAREER_DB` to `state/career_graph.db`, violating Plan 004 Phase A's isolated synthetic-test rule. Fixed by adding `_isolated_career_db()` helper that creates a temp career DB migrated from `tests/fixtures/job_review/career.json` and cleaning up after each test.
 2. **Missing PNG exports:** Three `.drawio` files had no PNG exports. All three exported via local `/opt/drawio/drawio -x -f png`. Each PNG verified with valid signature and nonzero IHDR dimensions.
-3. **Report metadata:** Report claimed COMPLETE but listed PTY tests as "fail due to environment" and PNGs as deferred. Corrected to report exact 216 passes and present PNGs.
+3. **Report metadata:** Report claimed COMPLETE but listed PTY tests as "fail due to environment" and PNGs as deferred. Corrected to report exact 223 passes and present PNGs.
 
-## Correctness repair findings addressed
+## Current correctness repairs addressed
 
-- Successful source inspection now maps `SourceObservation.status`, preserves the saved completeness state, and updates the saved snapshot; the fake-fetch regression proves the write.
-- DNS resolution and all synchronous transport work, including injected blocking fakes, run behind `asyncio.to_thread`; the heartbeat regression proves loop progress.
-- The job 328 trajectory injects a deterministic resolver/transport and fails on real DNS access.
-- `jobs.source_status` and `jobs.description_kind` are in new DDL, mapped on upsert, and added to existing databases with explicit migrations.
-- Composition and host construction reject cross-person tracks, including corrupted stored resume scope, and cleanup is covered on composition failure.
-- Assessment writes report `replay: false` on the first write and `true` only on an identical replay; conflicts remain typed and write-free.
-- Initial user-message persistence failure returns `persistence_failed`, emits `TURN_FAILED`, skips model/tool execution and measurement, and does not emit completion.
+- `SessionStore.create_session` requires a nonblank valid JSON object and validates before insertion. Historic unconfigured or invalid rows fail clearly on resume.
+- Tool results are persisted before lifecycle completion/failure events. Failed result persistence stops model progression, emits persistence failure/terminal events, and leaves dangling-call reconciliation intact.
+- Runtime source inspection accepts only saved Job data; the fixture-era `fetch(JobFixture, ...)` entry point and Stage 1 experiment wording are gone.
+- Assessment input no longer accepts a model track scope. Registry dispatch binds the active track and a two-track regression proves no cross-track/person write.
+- External cancellation cancels and joins active tool work, persists only a truthful cancellation failure when possible, emits one interruption, and records measurement/settlement.
+- Manual proof states that CLI `--fake` is text-only; saved-job tool trajectory proof is automated and deterministic.
+- All three final diagram XML files use orthogonal connectors; PNGs were re-exported and checked for valid dimensions.
+- Source inspection, DNS offloading, deterministic trajectory, job-column migrations, idempotency, scope ownership, and initial-message persistence remain covered by the existing focused tests.
 
 ## Commit
 

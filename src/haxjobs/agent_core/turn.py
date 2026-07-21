@@ -475,42 +475,20 @@ async def run_turn(
             cancel_task = asyncio.ensure_future(cancel_event.wait())
 
             # Race dispatch against cancellation
-            done, pending = await asyncio.wait(
-                [dispatch_task, cancel_task],
-                timeout=None,
-                return_when=asyncio.FIRST_COMPLETED,
-            )
-
-            if dispatch_task not in done:
-                # Cancel the dispatch task and the cancel waiter
-                dispatch_task.cancel()
-                if cancel_task in pending:
-                    cancel_task.cancel()
-                try:
-                    await dispatch_task
-                except (asyncio.CancelledError, Exception):
-                    pass
-                # Clean up cancel_task if it's still pending
-                if cancel_task in pending:
-                    try:
-                        await cancel_task
-                    except (asyncio.CancelledError, Exception):
-                        pass
-
-                t_duration_ms = (time.monotonic() - t_start) * 1000
-                emit(
-                    LiveEvent(
-                        session_id=session_id,
-                        turn_id=turn_id,
-                        event_type=LiveEventType.TOOL_FAILED,
-                        call_id=tc_event.call_id,
-                        tool_name=tc_event.tool_name,
-                        tool_status="cancelled",
-                        tool_duration_ms=t_duration_ms,
-                    )
+            try:
+                done, pending = await asyncio.wait(
+                    [dispatch_task, cancel_task],
+                    timeout=None,
+                    return_when=asyncio.FIRST_COMPLETED,
                 )
-
-                # Persist tool result as cancelled
+            except asyncio.CancelledError:
+                # External task cancellation must not abandon the handler or
+                # its waiter. The durable ToolCallMessage remains the boundary;
+                # persist only a truthful cancelled failure if possible.
+                cancel_event.set()
+                await _cancel_and_join(dispatch_task)
+                await _cancel_and_join(cancel_task)
+                t_duration_ms = (time.monotonic() - t_start) * 1000
                 tr_msg = ToolResultMessage(
                     message_id=_mid(),
                     turn_id=turn_id,
@@ -525,7 +503,108 @@ async def run_turn(
                 try:
                     persist_message(tr_msg)
                 except Exception:
-                    pass
+                    safe_failure = "tool result persistence failed during cancellation"
+                    emit(
+                        LiveEvent(
+                            session_id=session_id,
+                            turn_id=turn_id,
+                            event_type=LiveEventType.TOOL_FAILED,
+                            call_id=tc_event.call_id,
+                            tool_name=tc_event.tool_name,
+                            tool_status="persistence_failed",
+                            tool_duration_ms=t_duration_ms,
+                            error_code="persistence_failed",
+                            error=safe_failure,
+                        )
+                    )
+                else:
+                    emit(
+                        LiveEvent(
+                            session_id=session_id,
+                            turn_id=turn_id,
+                            event_type=LiveEventType.TOOL_FAILED,
+                            call_id=tc_event.call_id,
+                            tool_name=tc_event.tool_name,
+                            tool_status="cancelled",
+                            tool_duration_ms=t_duration_ms,
+                            error_code="cancelled",
+                            error="tool execution cancelled",
+                        )
+                    )
+                safe_failure = safe_failure or "externally cancelled during tool execution"
+                emit(
+                    LiveEvent(
+                        session_id=session_id,
+                        turn_id=turn_id,
+                        event_type=LiveEventType.TURN_INTERRUPTED,
+                    )
+                )
+                return TurnResult(
+                    turn_id=turn_id,
+                    exit_reason=TurnExitReason.INTERRUPTED,
+                    final_text=accumulated_text,
+                    model_steps=model_steps,
+                    tool_starts=tool_starts + 1,
+                    new_messages=new_messages,
+                    safe_failure=safe_failure,
+                    user_message_id=user_message_id,
+                    model_name=captured_model_name,
+                    provider_name=captured_provider_name,
+                    usage=captured_usage,
+                    input_characters=input_characters,
+                )
+
+            if dispatch_task not in done:
+                # Cancel the dispatch task and the cancel waiter.
+                await _cancel_and_join(dispatch_task)
+                if cancel_task in pending:
+                    await _cancel_and_join(cancel_task)
+
+                t_duration_ms = (time.monotonic() - t_start) * 1000
+
+                # Persist tool result as cancelled before publishing failure.
+                tr_msg = ToolResultMessage(
+                    message_id=_mid(),
+                    turn_id=turn_id,
+                    call_id=tc_event.call_id,
+                    tool_name=tc_event.tool_name,
+                    ok=False,
+                    result=None,
+                    error_code="cancelled",
+                    error="tool execution cancelled",
+                )
+                new_messages.append(tr_msg)
+                try:
+                    persist_message(tr_msg)
+                except Exception:
+                    safe_failure = "tool result persistence failed during cancellation"
+                    emit(
+                        LiveEvent(
+                            session_id=session_id,
+                            turn_id=turn_id,
+                            event_type=LiveEventType.TOOL_FAILED,
+                            call_id=tc_event.call_id,
+                            tool_name=tc_event.tool_name,
+                            tool_status="persistence_failed",
+                            tool_duration_ms=t_duration_ms,
+                            error_code="persistence_failed",
+                            error=safe_failure,
+                        )
+                    )
+                else:
+                    emit(
+                        LiveEvent(
+                            session_id=session_id,
+                            turn_id=turn_id,
+                            event_type=LiveEventType.TOOL_FAILED,
+                            call_id=tc_event.call_id,
+                            tool_name=tc_event.tool_name,
+                            tool_status="cancelled",
+                            tool_duration_ms=t_duration_ms,
+                            error_code="cancelled",
+                            error="tool execution cancelled",
+                        )
+                    )
                 provider_messages.append(
                     ModelMessage(
                         role="tool",
@@ -563,46 +642,13 @@ async def run_turn(
                 )
 
             # Cancel the cancel waiter — dispatch completed normally
-            cancel_task.cancel()
-            try:
-                await cancel_task
-            except (asyncio.CancelledError, Exception):
-                pass
+            await _cancel_and_join(cancel_task)
 
             result = await dispatch_task
             t_duration_ms = (time.monotonic() - t_start) * 1000
 
-            if result.get("ok"):
-                tool_starts += 1
-                emit(
-                    LiveEvent(
-                        session_id=session_id,
-                        turn_id=turn_id,
-                        event_type=LiveEventType.TOOL_COMPLETED,
-                        call_id=tc_event.call_id,
-                        tool_name=tc_event.tool_name,
-                        tool_status="ok",
-                        tool_duration_ms=t_duration_ms,
-                    )
-                )
-            else:
-                code = result.get("code", "handler_error")
-                tool_starts += 1
-                emit(
-                    LiveEvent(
-                        session_id=session_id,
-                        turn_id=turn_id,
-                        event_type=LiveEventType.TOOL_FAILED,
-                        call_id=tc_event.call_id,
-                        tool_name=tc_event.tool_name,
-                        tool_status=code,
-                        tool_duration_ms=t_duration_ms,
-                        error_code=code,
-                        error=result.get("error", ""),
-                    )
-                )
-
-            # Persist tool result message IMMEDIATELY after handler completion
+            # Persist the canonical result before publishing lifecycle state. A
+            # successful handler is not a completed tool until this boundary holds.
             tr_msg = ToolResultMessage(
                 message_id=_mid(),
                 turn_id=turn_id,
@@ -617,14 +663,36 @@ async def run_turn(
             try:
                 persist_message(tr_msg)
             except Exception:
-                # Handler completed but persistence failed — stop before next model call
+                # The ToolCallMessage remains dangling and will reconcile to
+                # unknown_outcome on resume. Never publish a false result event.
                 safe_failure = "tool result persistence failed"
+                emit(
+                    LiveEvent(
+                        session_id=session_id,
+                        turn_id=turn_id,
+                        event_type=LiveEventType.TOOL_FAILED,
+                        call_id=tc_event.call_id,
+                        tool_name=tc_event.tool_name,
+                        tool_status="persistence_failed",
+                        tool_duration_ms=t_duration_ms,
+                        error_code="persistence_failed",
+                        error=safe_failure,
+                    )
+                )
+                emit(
+                    LiveEvent(
+                        session_id=session_id,
+                        turn_id=turn_id,
+                        event_type=LiveEventType.TURN_FAILED,
+                        error=safe_failure,
+                    )
+                )
                 return TurnResult(
                     turn_id=turn_id,
-                    exit_reason=TurnExitReason.MODEL_FAILED,
+                    exit_reason=TurnExitReason.PERSISTENCE_FAILED,
                     final_text=accumulated_text,
                     model_steps=model_steps,
-                    tool_starts=tool_starts,
+                    tool_starts=tool_starts + 1,
                     new_messages=new_messages,
                     safe_failure=safe_failure,
                     user_message_id=user_message_id,
@@ -632,6 +700,35 @@ async def run_turn(
                     provider_name=captured_provider_name,
                     usage=captured_usage,
                     input_characters=input_characters,
+                )
+
+            tool_starts += 1
+            if result.get("ok"):
+                emit(
+                    LiveEvent(
+                        session_id=session_id,
+                        turn_id=turn_id,
+                        event_type=LiveEventType.TOOL_COMPLETED,
+                        call_id=tc_event.call_id,
+                        tool_name=tc_event.tool_name,
+                        tool_status="ok",
+                        tool_duration_ms=t_duration_ms,
+                    )
+                )
+            else:
+                code = result.get("code", "handler_error")
+                emit(
+                    LiveEvent(
+                        session_id=session_id,
+                        turn_id=turn_id,
+                        event_type=LiveEventType.TOOL_FAILED,
+                        call_id=tc_event.call_id,
+                        tool_name=tc_event.tool_name,
+                        tool_status=code,
+                        tool_duration_ms=t_duration_ms,
+                        error_code=code,
+                        error=result.get("error", ""),
+                    )
                 )
 
             # Append to provider messages
@@ -697,6 +794,18 @@ async def run_turn(
         usage=captured_usage,
         input_characters=input_characters,
     )
+
+
+async def _cancel_and_join(task: asyncio.Task) -> None:
+    """Cancel one child task and deliberately consume its cancellation."""
+    if not task.done():
+        task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        return
+    except Exception as exc:
+        logger.debug("cancelled child task ended with error: %s", exc)
 
 
 def _mid() -> str:

@@ -40,7 +40,7 @@ def _fake_model() -> FakeModelClient:
 
 
 def _make_session(store: SessionStore) -> AgentSession:
-    store.create_session("s1")
+    store.create_session("s1", configuration_json='{"scope": "test"}')
     return AgentSession(
         session_id="s1",
         session_store=store,

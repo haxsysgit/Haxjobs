@@ -43,22 +43,22 @@
         <mxCell id="res-a" value="Hax retrieves&#xa;saved assessment&#xa;from employment store" style="text;fontSize=10;" vertex="1" parent="group-resume">
           <mxGeometry x="10" y="55" width="140" height="40" as="geometry"/>
         </mxCell>
-        <mxCell id="edge-u-g" value="" style="endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-user" target="group-get">
+        <mxCell id="edge-u-g" value="" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-user" target="group-get">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="edge-g-i" value="thin evidence" style="endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-get" target="group-inspect">
+        <mxCell id="edge-g-i" value="thin evidence" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-get" target="group-inspect">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="edge-i-r" value="" style="endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-inspect" target="group-record">
+        <mxCell id="edge-i-r" value="" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-inspect" target="group-record">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="edge-r-reply" value="" style="endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-record" target="group-reply">
+        <mxCell id="edge-r-reply" value="" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-record" target="group-reply">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="edge-close" value="close + reopen" style="endArrow=block;endFill=1;strokeWidth=3;dashed=1;" edge="1" parent="1" source="group-reply" target="group-resume">
+        <mxCell id="edge-close" value="close + reopen" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;dashed=1;" edge="1" parent="1" source="group-reply" target="group-resume">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="edge-res-store" value="" style="endArrow=block;endFill=1;strokeWidth=3;dashed=1;" edge="1" parent="1" source="group-resume" target="group-record">
+        <mxCell id="edge-res-store" value="" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;dashed=1;" edge="1" parent="1" source="group-resume" target="group-record">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
       </root>

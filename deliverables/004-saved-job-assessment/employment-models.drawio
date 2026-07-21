@@ -85,19 +85,19 @@
         <mxCell id="asmt-rec" value="recommendation, summary, constraint_checks[], source_content_hash" style="text;fontSize=11;" vertex="1" parent="group-assessment">
           <mxGeometry x="10" y="130" width="200" height="20" as="geometry"/>
         </mxCell>
-        <mxCell id="edge-p-t" value="" style="endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-person" target="group-track">
+        <mxCell id="edge-p-t" value="" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-person" target="group-track">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="edge-t-s" value="" style="endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-track" target="group-skill">
+        <mxCell id="edge-t-s" value="" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-track" target="group-skill">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="edge-s-e" value="skill_evidence (M:N)" style="endArrow=block;endFill=1;strokeWidth=3;dashed=1;" edge="1" parent="1" source="group-skill" target="group-evidence">
+        <mxCell id="edge-s-e" value="skill_evidence (M:N)" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;dashed=1;" edge="1" parent="1" source="group-skill" target="group-evidence">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="edge-j-a" value="" style="endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-job" target="group-assessment">
+        <mxCell id="edge-j-a" value="" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-job" target="group-assessment">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="edge-t-a" value="" style="endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-track" target="group-assessment">
+        <mxCell id="edge-t-a" value="" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-track" target="group-assessment">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
       </root>

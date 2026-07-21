@@ -163,13 +163,11 @@ async def test_tool_result_persisted_before_next_model_call():
     assert tool_results[0].ok is True
 
 
-# ── Persist failure before handler aborts ──
+# ── Result persistence precedes lifecycle event ──
 
 @pytest.mark.asyncio
-async def test_persist_failure_before_handler_aborts():
-    """ToolCallMessage persistence failure prevents handler dispatch."""
-    handler_called = False
-
+async def test_failed_tool_result_persistence_emits_no_completed_event():
+    """A successful handler cannot publish completion without its result row."""
     from pydantic import BaseModel
 
     class _Input(BaseModel):
@@ -180,37 +178,38 @@ async def test_persist_failure_before_handler_aborts():
 
     registry = ToolRegistry()
 
-    async def never_handler(input_obj: _Input, ctx: ToolExecutionContext) -> dict:
-        nonlocal handler_called
-        handler_called = True
+    async def handler(input_obj, ctx):
         return {"ok": True}
 
     registry.register(ToolDefinition(
-        name="never", description="never", input_model=_Input,
-        output_model=_Output, handler=never_handler,
+        name="persist-fail", description="test", input_model=_Input,
+        output_model=_Output, handler=handler,
     ))
+    events: list[LiveEvent] = []
 
-    fake = FakeModelClient(
-        stream_events=_fake_stream_with_tool(
-            "call-never", "never", '{"value": "x"}', "Should not reach."
-        ),
-    )
-    cancel = asyncio.Event()
-
-    def failing_persist(msg: ConversationMessage) -> None:
-        if msg.kind == "tool_call":
-            raise RuntimeError("persist failure")
+    def persist(message: ConversationMessage) -> None:
+        if message.kind == "tool_result":
+            raise OSError("result store unavailable")
 
     result = await run_turn(
-        session_id="s1", turn_id="t1", model=fake,
+        session_id="s1", turn_id="t1",
+        model=FakeModelClient(stream_events=_fake_stream_with_tool(
+            "call-persist-fail", "persist-fail", '{"value":"x"}', "unused",
+        )),
         system_prompt="sys", context_messages=[], history=[],
-        tool_registry=registry, active_tools=("never",),
-        cancel_event=cancel, emit=_fake_emit([]),
-        persist_message=failing_persist, user_message_id=_uid(),
+        tool_registry=registry, active_tools=("persist-fail",),
+        cancel_event=asyncio.Event(), emit=_fake_emit(events),
+        persist_message=persist, user_message_id=_uid(),
     )
 
-    assert not handler_called
-    assert result.exit_reason == TurnExitReason.MODEL_FAILED
+    assert result.exit_reason == TurnExitReason.PERSISTENCE_FAILED
+    assert not any(e.event_type == LiveEventType.TOOL_COMPLETED for e in events)
+    assert any(
+        e.event_type == LiveEventType.TOOL_FAILED
+        and e.error_code == "persistence_failed"
+        for e in events
+    )
+    assert not any(e.event_type == LiveEventType.TURN_COMPLETED for e in events)
 
 
 # ── Dangling call on resume ──

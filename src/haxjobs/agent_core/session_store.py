@@ -106,12 +106,24 @@ class SessionStore:
     def close(self) -> None:
         self._conn.close()
 
-    def create_session(self, session_id: str, configuration_json: str = "") -> None:
-        """Create session and configuration in one transaction.
+    def create_session(self, session_id: str, configuration_json: str) -> None:
+        """Create a configured session and configuration in one transaction.
 
+        Configuration is validated before the session row is inserted, so an
+        invalid request cannot leave a historic-style unconfigured session.
         Raises IntegrityError on duplicate session_id (plain INSERT, no ON CONFLICT).
         """
+        if not isinstance(configuration_json, str) or not configuration_json.strip():
+            raise ValueError("configuration_json must be a non-empty JSON object")
+        try:
+            configuration = json.loads(configuration_json)
+        except (json.JSONDecodeError, TypeError) as exc:
+            raise ValueError("configuration_json must be valid JSON") from exc
+        if not isinstance(configuration, dict) or not configuration:
+            raise ValueError("configuration_json must be a non-empty JSON object")
+
         now = _now()
+
         with self._conn:
             self._conn.execute(
                 "INSERT INTO sessions (session_id, created_at, updated_at, status, turn_count) "

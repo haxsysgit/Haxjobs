@@ -1,4 +1,4 @@
-"""Bounded trusted-fixture source inspection — no arbitrary URLs, no browser, no search."""
+"""Bounded saved-job source inspection — no arbitrary URLs, no browser, no search."""
 
 from __future__ import annotations
 
@@ -17,14 +17,12 @@ from typing import Any, Callable
 
 from pydantic import BaseModel, Field
 
-from haxjobs.employment.fixtures import JobFixture
-
 logger = logging.getLogger(__name__)
 
 _MAX_BYTES = 512 * 1024  # 512 KB
 _MAX_VISIBLE_CHARS = 12_000
 _TIMEOUT = 15.0
-_USER_AGENT = "HaxJobs-Stage1/1.0 (trusted-fixture-experiment; +https://haxjobs.local)"
+_USER_AGENT = "HaxJobs/1.0 (saved-job-source-inspection; +https://haxjobs.local)"
 
 class SourceObservation(BaseModel):
     """Structured source retrieval observation — safe for model and JSONL."""
@@ -183,11 +181,10 @@ def _extract_text(html_bytes: bytes, content_type: str) -> tuple[str, bool]:
 
 
 class JobSourceFetcher:
-    """Retrieve and validate one job source — bounded, trusted-fixture only.
+    """Retrieve and validate one source URL resolved from a saved Job.
 
-    This is a Stage 1 experiment, not a general URL fetcher. The tool resolves
-    job_ref against the loaded fixture's source_url. The model cannot supply
-    arbitrary URLs.
+    The model cannot supply arbitrary URLs. Runtime inspection accepts only the
+    URL and host allowlist already persisted on the saved job.
     """
 
     def __init__(
@@ -281,80 +278,6 @@ class JobSourceFetcher:
             return SourceObservation(
                 ok=False,
                 job_ref=job_ref,
-                source_url=source_url,
-                host=hostname,
-                status="unavailable",
-                code="fetch_exception",
-                error=f"fetch failed: {exc}",
-            )
-
-    async def fetch(
-        self,
-        job_ref: str,
-        job_fixture: JobFixture,
-        allowed_hosts: tuple[str, ...],
-    ) -> SourceObservation:
-        """Fetch the job source. Returns a SourceObservation regardless of outcome."""
-        # Validate job_ref matches fixture
-        if str(job_fixture.job_ref) != job_ref:
-            return SourceObservation(
-                ok=False,
-                job_ref=job_fixture.job_ref,
-                source_url=job_fixture.source_url,
-                status="invalid_source",
-                code="job_ref_mismatch",
-                error=f"job_ref {job_ref} does not match fixture ref {job_fixture.job_ref}",
-            )
-
-        source_url = job_fixture.source_url
-
-        # Validate URL
-        url_ok, url_error, hostname = _validate_url(source_url)
-        if not url_ok:
-            return SourceObservation(
-                ok=False,
-                job_ref=job_fixture.job_ref,
-                source_url=source_url,
-                status="invalid_source",
-                code="url_validation_failed",
-                error=url_error,
-            )
-
-        # Check allowed hosts
-        allowed_lower = {h.lower() for h in allowed_hosts}
-        if hostname not in allowed_lower:
-            return SourceObservation(
-                ok=False,
-                job_ref=job_fixture.job_ref,
-                source_url=source_url,
-                host=hostname,
-                status="invalid_source",
-                code="host_not_allowed",
-                error=f"host {hostname} not in allowed_source_hosts",
-            )
-
-        # Check DNS addresses are all public
-        ok, addr_error = await self._resolve_public_addresses(hostname)
-        if not ok:
-            return SourceObservation(
-                ok=False,
-                job_ref=job_fixture.job_ref,
-                source_url=source_url,
-                host=hostname,
-                status="invalid_source",
-                code="non_public_address",
-                error=addr_error,
-            )
-
-        # Fetch
-        try:
-            observation = await self._do_fetch_async(source_url, job_fixture.job_ref, hostname)
-            return observation
-        except Exception as exc:
-            logger.warning("source fetch failed for %s: %s", source_url, exc)
-            return SourceObservation(
-                ok=False,
-                job_ref=job_fixture.job_ref,
                 source_url=source_url,
                 host=hostname,
                 status="unavailable",

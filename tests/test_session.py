@@ -167,18 +167,6 @@ async def test_subscriber_receives_events(store: SessionStore):
     assert LiveEventType.SESSION_SETTLED in event_types
 
 
-# ── Abort returns session to idle ──
-
-@pytest.mark.asyncio
-async def test_abort_returns_session_to_idle(store: SessionStore):
-    session = _make_session(store)
-    session.abort()
-
-    # Session should still accept prompts after abort (cancel wasn't active during a turn)
-    result = await session.prompt("after abort")
-    assert result is not None
-
-
 # ── Subscriber failure does not fail the turn ──
 
 @pytest.mark.asyncio
@@ -298,7 +286,7 @@ async def test_busy_returns_queued_not_interrupted(store: SessionStore):
         delay_ms=200,
         repeat=True,
     )
-    store.create_session("s1")
+    store.create_session("s1", configuration_json='{"scope": "test"}')
     session = AgentSession(
         session_id="s1",
         session_store=store,
@@ -326,7 +314,7 @@ async def test_busy_returns_queued_not_interrupted(store: SessionStore):
 @pytest.mark.asyncio
 async def test_host_context_setup_failure_emits_turn_failed(store: SessionStore):
     """If host/context setup raises, TURN_FAILED and SESSION_SETTLED are emitted."""
-    store.create_session("s1")
+    store.create_session("s1", configuration_json='{"scope": "test"}')
 
     def broken_context():
         raise RuntimeError("context explosion")
@@ -388,7 +376,7 @@ async def test_idle_abort_does_not_cancel_next_prompt(store: SessionStore):
 async def test_cancel_current_queued_successor_runs(store: SessionStore):
     """After aborting the current turn, the queued successor runs with a fresh
     cancel event — not poisoned by the previous abort."""
-    store.create_session("s1")
+    store.create_session("s1", configuration_json='{"scope": "test"}')
 
     # Slow model for the first turn
     model = FakeModelClient(
@@ -444,7 +432,7 @@ async def test_cancel_current_queued_successor_runs(store: SessionStore):
 async def test_pending_work_finishes_before_close(store: SessionStore):
     """All pending turns finish and are persisted before the session closes.
     No turn is dropped."""
-    store.create_session("s1")
+    store.create_session("s1", configuration_json='{"scope": "test"}')
 
     model = FakeModelClient(
         stream_events=[
@@ -523,7 +511,7 @@ async def test_no_detached_task_after_chain(store: SessionStore):
 async def test_immediate_enter_then_escape_reaches_active_turn(store: SessionStore):
     """Simulating 'Enter then Escape immediately': abort must reach the running turn.
     After the yield tick, the session is busy and cancel_event is set."""
-    store.create_session("s1")
+    store.create_session("s1", configuration_json='{"scope": "test"}')
 
     model = FakeModelClient(
         stream_events=[
@@ -581,10 +569,79 @@ async def test_immediate_enter_then_escape_reaches_active_turn(store: SessionSto
 # ══════════════════════════════════════════════
 
 @pytest.mark.asyncio
+async def test_external_cancel_during_tool_is_settled_without_detached_task(store: SessionStore):
+    """Task cancellation settles the active tool and records one interruption."""
+    from pydantic import BaseModel
+    from haxjobs.agent_core.tools import ToolDefinition
+
+    class Input(BaseModel):
+        value: str
+
+    class Output(BaseModel):
+        ok: bool
+
+    started = asyncio.Event()
+    registry = ToolRegistry()
+
+    async def slow_tool(input_obj, ctx):
+        started.set()
+        await asyncio.sleep(30)
+        return {"ok": True}
+
+    registry.register(ToolDefinition(
+        name="slow", description="slow", input_model=Input,
+        output_model=Output, handler=slow_tool,
+    ))
+    model = FakeModelClient(stream_events=[[
+        ModelStreamEvent(
+            event_type=ModelStreamEventType.COMPLETE_TOOL_CALL,
+            call_id="cancel-call", tool_name="slow", arguments='{"value":"x"}',
+        ),
+        ModelStreamEvent(
+            event_type=ModelStreamEventType.RESPONSE_COMPLETED,
+            finish_reason="tool_calls",
+        ),
+    ]])
+    store.create_session("s1", configuration_json='{"scope": "test"}')
+    session = AgentSession(
+        session_id="s1", session_store=store, model=model,
+        system_prompt=lambda: "sys", context_messages=lambda: [],
+        tool_registry_fn=lambda: registry, active_tool_names_fn=lambda: ("slow",),
+    )
+    events: list[LiveEvent] = []
+    session.subscribe(events.append)
+
+    task = asyncio.create_task(session.prompt("cancel me"))
+    await started.wait()
+    task.cancel()
+    result = await task
+
+    assert result.exit_reason == TurnExitReason.INTERRUPTED
+    assert session._busy is False
+    assert session._cancel_event is None
+    assert not any(t is not asyncio.current_task() and not t.done()
+                   for t in asyncio.all_tasks())
+    messages = store.load_messages("s1")
+    results = [m["payload_json"] for m in messages if m["payload_json"]["kind"] == "tool_result"]
+    assert len(results) == 1
+    assert results[0]["ok"] is False
+    assert not any(e.event_type == LiveEventType.TOOL_COMPLETED for e in events)
+    assert sum(e.event_type == LiveEventType.TURN_INTERRUPTED for e in events) == 1
+    measurement = store._conn.execute(
+        "SELECT exit_reason FROM turn_measurements WHERE session_id = 's1'"
+    ).fetchone()
+    assert measurement["exit_reason"] == "interrupted"
+
+
+@pytest.mark.asyncio
 async def test_unconfigured_session_fails_on_resume(store: SessionStore):
     """Resume raises ValueError for session without configuration."""
-    # Create session without config (old-style create_session)
-    store.create_session("old-session")  # no configuration_json
+    # Reproduce a historic row directly; current create_session rejects this.
+    store._conn.execute(
+        "INSERT INTO sessions (session_id, created_at, updated_at, status, turn_count) "
+        "VALUES ('old-session', 'now', 'now', 'active', 0)"
+    )
+    store._conn.commit()
     store.mark_turn_settled("old-session", 1)
 
     with pytest.raises(ValueError, match="no configuration"):

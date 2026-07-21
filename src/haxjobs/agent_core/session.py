@@ -10,6 +10,7 @@ session configuration validation.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 import uuid
@@ -306,20 +307,39 @@ class AgentSession:
         def _persist_message(msg: ConversationMessage) -> None:
             self._store.append_message(self.session_id, msg)
 
-        result = await run_turn(
-            session_id=self.session_id,
-            turn_id=turn_id,
-            model=self._model,
-            system_prompt=system_prompt,
-            context_messages=context_msgs,
-            history=history,
-            tool_registry=tool_registry,
-            active_tools=active_tool_names,
-            cancel_event=self._cancel_event,  # type: ignore[arg-type]
-            emit=self._emit,
-            persist_message=_persist_message,
-            user_message_id=user_msg.message_id,
-        )
+        try:
+            result = await run_turn(
+                session_id=self.session_id,
+                turn_id=turn_id,
+                model=self._model,
+                system_prompt=system_prompt,
+                context_messages=context_msgs,
+                history=history,
+                tool_registry=tool_registry,
+                active_tools=active_tool_names,
+                cancel_event=self._cancel_event,  # type: ignore[arg-type]
+                emit=self._emit,
+                persist_message=_persist_message,
+                user_message_id=user_msg.message_id,
+            )
+        except asyncio.CancelledError:
+            # Cancellation outside the tool wait (for example during model
+            # streaming) still gets a durable, content-free settlement.
+            if self._cancel_event is not None:
+                self._cancel_event.set()
+            result = TurnResult(
+                turn_id=turn_id,
+                exit_reason=TurnExitReason.INTERRUPTED,
+                safe_failure="externally cancelled",
+                user_message_id=user_msg.message_id,
+            )
+            self._emit(
+                LiveEvent(
+                    session_id=self.session_id,
+                    turn_id=turn_id,
+                    event_type=LiveEventType.TURN_INTERRUPTED,
+                )
+            )
 
         # Record measurement
         self._record_measurement(
@@ -409,6 +429,16 @@ class AgentSession:
             raise ValueError(
                 f"Session {session_id} has no configuration (created before Plan 004). "
                 f"Create a new session with --new."
+            )
+        try:
+            parsed_cfg = json.loads(cfg)
+        except (json.JSONDecodeError, TypeError) as exc:
+            raise ValueError(
+                f"Session {session_id} has invalid configuration; create a new session."
+            ) from exc
+        if not isinstance(parsed_cfg, dict) or not parsed_cfg:
+            raise ValueError(
+                f"Session {session_id} has invalid configuration; create a new session."
             )
 
         session = cls(

@@ -1103,7 +1103,7 @@ async def test_abort_before_turn_clears_cancel():
     from haxjobs.agent_core.session_store import SessionStore
 
     store = SessionStore(":memory:")
-    store.create_session("s1")
+    store.create_session("s1", configuration_json='{"scope": "test"}')
 
     # Use a delayed fake model so the stream doesn't finish instantly
     session = AgentSession(
@@ -1148,7 +1148,7 @@ async def test_pending_turn_no_gap():
     from haxjobs.agent_core.session_store import SessionStore
 
     store = SessionStore(":memory:")
-    store.create_session("s1")
+    store.create_session("s1", configuration_json='{"scope": "test"}')
 
     # Use repeated streams so multiple turns work
     model = FakeModelClient(

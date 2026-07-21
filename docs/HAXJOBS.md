@@ -24,7 +24,7 @@ The model boundary knows nothing about careers. The agent core knows nothing abo
 - `src/haxjobs/config.py` — paths from `haxjobs.toml`
 - `src/haxjobs/cv_variants/` — user CV variant templates, registry, renderer (data, not code to rebuild)
 
-216 tests pass (all tests, including PTY terminal tests with isolated temp career DB). Stage 0/1 experiment runtime deleted after conversational runtime trajectories passed.
+223 tests pass (all tests, including PTY terminal tests with isolated temp career DB). Stage 0/1 experiment runtime deleted after conversational runtime trajectories passed.
 
 ### What was deleted
 
@@ -75,7 +75,6 @@ All of these rebuild from scratch on the greenfield runtime, one stage at a time
 | RunContext / resume | When workflows need mid-run checkpoints |
 | Parallel dispatch | When 10+ evaluations bottleneck |
 | JSON mode | When DeepSeek reliably supports it |
-| Conversation loop | When interactive chat is added |
 | Provider fallback cascade | When DeepSeek has reliability problems |
 
 ### Docs

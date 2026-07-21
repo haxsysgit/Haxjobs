@@ -60,7 +60,6 @@ class ConstraintCheckInput(BaseModel):
 
 class RecordJobAssessmentInput(BaseModel):
     job_id: str = Field(description="The job ID being assessed")
-    track_id: str = Field(description="The career track ID")
     recommendation: Literal["pursue", "consider", "skip", "needs_more_information"] = Field(
         description="Assessment recommendation"
     )
@@ -113,8 +112,7 @@ Use recommendations: pursue (strong fit), consider (possible fit), skip (mismatc
 needs_more_information (insufficient evidence).
 
 Arguments:
-  job_id: The job ID being assessed
-  track_id: The active career track ID
+  job_id: The job ID being assessed. The active career track is bound by the host.
   recommendation: pursue, consider, skip, or needs_more_information
   summary: Natural language explanation of the assessment
   constraint_checks: List of hard constraint checks with pass/fail/unknown results
@@ -206,7 +204,7 @@ def build_employment_tool_registry(
 
         assessment = JobAssessment(
             job_id=input_obj.job_id,
-            track_id=input_obj.track_id,
+            track_id=track_id,
             tool_call_id=ctx.call_id,
             recommendation=input_obj.recommendation,
             summary=input_obj.summary,

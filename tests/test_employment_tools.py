@@ -95,7 +95,6 @@ async def test_record_job_assessment_idempotent_replay(store: CareerStore):
 
     args = {
         "job_id": "job-49",
-        "track_id": "t1",
         "recommendation": "skip",
         "summary": "Not a backend role",
         "constraint_checks": [
@@ -136,7 +135,6 @@ async def test_record_job_assessment_idempotency_conflict(store: CareerStore):
 
     args1 = {
         "job_id": "job-49",
-        "track_id": "t1",
         "recommendation": "skip",
         "summary": "Skip this",
         "constraint_checks": [],
@@ -168,28 +166,28 @@ async def test_record_job_assessment_idempotency_conflict(store: CareerStore):
 
 
 @pytest.mark.asyncio
-async def test_record_job_assessment_uses_context_call_id(store: CareerStore):
-    """Tool uses context.call_id, not a separate id parameter."""
+async def test_record_job_assessment_uses_bound_track_and_context_call_id(store: CareerStore):
+    """The registry scope, not model input, selects the assessment track."""
+    from haxjobs.employment.schema import CareerTrack, Person
+
+    now = "2026-07-21T00:00:00+00:00"
+    store.upsert_person(Person(person_id="p2", name="Other", location="L", created_at=now, updated_at=now))
+    store.upsert_track(CareerTrack(track_id="t2", person_id="p2", name="Frontend", created_at=now, updated_at=now))
     registry, active = build_employment_tool_registry(store, track_id="t1")
-
     args = {
-        "job_id": "job-49",
-        "track_id": "t1",
-        "recommendation": "consider",
-        "summary": "Testing call_id",
+        "job_id": "job-49", "track_id": "t2",
+        "recommendation": "consider", "summary": "Testing call_id",
     }
-
-    ctx = _test_ctx("unique-call-id-xyz")
     result = await registry.dispatch(
-        name="record_job_assessment",
-        arguments=json.dumps(args),
-        active_names=active,
-        context=ctx,
+        name="record_job_assessment", arguments=json.dumps(args),
+        active_names=active, context=_test_ctx("unique-call-id-xyz"),
     )
 
     assert result["ok"] is True
-    # The assessment_id is derived from tool_call_id via make_stable_id
     assert result["data"]["assessment_id"] != ""
+    assert len(store.list_assessments("job-49", "t1")) == 1
+    assert store.list_assessments("job-49", "t2") == []
+    assert "track_id" not in RecordJobAssessmentInput.model_json_schema()["properties"]
 
 
 def test_tool_effect_kinds_are_correct(store: CareerStore):

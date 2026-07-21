@@ -126,9 +126,14 @@ def _resolve_scope(
                 f"Session {session_id} has no configuration (created before Plan 004). "
                 f"Create a new session with --new."
             )
-        cfg = json.loads(cfg_str)
-        stored_person_id = cfg["person_id"]
-        stored_track_id = cfg["track_id"]
+        try:
+            cfg = json.loads(cfg_str)
+            stored_person_id = cfg["person_id"]
+            stored_track_id = cfg["track_id"]
+        except (json.JSONDecodeError, KeyError, TypeError) as exc:
+            raise ValueError(
+                f"Session {session_id} has invalid configuration; create a new session."
+            ) from exc
         stored_track = career_store.get_track(stored_track_id)
         if stored_track is None:
             raise ValueError(
