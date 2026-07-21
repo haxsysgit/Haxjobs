@@ -1,393 +1,1176 @@
-# Plan 003: Career Graph Schema — Tracks, Skills, Evidence, Persistence
+# Plan 003: Career Graph and First Real Conversation
 
 | Key | Value |
 |-----|-------|
 | **Plan ID** | 003 |
-| **Title** | Career Graph Schema |
-| **Drift check stamp** | `a060d3d` — 2026-07-17 bugfix commit |
-| **Design baseline** | `7da5786` — immutable greenfield baseline |
-| **Depends on** | Plan 001 DONE (`a28d5ba`), Plan 002 DONE (`922f6df`) |
-| **Status** | TODO |
-| **Priority** | P1 — foundation for all employment workflows |
+| **Title** | Career Graph and First Real Conversation |
+| **Correction baseline** | `7bd9a55` |
+| **Design baseline** | `7da5786` |
+| **Previous delivery** | Career graph landed at `9ee53be`, Plan index update at `e907b1b` |
+| **Depends on** | Plan 001 DONE, Plan 002 DONE |
+| **Status** | REOPENED, corrected after the rejected Textual TUI |
+| **Priority** | P1, make the career graph usable through Hax |
+
+---
+
+## Executor warning
+
+This plan is not final just because it is written down.
+
+Before editing code, compare every instruction against the live repository. Read the source, tests, imports, and current dependency lock. If the plan disagrees with working code, stop and report the drift. Do not silently adapt. Do not preserve stale behavior through compatibility wrappers.
+
+The writer must read these files first:
+
+1. `AGENTS.md`
+2. `discussion/research/2026-07-17-interactive-agent-cli-study.md`
+3. `discussion/research/2026-07-17-pi-hermes-job-native-harness-study.md`
+4. `discussion/006-pi-inspired-haxjobs-architecture.md`
+5. `docs/harness-primitives/00-How-An-Agent-Actually-Runs.md`
+6. `docs/harness-primitives/02-context-delivery-and-management.md`
+7. this plan in full
 
 ---
 
 ## Purpose
 
-Replace the flat `CareerFixture` model with a relational career graph schema in the employment layer. The schema defines independent career tracks, hierarchical skills, evidence items with one verification flag and gap tracking, hard constraints separated from preferences, and persistence via SQLite. A CLI and basic Textual TUI ship alongside so the user can interact with their career profile immediately.
+Plan 003 originally delivered the career graph correctly, then attached the wrong interface to it.
 
-Everything is built from scratch on the greenfield runtime. No legacy code is ported or consulted.
+The rejected interface was a Textual profile browser, followed by two fake chat shells. Those implementations treated the terminal as an app that owned behavior. HaxJobs needs the opposite boundary: the terminal submits input to a real session and renders events produced by the runtime.
+
+The corrected Plan 003 keeps the delivered career graph and adds the smallest real conversational path over it:
+
+```text
+inline terminal
+    -> employment session
+    -> domain-free turn runtime
+    -> model and tool loop
+    -> employment context and actions
+    -> career graph
+```
+
+At the end, running `haxjobs` opens an inline conversation with Hax. Responses come from the configured provider. The terminal can stream text, show real tool lifecycle events, interrupt work, persist canonical history, and resume a prior session.
+
+No fake response is allowed in the live interface.
 
 ---
 
-## What changed and why
+## Corrected scope
 
-**From:** Flat `CareerFixture` — a single career direction string, flat evidence list, merged constraints, no skill hierarchy, no persistence beyond a JSON file.
+### Accepted history, verify but do not rebuild
 
-**To:** Relational graph in the employment layer — multiple career tracks each with their own skills (in a tree), evidence items linked to skills, gap records for missing evidence, separate hard-constraint and preference columns, SQLite backing, CLI commands, and a Textual TUI.
+The following work already exists and remains part of Plan 003:
 
-**Drivers:**
-- The greenfield employment layer needs rich data to assemble context for later workflows (evaluate, generate pack). Flat JSON cannot express "Python is a child of Backend Engineering, evidenced by Vigilis and Pharmax, with React being a noted gap."
-- CLI + TUI from day one because the user wants interactive beta testing, not command-typing.
-- Evidence is a positioning asset, not a truth ledger. One `verified_at` flag. Gaps are first-class records so Hax can fill them later (rebranded GitHub projects, crafted wording, open-source fork-and-extend).
-- Separate hard constraints (won't relocate) from preferences (prefers remote) because evaluation logic needs to know which ones are dealbreakers.
+| Delivered phase | Live files |
+|-----------------|------------|
+| Career models | `src/haxjobs/employment/schema.py` |
+| SQLite career store | `src/haxjobs/employment/store.py` |
+| One-way fixture migration | `src/haxjobs/employment/migration.py` |
+| Profile CLI | `src/haxjobs/interfaces/profile_cli.py`, `src/haxjobs/cli.py` |
+| Career graph tests | `tests/test_career_graph.py` |
+| Career graph artifacts | `deliverables/003-career-graph/` |
 
----
+These files may only change if the new conversation path exposes a real defect that blocks the accepted behavior. Any such change must be explained in the completion report and covered by a focused regression test.
 
-## Phase 1: Pydantic models (`src/haxjobs/employment/schema.py`)
+### Rejected history, never restore
 
-New file. No existing module is touched.
+Delete nothing further because the rejected implementation is already gone.
 
-### Models
+Do not restore:
 
-```
-Person
-  person_id: str                          # "arinze-elensulu"
-  name: str
-  location: str                           # "London, UK"
-  work_authorization: str                 # "No sponsorship required"
-  notice_period: str                      # "Immediate"
-  salary_range: str                       # "£35,000-£45,000"
-  created_at: str                         # ISO 8601
-  updated_at: str
+- `src/haxjobs/interfaces/tui.py`
+- Textual
+- full-screen alternate-buffer UI
+- profile tables, trees, cards, panels, headers, or footers
+- message bubbles, avatars, or fake typing indicators
+- fake Hax replies in live mode
+- terminal code that reads `CareerStore`
+- terminal code that builds prompts
+- terminal code that calls the provider or dispatches tools
 
-CareerTrack
-  track_id: str                           # "track-backend-python"
-  person_id: str → Person
-  name: str                               # "Backend Python Engineer"
-  target_role_families: list[str]         # ["backend_python", "fullstack_python_react", ...]
-  excluded_role_families: list[str]
-  created_at: str
-  updated_at: str
+### New work
 
-Skill
-  skill_id: str                           # "skill-python"
-  track_id: str → CareerTrack
-  name: str                               # "Python"
-  parent_skill_id: str | None             # "Backend Engineering" — null if root
-  proficiency: str                        # "primary" | "strong" | "working" | "learning"
-  created_at: str
+The corrected work has seven pieces:
 
-EvidenceItem
-  evidence_id: str                        # "ev-vigilis-role"
-  label: str                              # "vigilis-role"
-  source: str                             # "typed_cv_profile:v1"
-  content: str                            # description of what this evidence proves
-  verified_at: str                        # ISO 8601 — one flag, no freshness scoring
-  privacy_level: str                      # "public_ok" | "private"
-  created_at: str
-
-SkillEvidence (join table)
-  skill_id: str → Skill
-  evidence_id: str → EvidenceItem
-
-SkillGap
-  gap_id: str                             # "gap-react-frontend"
-  track_id: str → CareerTrack
-  skill_name: str                         # "React / TypeScript"
-  target_proficiency: str                 # "strong"
-  note: str                               # "CV mentions React but no production project evidence"
-  created_at: str
-
-HardConstraint
-  constraint_id: str
-  track_id: str → CareerTrack
-  constraint_text: str                    # "Must be London-based or fully remote UK"
-  created_at: str
-
-Preference
-  preference_id: str
-  track_id: str → CareerTrack
-  key: str                                # "work_mode" | "industry" | "company_size" | "tech_stack"
-  value: str                              # "hybrid" | "remote"
-  weight: str                             # "strong" | "weak"
-  created_at: str
-```
-
-### Rules in Pydantic validators
-
-- `parent_skill_id` must either be null (root) or reference an existing skill on the same track
-- `Skill.name` must be unique within a track
-- `EvidenceItem.verified_at` must be a valid ISO 8601 string (no freshness calculation, just presence)
-- `SkillGap.target_proficiency` must be one of `primary | strong | working | learning`
-- Every `SkillEvidence` row's `skill_id` and `evidence_id` must exist in their respective tables
+1. canonical conversation messages
+2. content-bearing live interaction events
+3. streaming and cancellation in the model boundary
+4. an append-only session store
+5. a bounded streaming model and tool turn runtime
+6. employment context assembly from `CareerStore`
+7. a small inline `prompt_toolkit` terminal client
 
 ---
 
-## Phase 2: SQLite storage layer (`src/haxjobs/employment/store.py`)
+## Architecture rules
 
-New file. No existing module is touched.
+These rules are release gates.
 
-### `CareerStore` class
+### Layer ownership
 
-```
-__init__(db_path: str | Path)
-  - Opens SQLite in WAL mode, creates tables via execute() if not exists
-  - Foreign keys enforced: PRAGMA foreign_keys = ON
+```text
+TerminalClient
+    owns editing, key bindings, display, and nothing else
 
-# Person
-get_person(person_id) → Person | None
-upsert_person(person: Person) → None
+EmploymentSession
+    owns prompt boundaries, subscribers, cancellation, queue policy,
+    canonical history, persistence, and resume
 
-# CareerTracks
-get_track(track_id) → CareerTrack | None
-list_tracks(person_id) → list[CareerTrack]
-upsert_track(track: CareerTrack) → None
+Turn runtime
+    owns the bounded model -> tool -> model loop
 
-# Skills
-get_skill(skill_id) → Skill | None
-list_skills(track_id) → list[Skill]
-upsert_skill(skill: Skill) → None
-get_skill_tree(track_id) → dict  # nested dict, root skills → children
+EmploymentHost
+    owns Hax instructions, selected career context, and active employment tools
 
-# Evidence
-get_evidence(evidence_id) → EvidenceItem | None
-list_evidence_for_skill(skill_id) → list[EvidenceItem]
-upsert_evidence(evidence: EvidenceItem) → None
-link_skill_evidence(skill_id, evidence_id) → None
-
-# Gaps
-list_gaps(track_id) → list[SkillGap]
-upsert_gap(gap: SkillGap) → None
-
-# Constraints / Preferences
-list_hard_constraints(track_id) → list[HardConstraint]
-upsert_hard_constraint(c: HardConstraint) → None
-list_preferences(track_id) → list[Preference]
-upsert_preference(p: Preference) → None
+CareerStore and employment actions
+    own durable career facts and job-search behavior
 ```
 
-### Table schema (executed in `__init__`)
+### Import rules
+
+- `interfaces/terminal.py` must not import `CareerStore`, provider clients, job fixtures, `ToolRegistry`, or employment handlers.
+- `agent_core/session.py` must not import `prompt_toolkit` or employment modules.
+- `agent_core/turn.py` must remain domain-free. No job, CV, company, track, application, or evidence names.
+- `employment/host.py` may import `CareerStore`, employment tools, and agent-core protocols.
+- one composition root creates the provider, career store, employment host, session store, and session.
+- `RunEvent` remains safe redacted telemetry. Live interface events use a separate type.
+
+### State ownership
+
+- session history stores conversation messages and tool messages.
+- career facts stay in `CareerStore` and are selected again for each turn.
+- provider request objects are disposable projections, not durable truth.
+- terminal display state is never durable product state.
+
+### Cancellation
+
+Escape must cause a real session abort.
+
+The session sets a cancellation signal. The provider stream and current tool task observe it. The turn records an interrupted outcome and returns to a promptable state. Hiding output while work continues is not cancellation.
+
+### Fake model boundary
+
+The fake model exists only for tests and an explicit `--fake` development option. Every fake response must be scripted by the test or caller. The terminal must never invent assistant content, tool progress, or completion text.
+
+---
+
+## Phase 0: Preflight and drift record
+
+**Files changed:** none
+
+1. Confirm `git status --short` is clean.
+2. Confirm `git rev-parse HEAD` matches the approved execution baseline.
+3. Run the current suite and record the exact count.
+4. Confirm `src/haxjobs/interfaces/tui.py` is absent.
+5. Confirm `textual` is absent from `pyproject.toml` and `uv.lock`.
+6. Inspect all callers of `ModelClient.complete()`, `run_stage0()`, `ToolRegistry.dispatch()`, and `CareerStore` before changing shared behavior.
+7. Record any drift in the implementation report before editing.
+
+STOP if the worktree is dirty for reasons not created by the executor.
+
+---
+
+## Phase 1: Canonical conversation messages
+
+### Goal
+
+Create the provider-neutral messages a session can persist and replay.
+
+### Files
+
+- Create: `src/haxjobs/agent_core/messages.py`
+- Modify: `src/haxjobs/agent_core/types.py`
+- Create: `tests/test_conversation_messages.py`
+
+### Contract
+
+Use strict Pydantic models with `extra="forbid"`:
+
+```text
+UserMessage
+    kind = "user"
+    message_id
+    turn_id
+    content
+    created_at
+
+AssistantMessage
+    kind = "assistant"
+    message_id
+    turn_id
+    content
+    status = "complete" | "interrupted" | "failed"
+    created_at
+
+ToolCallMessage
+    kind = "tool_call"
+    message_id
+    turn_id
+    call_id
+    tool_name
+    arguments
+    created_at
+
+ToolResultMessage
+    kind = "tool_result"
+    message_id
+    turn_id
+    call_id
+    tool_name
+    ok
+    result
+    error_code
+    error
+    created_at
+```
+
+Provide:
+
+```python
+ConversationMessage = UserMessage | AssistantMessage | ToolCallMessage | ToolResultMessage
+
+def project_messages(
+    system_prompt: str,
+    context_messages: list[ModelMessage],
+    history: list[ConversationMessage],
+) -> list[ModelMessage]:
+    ...
+```
+
+Projection rules:
+
+- system prompt first
+- turn-scoped career context second
+- canonical session history after that
+- assistant tool calls project to provider assistant messages with tool calls
+- tool results project to provider tool messages with matching call IDs
+- career context is never appended to canonical history
+- model-specific raw response objects are never stored
+
+Remove the unused `AgentMessage` class from `agent_core/types.py` if no live caller remains. Do not keep a compatibility alias.
+
+### Tests
+
+Write failing tests first for:
+
+- strict validation
+- JSON round trip for every message type
+- correct provider projection order
+- matching tool call and tool result IDs
+- career context present in projection but absent from persisted history
+
+---
+
+## Phase 2: Live interaction events
+
+### Goal
+
+Give trusted interfaces enough information to render real work without weakening redacted telemetry.
+
+### Files
+
+- Create: `src/haxjobs/agent_core/live_events.py`
+- Create: `tests/test_live_events.py`
+
+### Contract
+
+Define a strict `LiveEvent` model and enum:
+
+```text
+session_started
+user_message_accepted
+turn_started
+assistant_started
+assistant_delta
+assistant_completed
+tool_requested
+tool_started
+tool_progress
+tool_completed
+tool_failed
+turn_interrupted
+turn_failed
+turn_completed
+session_settled
+```
+
+Common fields:
+
+```text
+session_id
+turn_id
+event_type
+timestamp
+```
+
+Optional event-specific fields:
+
+```text
+text
+delta
+call_id
+tool_name
+tool_status
+tool_duration_ms
+error_code
+error
+```
+
+Rules:
+
+- `LiveEvent` may carry assistant text needed by the local terminal.
+- `RunEvent` in `agent_core/events.py` remains unchanged and content-free.
+- `LiveEvent` is not a subclass of `RunEvent`.
+- subscriber failures are collected or logged and never change the turn result.
+- no event may carry provider credentials, HTTP headers, or provider request objects.
+- `tool_progress` is emitted only when a tool supplies real progress. The terminal never fabricates it.
+
+### Tests
+
+Write failing tests first for:
+
+- every event type validates
+- extra fields are rejected
+- deltas preserve exact order
+- subscriber failure does not break delivery to other subscribers
+- live events and telemetry events remain separate
+
+---
+
+## Phase 3: Streaming model boundary
+
+### Goal
+
+Stream real provider output while keeping the accepted non-streaming experiment path working.
+
+### Files
+
+- Modify: `src/haxjobs/model/types.py`
+- Modify: `src/haxjobs/model/client.py`
+- Modify: `src/haxjobs/model/fake.py`
+- Create: `tests/test_model_streaming.py`
+
+### Contract
+
+Add provider-neutral stream events:
+
+```text
+text_delta
+complete_tool_call
+response_completed
+response_failed
+```
+
+A complete tool call contains the final accumulated `call_id`, tool name, and raw JSON arguments. Provider chunk assembly belongs in the provider adapter, not in the turn runtime.
+
+Extend `ModelClient`:
+
+```python
+class ModelClient(Protocol):
+    async def complete(self, request: ModelRequest) -> ModelResponse | ModelFailure:
+        ...
+
+    def stream(
+        self,
+        request: ModelRequest,
+        cancel_event: asyncio.Event,
+    ) -> AsyncIterator[ModelStreamEvent]:
+        ...
+```
+
+`OpenAIModelClient.stream()` must:
+
+- call the OpenAI-compatible API with `stream=True`
+- yield text deltas as received
+- accumulate fragmented tool-call names and arguments by provider call index
+- yield only complete internal tool calls
+- yield provider usage and finish reason at completion when available
+- stop and close the provider stream when cancellation is set
+- return a safe failure event without leaking credentials or raw headers
+- use no automatic SDK retries
+
+`FakeModelClient.stream()` must:
+
+- accept explicit scripted stream sequences
+- record every `ModelRequest`
+- yield only scripted events
+- support an optional per-event delay for cancellation tests
+- stop when cancellation is set
+- fail loudly when scripted turns are exhausted
+
+Keep `complete()` intact for Stage 0 and Stage 1 experiments. Do not implement one path as a wrapper around the other unless tests prove identical semantics.
+
+### Tests
+
+No live provider calls.
+
+Write failing tests first for:
+
+- exact text delta order
+- fragmented tool-call assembly using a mocked OpenAI stream
+- cancellation stops future deltas
+- safe provider failure
+- existing `complete()` behavior unchanged
+
+STOP if the installed OpenAI SDK cannot close or cancel the stream cleanly on Python 3.12.
+
+---
+
+## Phase 4: Append-only session persistence
+
+### Goal
+
+Persist canonical conversation history at durable boundaries and resume it after process exit.
+
+### Files
+
+- Create: `src/haxjobs/agent_core/session_store.py`
+- Modify: `src/haxjobs/config.py`
+- Create: `tests/test_session_store.py`
+
+### Config
+
+Add:
+
+```python
+SESSION_DB_PATH = Path(
+    _env("HAXJOBS_SESSION_DB", str(STATE_DIR / "sessions.db"))
+)
+```
+
+### Tables
 
 ```sql
-CREATE TABLE IF NOT EXISTS persons (...)
-CREATE TABLE IF NOT EXISTS career_tracks (...)
-CREATE TABLE IF NOT EXISTS skills (parent_skill_id TEXT REFERENCES skills(skill_id), ...)
-CREATE TABLE IF NOT EXISTS evidence_items (...)
-CREATE TABLE IF NOT EXISTS skill_evidence (PRIMARY KEY (skill_id, evidence_id), ...)
-CREATE TABLE IF NOT EXISTS skill_gaps (skill_name TEXT NOT NULL, ...)
-CREATE TABLE IF NOT EXISTS hard_constraints (...)
-CREATE TABLE IF NOT EXISTS preferences (...)
+CREATE TABLE sessions (
+    session_id TEXT PRIMARY KEY,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    status TEXT NOT NULL,
+    turn_count INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE session_messages (
+    sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL REFERENCES sessions(session_id) ON DELETE CASCADE,
+    turn_id TEXT NOT NULL,
+    message_kind TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
 ```
 
-### Design constraints
+### Store API
 
-- `CareerStore` opens one SQLite connection. No connection pooling or async drivers — single user, single writer.
-- All methods are synchronous. The employment layer calls them directly.
-- Database path defaults to `state/career_graph.db` via `haxjobs.config`.
-- No ORM. Plain `sqlite3` from stdlib with dict-like row factories.
-
----
-
-## Phase 3: One-way migration from CareerFixture v4
-
-New file: `src/haxjobs/employment/migration.py`
-
-### `migrate_career_fixture(fixture: CareerFixture, db_path: str) → None`
-
-Converts the existing flat `CareerFixture` into the graph schema:
-
-1. Creates a `Person` row from the fixture's identity fields
-2. Creates one `CareerTrack` from `career_direction` and `target_role_families`
-3. Splits `hard_constraints` into `HardConstraint` rows
-4. Creates `Preference` rows from `preferred_locations` and `work_authorization`
-5. For each `EvidenceItem` in the fixture:
-   - Extracts skill names from the `content` field via keyword matching against a known skill list (Python, Django, FastAPI, SQL, SQLite, PostgreSQL, React, TypeScript, JavaScript, Docker, Git, pytest, MCP, API design, LLM pipelines, agent tooling, CI/CD, Linux)
-   - Creates `EvidenceItem` row with `verified_at` set to migration timestamp
-   - Creates `Skill` rows for any skills not already present
-   - Creates `SkillEvidence` join rows
-6. Creates `SkillGap` rows where target role families imply skills not present in evidence (React, TypeScript, Docker, CI/CD)
-
-The migration is one-way. There is no reverse migration. The flat fixture remains as historical input only.
-
-### `migrate_cli_entrypoint()` function
-
-Called by a CLI command. Loads the private fixture, runs migration, reports what was created.
-
----
-
-## Phase 4: CLI commands (`src/haxjobs/cli.py` extension)
-
-Extend the existing CLI. No new entry points. Keep the `experiment review-job` path intact.
-
-New subcommand group:
-
-```
-haxjobs profile show          — pretty-print current Person, Tracks, Skills tree, Evidence, Gaps
-haxjobs profile track add     — add a new career track
-haxjobs profile skill add     — add a skill to a track (optionally under a parent)
-haxjobs profile evidence add  — add evidence and link to skills
-haxjobs profile gap add       — record a skill gap
-haxjobs profile constraint add — add a hard constraint or preference
-haxjobs profile migrate       — run the one-way CareerFixture migration
+```text
+create_session(session_id)
+get_session(session_id)
+latest_session_id()
+append_message(session_id, message)
+load_messages(session_id)
+mark_turn_settled(session_id, turn_count)
+mark_session_closed(session_id)
 ```
 
-### Implementation notes
+Rules:
 
-- `show` reads from `CareerStore`, formats output with Rich tables and trees
-- All `add` commands accept JSON or keyword arguments
-- `migrate` loads the private fixture file, runs migration, prints summary
-- Each command creates a `CareerStore` instance, calls the relevant method, and exits
-- No agent loop involved — these are pure CRUD CLI operations on the career graph
+- plain stdlib `sqlite3`
+- foreign keys on
+- WAL only for file-backed databases, not `:memory:`
+- append-only messages
+- deterministic sequence order
+- local DB file mode `0600`
+- canonical tool calls and results are persisted because model replay needs them
+- system prompts, career context snapshots, credentials, headers, and raw provider bodies are not persisted
+- an interrupted partial assistant message is persisted with status `interrupted`
 
-`haxjobs.config` gains: `CAREER_DB_PATH = STATE_DIR / "career_graph.db"`
+### Tests
+
+Write failing tests first for:
+
+- session creation
+- ordered message replay
+- all message kinds round trip
+- interrupted assistant message round trip
+- latest session selection
+- file mode `0600`
+- foreign key enforcement
 
 ---
 
-## Phase 5: Textual TUI (`src/haxjobs/interfaces/tui.py`)
+## Phase 5: Bounded streaming turn runtime
 
-New file. Textual app for interactive profile management.
+### Goal
 
-### Minimal v1 scope
+Run one conversational turn through a domain-free model and tool loop.
 
+### Files
+
+- Create: `src/haxjobs/agent_core/turn.py`
+- Modify only if required: `src/haxjobs/agent_core/tools.py`
+- Create: `tests/test_turn_runtime.py`
+
+### API
+
+```python
+async def run_turn(
+    *,
+    session_id: str,
+    turn_id: str,
+    model: ModelClient,
+    system_prompt: str,
+    context_messages: list[ModelMessage],
+    history: list[ConversationMessage],
+    tool_registry: ToolRegistry,
+    active_tools: tuple[str, ...],
+    cancel_event: asyncio.Event,
+    emit: LiveEventEmitter,
+    max_model_steps: int = 5,
+) -> TurnResult:
+    ...
 ```
-haxjobs tui   — launches the Textual app
+
+### Required trajectory
+
+```text
+project canonical history and turn context
+-> start provider stream
+-> emit assistant deltas
+-> collect completed tool calls
+-> persistable assistant tool-call messages
+-> dispatch only active registered tools
+-> emit real tool lifecycle events
+-> append canonical tool results
+-> call the provider again
+-> stop on final assistant response, cancellation, failure, or model-step limit
 ```
 
-**Screens:**
+### Rules
 
-1. **Profile overview** (default on launch) — person details, list of career tracks with skill counts, evidence counts, gap counts
-2. **Track detail** — selected track's skills (as a tree), evidence list, gaps list, constraints, preferences
-3. **Skill detail** — selected skill's evidence links, proficiency, parent/children
+- domain-free
+- maximum five model steps
+- tool arguments and outputs continue through Pydantic validation
+- unknown, inactive, malformed, failed, and invalid-output tools become canonical tool results so the model can recover
+- `tool_started` is emitted before dispatch
+- `tool_completed` or `tool_failed` is emitted exactly once
+- cancellation cancels the active provider task and tool task
+- partial assistant text is returned with interrupted status
+- no receipt writing inside this function
+- no SQLite access inside this function
+- no fake progress
 
-**Navigation:**
-- Tab or number keys to switch between tracks
-- Enter to drill into a track
-- `q` or Escape to go back / quit
-- `a` to add (context-sensitive: on track list → add track, on skill tree → add skill, etc.)
+Do not route the new product path through `run_stage0()`. That function remains the accepted experiment runner. Do not create a compatibility wrapper between the two runtimes.
 
-**Widgets used:**
-- `Tree` for skill hierarchy
-- `DataTable` for evidence and gap lists
-- `Header` with current path breadcrumb
-- `Footer` with keybindings
-- `Static` for person summary
+### Tests
 
-No CSS files. Use Textual's built-in theme (dark). No custom widgets — only what Textual ships.
+Write failing trajectory tests first for:
 
-### Textual dependency
-
-Added to `pyproject.toml`: `textual>=2.0,<3.0`
-
----
-
-## Phase 6: Tests
-
-All tests in `tests/test_career_graph.py` (new file).
-
-### Test categories
-
-| # | Test | What it proves |
-|---|------|---------------|
-| 1 | `test_person_model_validation` | Person Pydantic model enforces required fields |
-| 2 | `test_career_track_validation` | CareerTrack can be created, linked to Person |
-| 3 | `test_skill_hierarchy` | Skills with parent_skill_id form a tree; cycle detection in validator |
-| 4 | `test_evidence_linking` | Evidence links to skills via SkillEvidence join |
-| 5 | `test_gap_records` | SkillGap created, listed, filtered by track |
-| 6 | `test_constraints_separate_from_preferences` | HardConstraint and Preference are independent tables |
-| 7 | `test_store_create_tables` | CareerStore.__init__ creates all tables without error |
-| 8 | `test_store_person_crud` | upsert_person, get_person round-trip |
-| 9 | `test_store_track_crud` | upsert_track, get_track, list_tracks |
-| 10 | `test_store_skill_tree` | get_skill_tree returns nested structure |
-| 11 | `test_store_evidence_with_skills` | upsert_evidence + link_skill_evidence + list_evidence_for_skill |
-| 12 | `test_store_gaps` | upsert_gap + list_gaps |
-| 13 | `test_migration_creates_correct_rows` | migrate_career_fixture against a real fixture dict produces correct row counts |
-| 14 | `test_migration_extracts_skills_from_evidence` | Keyword matching extracts Python, Django, etc. from evidence content |
-| 15 | `test_migration_creates_gaps` | Missing target skills produce SkillGap rows |
-| 16 | `test_cli_profile_show_output` | CLI runs without error, output contains expected strings |
-| 17 | `test_cli_profile_migrate` | CLI migrate command completes without error |
-| 18 | `test_store_foreign_key_enforcement` | Inserting a skill with bad track_id raises IntegrityError |
-
-Tests use an in-memory SQLite database (`:memory:`). No file-system side effects.
+- text-only response
+- model -> tool -> model response
+- exact event ordering
+- canonical tool call and result messages
+- malformed arguments recover without a crash
+- handler error recover without a crash
+- model-step limit
+- cancellation during text streaming
+- cancellation while waiting for a tool task
+- provider failure after partial text
 
 ---
 
-## Files in scope (new or modified)
+## Phase 6: Employment host and CareerStore context
 
-| File | Action |
-|------|--------|
-| `src/haxjobs/employment/schema.py` | NEW — Pydantic models |
-| `src/haxjobs/employment/store.py` | NEW — CareerStore SQLite layer |
-| `src/haxjobs/employment/migration.py` | NEW — one-way fixture migration |
-| `src/haxjobs/employment/__init__.py` | MODIFY — export new public symbols |
-| `src/haxjobs/config.py` | MODIFY — add CAREER_DB_PATH |
-| `src/haxjobs/cli.py` | MODIFY — add `profile` subcommand group |
-| `src/haxjobs/interfaces/tui.py` | NEW — Textual app |
-| `tests/test_career_graph.py` | NEW — all tests |
-| `pyproject.toml` | MODIFY — add textual dependency |
+### Goal
+
+Connect the generic conversation runtime to real employment data without leaking domain logic into the session or terminal.
+
+### Files
+
+- Create: `src/haxjobs/employment/context.py`
+- Create: `src/haxjobs/employment/host.py`
+- Create: `tests/test_employment_host.py`
+
+### Employment host protocol
+
+Define the domain-neutral protocol in `agent_core/session.py` or a small `agent_core/host.py` only if needed by more than one module:
+
+```text
+system_prompt()
+context_messages(history)
+registered_tools()
+active_tool_names(history)
+```
+
+The concrete employment implementation lives in `employment/host.py`.
+
+### Career context selection
+
+For v1:
+
+- one person ID supplied at composition time
+- one active track ID supplied at composition time, or the person's first track
+- person name, location, work authorization, and notice period
+- active track name and role families
+- hierarchical skills with proficiency
+- linked evidence needed to explain those skills
+- skill gaps
+- hard constraints
+- preferences
+
+Use three prompt tiers:
+
+1. stable Hax identity and behavior
+2. stable employment conversation instructions
+3. volatile career context selected from `CareerStore`
+
+The volatile career context is projected into the provider request for the current turn. It is not copied into session history.
+
+The host must not read the private migration fixture. `CareerStore` is the source.
+
+If the graph has no person or no track, return a typed setup error before calling the model. The terminal renders the error and tells the operator to run `haxjobs migrate`. Do not silently fall back to `CareerFixture`.
+
+### One real employment action
+
+Register the existing read-only `inspect_job_source(job_ref)` capability for trusted fixture job references 49 and 328.
+
+Create the smallest trusted resolver inside the employment layer. The model supplies a `job_ref`, never a URL. The resolver maps that ref to a known saved fixture, then uses the existing `JobSourceFetcher` safety boundary.
+
+The tool may be active on every employment conversation turn. The model decides whether the request needs it. No keyword intent parser in the terminal or session.
+
+Do not add discovery, application generation, decisions, outreach, shell, filesystem access, or arbitrary URL fetching.
+
+### Tests
+
+Write failing tests first for:
+
+- correct person and active track selection
+- context contains only the selected track
+- hierarchical skills and evidence are represented clearly
+- hard constraints and preferences remain separate
+- context changes when the active track changes
+- missing profile returns a typed setup error without a model call
+- trusted job refs resolve
+- unknown job refs fail safely
+- no arbitrary URL enters the tool schema
+- the terminal and session never import `CareerStore`
 
 ---
 
-## Files explicitly out of scope (do not touch)
+## Phase 7: Employment session
 
-- `src/haxjobs/employment/review_job.py` — existing job review logic
-- `src/haxjobs/employment/job_source.py` — existing source fetcher
-- `src/haxjobs/employment/fixtures.py` — existing CareerFixture/JobFixture models (kept for backward compat during migration, deleted after Plan 004 confirms no callers)
-- `src/haxjobs/agent_core/` — agent core is domain-free, this plan adds employment-layer domain logic
-- `src/haxjobs/model/` — model boundary unchanged
-- `src/haxjobs/interfaces/experiment_cli.py` — existing `review-job` command untouched
-- `tests/test_stage0_job_review.py` — no changes
-- `tests/test_stage1_source_inspection.py` — no changes
-- `state/` — data directory is runtime state, not committed
+### Goal
+
+Own interaction boundaries, persistence, resume, subscribers, cancellation, and busy-input policy.
+
+### Files
+
+- Create: `src/haxjobs/agent_core/session.py`
+- Create: `src/haxjobs/employment/composition.py`
+- Create: `tests/test_session.py`
+
+### Session API
+
+```python
+class AgentSession:
+    async def prompt(self, text: str) -> TurnResult:
+        ...
+
+    def subscribe(self, listener: Callable[[LiveEvent], None]) -> Callable[[], None]:
+        ...
+
+    def abort(self) -> None:
+        ...
+
+    @classmethod
+    def resume(..., session_id: str) -> AgentSession:
+        ...
+```
+
+### Session behavior
+
+1. persist the user message before any provider call
+2. ask the host for current system prompt, context, and tools
+3. freeze those inputs for the turn
+4. call `run_turn()`
+5. persist assistant, tool call, and tool result messages in emitted order
+6. mark the turn settled before accepting the next normal prompt
+7. emit `session_settled` on success, failure, limit, or interruption
+8. resume by replaying canonical messages from `SessionStore`
+
+### Busy-input policy
+
+Start with one pending message slot:
+
+- input submitted while busy becomes the pending message
+- newer input replaces the existing pending message
+- replacement is reported to the interface
+- after the current turn settles, the pending message starts
+- Escape interrupts the current turn, it does not delete the pending message
+
+Do not build steering messages, multiple queues, priorities, background turns, or compaction.
+
+### Composition root
+
+`employment/composition.py` is the only place that creates:
+
+- `OpenAIModelClient` or explicit fake client
+- `CareerStore`
+- employment host
+- `SessionStore`
+- `AgentSession`
+
+The terminal receives an already constructed session.
+
+### Tests
+
+Write failing tests first for:
+
+- first prompt persists before model invocation
+- two turns replay prior canonical history
+- resume after close
+- subscriber event delivery
+- abort returns the session to idle
+- one pending message
+- newer pending message replaces older one
+- subscriber failure does not fail the turn
+- no model call when career setup is missing
 
 ---
 
-## Verification
+## Phase 8: Inline prompt_toolkit terminal
+
+### Goal
+
+Give the operator a real Pi-style conversation in normal terminal scrollback.
+
+### Files
+
+- Create: `src/haxjobs/interfaces/terminal.py`
+- Modify: `src/haxjobs/cli.py`
+- Modify: `src/haxjobs/__main__.py` only if required
+- Modify: `pyproject.toml`
+- Modify: `uv.lock`
+- Create: `tests/test_terminal.py`
+
+### Dependency
+
+Add one direct dependency:
+
+```toml
+"prompt-toolkit>=3.0,<4.0"
+```
+
+Do not add Textual, Ink, Node, a web server, or another rendering framework.
+
+### Commands
+
+```text
+haxjobs                     open or resume the latest live session
+haxjobs chat                same behavior explicitly
+haxjobs chat --new          create a new session
+haxjobs chat --resume ID    resume a specific session
+haxjobs chat --fake         explicit scripted development mode
+```
+
+Existing `profile`, `migrate`, and `experiment` commands remain available.
+
+### Interaction contract
+
+```text
+Enter         submit
+Shift+Enter   newline when the terminal reports the modified key distinctly
+Ctrl+J        newline on every supported terminal
+Escape        interrupt the active turn
+Ctrl+C        clear a non-empty editor, exit when already empty and idle
+Ctrl+D        exit when the editor is empty
+```
+
+Because terminals differ in how they encode Shift+Enter, Ctrl+J is the guaranteed multiline binding. Document any terminal-specific Shift+Enter limitation honestly.
+
+### Rendering contract
+
+- normal scrollback, `full_screen=False`
+- no alternate screen
+- prompt at the bottom
+- user input stays visible after submission
+- assistant deltas print as they arrive
+- tool lifecycle lines are generated only from `LiveEvent`
+- working status reflects runtime state but never pretends to be assistant text
+- errors are safe and readable
+- session ID and resume command are shown once
+- terminal uses `prompt_toolkit.patch_stdout()` or its supported async equivalent so streaming output does not corrupt input
+- terminal cleanup runs in `finally`
+
+The terminal imports only the session protocol and live event types. It does not import employment storage, provider clients, or tool handlers.
+
+### Tests
+
+Use prompt_toolkit's test input and dummy output. No live provider calls.
+
+Write failing tests first for:
+
+- Enter submits once
+- Ctrl+J inserts a newline
+- Escape calls `session.abort()` only while busy
+- Ctrl+C clear then exit behavior
+- streamed assistant deltas render exactly once
+- tool lifecycle lines come from actual events
+- no response text exists outside event payloads
+- `full_screen` is false
+- cleanup runs after normal exit and simulated exception
+
+Add one pseudo-terminal smoke test if the environment supports it. Skip with an explicit reason if the platform lacks PTY support. A skipped PTY test is not proof of Enter or interruption, so the prompt_toolkit input tests remain mandatory.
+
+STOP if prompt_toolkit's async input cannot coexist with streamed output without deadlock or lost events. Do not replace it with `input()`.
+
+---
+
+## Phase 9: Documentation, manual proof, and deliverables
+
+### Files
+
+- Modify: `docs/GETTING_STARTED.md`
+- Modify: `docs/PRODUCT.md` only if its current-state table is stale
+- Modify: `plans/README.md`
+- Update: `deliverables/003-career-graph/`
+
+### Getting started
+
+Document:
+
+- installation
+- migration prerequisite
+- provider prerequisite
+- `haxjobs` launch
+- key bindings
+- new and resumed sessions
+- explicit fake mode
+- current limitations
+- commands that still exist
+
+### Manual proof
+
+Run with a disposable session database first:
 
 ```bash
-# Backend
-PYTHONPATH=src:. .venv/bin/python -m pytest -q tests/test_career_graph.py
-PYTHONPATH=src:. .venv/bin/python -m pytest -q tests/  # full suite, must not regress
-PYTHONPATH=src:. .venv/bin/python -m py_compile $(find src tests -name '*.py')
+HAXJOBS_SESSION_DB=/tmp/haxjobs-plan003-sessions.db uv run haxjobs chat --fake
+```
+
+Then run one live provider session using the operator's local config without printing credentials:
+
+```bash
+HAXJOBS_SESSION_DB=/tmp/haxjobs-plan003-live-sessions.db uv run haxjobs chat --new
+```
+
+Manually prove:
+
+1. Enter submits.
+2. Ctrl+J creates a multiline message.
+3. assistant text streams from the model.
+4. Escape interrupts an active turn.
+5. a second turn includes prior history.
+6. exit restores the shell.
+7. resume loads prior canonical history.
+8. asking about Job 328 can produce real `inspect_job_source` lifecycle events.
+
+Do not record provider credentials, raw HTTP, private fixture contents, or full career context in deliverables.
+
+### Deliverable folder
+
+Plan 003 keeps one folder:
+
+```text
+deliverables/003-career-graph/
+```
+
+Required final contents:
+
+```text
+README.md
+plan.md
+report.md
+career-graph-report.md
+schema-diagram.drawio
+schema-diagram.png
+conversation-runtime.drawio
+conversation-runtime.png
+interaction-flow.drawio
+interaction-flow.png
+manual-proof.md
+review-ledger.md
+```
+
+Before replacing the old report or diagram names, preserve the accepted career-graph artifacts under the explicit `career-graph-*` and `schema-diagram.*` names. This is artifact history, not a runtime compatibility layer.
+
+The final `report.md` must cover the complete corrected Plan 003:
+
+- accepted career graph work
+- rejected TUI deletion
+- new runtime and terminal work
+- exact files changed
+- exact tests and commands run
+- manual proof
+- known limitations
+- deferred work
+- final commit SHA
+
+### Draw.io requirements
+
+Create two new clean diagrams of the actual implemented system:
+
+1. `conversation-runtime.drawio`: Terminal, Session, Turn Runtime, Model/Tools, Employment Host, CareerStore
+2. `interaction-flow.drawio`: submit, persist, assemble context, stream, tool call, settle, resume
+
+Follow `.agents/skills/clean-drawio/SKILL.md`:
+
+- 5 to 7 groups
+- no file paths inside nodes
+- thick orthogonal arrows between groups
+- no connector crossings where a lane order can avoid them
+- valid import-safe XML
+- real PNG exports
+- visual inspection for clipping and overlap
+
+---
+
+## Files in scope
+
+### Create
+
+```text
+src/haxjobs/agent_core/messages.py
+src/haxjobs/agent_core/live_events.py
+src/haxjobs/agent_core/session_store.py
+src/haxjobs/agent_core/turn.py
+src/haxjobs/agent_core/session.py
+src/haxjobs/employment/context.py
+src/haxjobs/employment/host.py
+src/haxjobs/employment/composition.py
+src/haxjobs/interfaces/terminal.py
+tests/test_conversation_messages.py
+tests/test_live_events.py
+tests/test_model_streaming.py
+tests/test_session_store.py
+tests/test_turn_runtime.py
+tests/test_employment_host.py
+tests/test_session.py
+tests/test_terminal.py
+```
+
+### Modify
+
+```text
+src/haxjobs/agent_core/types.py
+src/haxjobs/model/types.py
+src/haxjobs/model/client.py
+src/haxjobs/model/fake.py
+src/haxjobs/config.py
+src/haxjobs/cli.py
+pyproject.toml
+uv.lock
+docs/GETTING_STARTED.md
+plans/README.md
+deliverables/003-career-graph/*
+```
+
+### Modify only if a focused test proves it is required
+
+```text
+src/haxjobs/agent_core/tools.py
+src/haxjobs/employment/job_source.py
+src/haxjobs/employment/store.py
+src/haxjobs/employment/review_job.py
+src/haxjobs/employment/__init__.py
+src/haxjobs/agent_core/__init__.py
+```
+
+### Do not touch
+
+```text
+state/
+src/haxjobs/employment/migration.py
+src/haxjobs/employment/schema.py
+src/haxjobs/employment/fixtures.py
+src/haxjobs/interfaces/profile_cli.py
+src/haxjobs/interfaces/experiment_cli.py
+tests/test_stage0_job_review.py
+tests/test_stage1_source_inspection.py
+tests/test_career_graph.py
+```
+
+Existing experiment files may only change if a shared protocol change makes them fail. If that happens, stop and report the exact conflict before editing them.
+
+---
+
+## Explicitly deferred
+
+- context compaction
+- token budgets
+- branching conversations
+- subagents inside Hax
+- skills and saved workflows
+- background operations
+- scheduler work
+- approval workflows
+- external side effects
+- discovery
+- application generation
+- outreach
+- provider fallback
+- model switching
+- generic plugins
+- MCP
+- shell and filesystem tools
+- web or desktop UI
+- RPC mode
+- multiple users
+- database connection pools
+
+Add these only after a real trace proves the need.
+
+---
+
+## Verification floor
+
+Run from repository root:
+
+```bash
+PYTHONPATH=src:. uv run python3 -m pytest -q tests/test_conversation_messages.py
+PYTHONPATH=src:. uv run python3 -m pytest -q tests/test_live_events.py
+PYTHONPATH=src:. uv run python3 -m pytest -q tests/test_model_streaming.py
+PYTHONPATH=src:. uv run python3 -m pytest -q tests/test_session_store.py
+PYTHONPATH=src:. uv run python3 -m pytest -q tests/test_turn_runtime.py
+PYTHONPATH=src:. uv run python3 -m pytest -q tests/test_employment_host.py
+PYTHONPATH=src:. uv run python3 -m pytest -q tests/test_session.py
+PYTHONPATH=src:. uv run python3 -m pytest -q tests/test_terminal.py
+PYTHONPATH=src:. uv run python3 -m pytest -q tests/
+PYTHONPATH=src:. uv run python3 -m py_compile $(find src tests -name '*.py')
 uv lock --check
-
-# CLI (uses in-memory or temp db, no private fixture)
-PYTHONPATH=src:. .venv/bin/python -m haxjobs profile show
-PYTHONPATH=src:. .venv/bin/python -m haxjobs profile migrate
-
-# TUI smoke (launches and exits immediately)
-PYTHONPATH=src:. .venv/bin/python -c "from haxjobs.interfaces.tui import HaxJobsTUI; assert HaxJobsTUI is not None"
-
-# Git hygiene
 git diff --check
 ```
+
+Also verify:
+
+```bash
+uv run haxjobs --help
+uv run haxjobs chat --help
+uv run haxjobs profile --help
+uv run haxjobs experiment review-job --help
+```
+
+No test may call the real provider or modify the operator's normal session database.
 
 ---
 
 ## STOP conditions
 
-- **STOP** if `textual` import fails on the target Python (3.12) — report the error, do not patch
-- **STOP** if any existing test in `tests/test_stage0_job_review.py` or `tests/test_stage1_source_inspection.py` breaks — they are immutable
-- **DO NOT** touch `state/experiments/fixtures/backend-career.json` — it is a private file owned by the operator
-- **DO NOT** import or reference any deleted legacy module (`haxjobs.agent`, `haxjobs.product_tools`, `haxjobs.evaluate`, `haxjobs.discovery`, etc.)
+STOP and report instead of guessing if:
+
+1. the execution baseline differs from the approved clean commit
+2. existing Stage 0, Stage 1, or career graph tests regress
+3. the OpenAI SDK cannot stream and cancel cleanly
+4. prompt_toolkit cannot preserve normal scrollback and async input
+5. Escape cannot reach the active session while output is streaming
+6. `CareerStore` cannot provide a useful selected-track context
+7. a proposed shortcut requires terminal code to import provider, store, or tools
+8. a tool cannot be cancelled honestly
+9. private fixture data or credentials appear in events, logs, reports, or deliverables
+10. implementation requires a new product decision not recorded here
+
+Never add a fake shell to make the manual demo look complete.
 
 ---
 
-## Deliverables
+## Execution and audit protocol
 
-After implementation, produce:
+### Writer
 
-1. `deliverables/003-career-graph/plan.md` — copy of this plan
-2. `deliverables/003-career-graph/report.md` — evidence-backed completion report (what was built, test counts, decisions made, anything deferred)
-3. `deliverables/003-career-graph/diagram.drawio` — clean Draw.io diagram of the new schema relationships
-4. `deliverables/003-career-graph/diagram.png` — exported PNG
-5. `deliverables/003-career-graph/README.md` — index of all deliverables
+Use one fresh DeepSeek V4 Pro writer in an isolated worktree.
+
+The writer must:
+
+- read the plan and live source before editing
+- be the only source-code writer in that worktree
+- use tests before non-trivial implementation
+- commit the implementation
+- produce the full deliverable folder
+- report every command and result honestly
+
+### Review round
+
+Run at least four independent fresh DeepSeek V4 Pro reviewers against the same unchanged writer commit:
+
+1. **Plan compliance and scope**
+   - maps every corrected plan phase to code and tests
+   - finds missing deliverables or unapproved scope
+
+2. **Runtime correctness and cancellation**
+   - inspects stream assembly, model/tool trajectory, event order, failure paths, abort, and busy input
+
+3. **Persistence, privacy, and employment boundaries**
+   - checks canonical replay, SQLite boundaries, file permissions, context selection, active tools, and import direction
+
+4. **Terminal behavior, docs, diagrams, and manual proof**
+   - checks Enter, multiline, Escape, scrollback, terminal restoration, report accuracy, and Draw.io artifacts
+
+Reviewers are read-only. They must inspect the actual diff, run relevant checks, cite file and line evidence, and return APPROVED or NEEDS FIXES.
+
+### Repair rounds
+
+- one fresh DeepSeek V4 Pro writer applies only accepted findings
+- run the full verification floor again
+- run four new fresh DeepSeek V4 Pro reviewers against the repaired commit
+- allow at most two repair rounds
+- all final approvals must refer to the same unchanged commit
+- remaining optional ideas are deferred, not used to keep the loop alive
+
+### Merge gate
+
+Do not apply the worktree commit to main until:
+
+- the full suite passes
+- manual interaction proof is complete
+- diagrams parse, export, and pass visual review
+- four DeepSeek V4 Pro reviewers approve the same commit
+- the review ledger records findings and decisions
+- main is still at the expected baseline or the plan has been reconciled again
 
 ---
 
-## Design decisions recorded in this plan
+## Deliverable report requirement
 
-| # | Decision | Rationale |
-|---|----------|-----------|
-| D1 | One `verified_at` flag, no freshness scoring | Evidence is a positioning asset. Hax decides staleness at context-assembly time. |
-| D2 | Skill gaps are first-class records | Hax needs them to build roadmaps, suggest projects, fork-and-extend open-source repos. |
-| D3 | Hierarchical skills via `parent_skill_id` self-reference | Rich data for automations. A tree, not a flat list. |
-| D4 | Hard constraints and preferences in separate tables | Evaluation needs to distinguish dealbreakers from nice-to-haves. |
-| D5 | Synchronous SQLite via stdlib `sqlite3` | Single user, single writer. No async overhead needed. |
-| D6 | Textual for TUI, not Rich prompts | User wants interactive terminal UI, not command-question-answer loops. |
-| D7 | One-way migration from CareerFixture, no reverse path | The fixture is historical input. The graph schema is the new source of truth. |
-| D8 | WAL mode for SQLite | Allows concurrent reads during writes. Standard for local-first apps. |
+The executor must finish with an evidence-backed Markdown report covering:
+
+1. what changed
+2. how each layer connects
+3. every file created or modified
+4. tests written and exact results
+5. manual commands and observed behavior
+6. diagrams produced
+7. reviewer findings and repairs
+8. anything skipped or deferred
+9. current risks and known limitations
+10. the final commit SHA
+
+A claim such as "streaming works" needs a test, trace, or manual proof. A pass-like sentence without command output or artifact evidence does not count.
 
 ---
 
-*Executor: read this plan in full before implementing. Compare every file path and import against live code at the drift-check stamp. If live code differs from what this plan assumes, surface it immediately. Do not silently adapt.*
+## Corrected design decisions
+
+| ID | Decision | Reason |
+|----|----------|--------|
+| D1 | Keep the delivered career graph | Its models, store, migration, CLI, and tests are valid foundation work. |
+| D2 | Delete the Textual direction | It produced a profile app, not an agent interface. |
+| D3 | Use normal terminal scrollback | This matches Pi, Hermes classic CLI, and Claude Code behavior. |
+| D4 | Use prompt_toolkit only after the session works | The interface must sit on a real runtime. |
+| D5 | Session owns canonical conversation history | Conversation state and career truth are different kinds of state. |
+| D6 | CareerStore context is selected per turn | The model receives current relevant career facts without copying them into chat history. |
+| D7 | Live events stay separate from telemetry | The terminal needs content while persistent telemetry stays redacted. |
+| D8 | Provider adapter assembles stream chunks | Provider-specific chunk details do not belong in the agent loop. |
+| D9 | The turn runtime remains domain-free | Employment behavior stays in the host and tools. |
+| D10 | One pending message is enough for v1 | It proves busy-input behavior without building queue machinery. |
+| D11 | Existing inspect_job_source is the first conversational tool | It is read-only, trusted-ref based, bounded, and already tested. |
+| D12 | No compaction yet | Real session traces must show context pressure first. |
+
+---
+
+*Corrected after the Textual TUI was rejected. The career graph remains. The replacement is a real conversational runtime with a thin inline terminal over it.*
