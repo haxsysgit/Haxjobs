@@ -1,11 +1,12 @@
-"""HaxJobs TUI — conversational agent chat interface."""
+"""HaxJobs TUI — terminal agent harness chat interface.
+
+Mirrors Pi's pattern: multi-line editor at bottom, conversation scrollback above,
+tool calls inline with status, continuous stream not message bubbles."""
 
 from __future__ import annotations
 
 import asyncio
-import json
 from datetime import datetime, timezone
-from dataclasses import dataclass, field
 from typing import ClassVar
 
 from rich.markdown import Markdown
@@ -14,65 +15,67 @@ from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, VerticalScroll
-from textual.reactive import reactive
-from textual.widgets import Footer, Header, Input, RichLog, Static
-from textual.worker import Worker, WorkerState
+from textual.reactive import var
+from textual.widgets import Footer, Header, RichLog, TextArea, Static
 
 from haxjobs.config import CAREER_DB_PATH
-from haxjobs.employment.store import CareerStore
 
 
-# ── simple message model ──
-
-
-@dataclass
-class Message:
-    role: str  # "user" | "hax" | "tool" | "system"
-    content: str
-    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).strftime("%H:%M"))
-    tool_name: str | None = None
-    tool_ok: bool | None = None
-
-
-# ── the chat app ──
+# ── agent call will be wired after TUI structure is solid ──
 
 
 class HaxJobsChat(App):
-    """Terminal agent chat — like Pi but for your career."""
+    """Terminal agent harness — like Pi but for your job search."""
 
     TITLE = "HaxJobs"
-    SUB_TITLE = "your career agent"
+    SUB_TITLE = "career agent"
+
     CSS = """
     Screen {
-        background: #0d1117;
+        background: $surface;
     }
 
     #chat-scroll {
         height: 1fr;
-        padding: 1 2;
+        padding: 0 1;
         scrollbar-size: 0 0;
+        border: none;
     }
 
-    #input-area {
+    #chat-scroll:focus {
+        border: none;
+    }
+
+    #input-container {
         dock: bottom;
         height: auto;
-        padding: 0 2 1 2;
-        background: #0d1117;
+        min-height: 3;
+        max-height: 12;
+        padding: 0 1 1 1;
+        background: $surface;
     }
 
     #user-input {
         border: tall $accent;
-        background: #161b22;
-        color: #c9d1d9;
+        background: $panel;
+        color: $text;
         margin: 0;
     }
 
     #user-input:focus {
-        border: tall $accent-lighten-2;
+        border: tall $accent-lighten-1;
+    }
+
+    #status-bar {
+        dock: bottom;
+        height: 1;
+        background: $accent 30%;
+        color: $text-muted;
+        padding: 0 1;
     }
 
     RichLog {
-        background: #0d1117;
+        background: $surface;
         border: none;
         padding: 0;
     }
@@ -80,55 +83,52 @@ class HaxJobsChat(App):
     RichLog:focus {
         border: none;
     }
-
-    .hax-name {
-        color: #58a6ff;
-    }
-
-    .tool-ok {
-        color: #3fb950;
-    }
-
-    .tool-fail {
-        color: #f85149;
-    }
     """
 
     BINDINGS: ClassVar = [
-        Binding("ctrl+c", "quit", "Quit", show=False),
+        Binding("ctrl+c", "quit", "Quit", show=True, priority=True),
+        Binding("escape", "abort", "Abort agent", show=False),
     ]
 
-    messages_list: reactive[list[Message]] = reactive(list)
+    thinking: var[bool] = var(False)
 
     def __init__(self):
         super().__init__()
-        self._store = CareerStore(str(CAREER_DB_PATH))
-        self._thinking = False
+        self._store = None  # CareerStore, lazy init
+        self._agent_running = False
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
-        yield VerticalScroll(RichLog(id="chat-log", highlight=True, markup=True, wrap=True), id="chat-scroll")
-        with Container(id="input-area"):
-            yield Input(placeholder="Message Hax...", id="user-input")
+        yield VerticalScroll(
+            RichLog(id="chat-log", highlight=True, markup=True, wrap=True),
+            id="chat-scroll",
+        )
+        with Container(id="input-container"):
+            yield TextArea(id="user-input", language=None, show_line_numbers=False)
+        yield Static("ctrl+enter — send  |  ctrl+c — quit  |  /help for commands", id="status-bar")
         yield Footer()
 
     def on_mount(self) -> None:
         log = self.query_one("#chat-log", RichLog)
         log.write("")
 
-        # Greeting
         person = self._load_person_name()
-        self._add_message(
-            Message(
-                role="hax",
-                content=f"Yo, {person}. I'm Hax — your career agent. What do you want to work on?",
-            )
+        greeting = (
+            f"Yo, {person}. I'm Hax. Your career agent.\n\n"
+            "I can help with job discovery, evaluating roles, building application packs, "
+            "and figuring out what you need to land the next one.\n\n"
+            "Type /help to see what I can do."
         )
+        self._write_hax(greeting)
 
-        self.query_one("#user-input", Input).focus()
+        # Focus the input
+        self.query_one("#user-input", TextArea).focus()
 
     def _load_person_name(self) -> str:
         try:
+            from haxjobs.employment.store import CareerStore
+            if self._store is None:
+                self._store = CareerStore(str(CAREER_DB_PATH))
             rows = self._store._conn.execute("SELECT name FROM persons LIMIT 1").fetchall()
             if rows:
                 return rows[0]["name"]
@@ -136,87 +136,99 @@ class HaxJobsChat(App):
             pass
         return "boss"
 
-    def _add_message(self, msg: Message) -> None:
-        log = self.query_one("#chat-log", RichLog)
-        ts = f"[dim]{msg.timestamp}[/dim]"
+    def _log(self, *args, **kwargs) -> None:
+        """Write to the chat log."""
+        self.query_one("#chat-log", RichLog).write(*args, **kwargs)
 
-        if msg.role == "user":
-            panel = Panel(
-                Text(msg.content, style="white"),
-                title=f"{ts} you",
-                title_align="right",
-                border_style="bright_blue",
-                padding=(0, 1),
-            )
-            log.write(panel)
+    def _write_user(self, text: str) -> None:
+        """Write a user message to the log."""
+        ts = datetime.now(timezone.utc).strftime("%H:%M")
+        self._log(Text(f"\n▸ you  {ts}", style="bold bright_blue"))
+        self._log(Text(text, style="white"))
 
-        elif msg.role == "hax":
-            panel = Panel(
-                Markdown(msg.content),
-                title=f"{ts} [bold bright_green]Hax[/bold bright_green]",
-                title_align="left",
-                border_style="green",
-                padding=(0, 1),
-            )
-            log.write(panel)
+    def _write_hax(self, text: str) -> None:
+        """Write a Hax response to the log."""
+        ts = datetime.now(timezone.utc).strftime("%H:%M")
+        self._log(Text(f"\nHax  {ts}", style="bold bright_green"))
+        self._log(Markdown(text))
 
-        elif msg.role == "tool":
-            status = "[green]ok[/green]" if msg.tool_ok else "[red]failed[/red]"
-            name = msg.tool_name or "tool"
-            panel = Panel(
-                Text(msg.content[:300] + ("..." if len(msg.content) > 300 else ""), style="dim"),
-                title=f"{ts} [dim]🔧 {name} {status}[/dim]",
-                title_align="left",
-                border_style="yellow" if msg.tool_ok else "red",
-                padding=(0, 1),
-            )
-            log.write(panel)
+    def _write_tool(self, name: str, ok: bool, detail: str = "") -> None:
+        """Write a tool call to the log."""
+        ts = datetime.now(timezone.utc).strftime("%H:%M")
+        status = "✓" if ok else "✗"
+        color = "green" if ok else "red"
+        self._log(Text(f"\n  🔧 {name}  {status}  {ts}", style=f"dim {color}"))
+        if detail:
+            self._log(Text(f"     {detail[:300]}", style="dim"))
 
-        self.messages_list.append(msg)
+    def _write_error(self, text: str) -> None:
+        """Write an error to the log."""
+        self._log(Text(f"\n[error]{text}[/error]"))
 
-    def _show_thinking(self) -> None:
-        self._thinking = True
-        log = self.query_one("#chat-log", RichLog)
-        log.write(Text("  ● ● ●", style="dim green"))
-        self.query_one("#user-input", Input).disabled = True
+    # ── actions ──
 
-    def _hide_thinking(self) -> None:
-        self._thinking = False
-        log = self.query_one("#chat-log", RichLog)
-        # RichLog doesn't support removing lines easily, so we just write the response after
-        self.query_one("#user-input", Input).disabled = False
-        self.query_one("#user-input", Input).focus()
+    def action_quit(self) -> None:
+        self.exit()
 
-    async def on_input_submitted(self, event: Input.Submitted) -> None:
-        text = event.value.strip()
-        if not text:
-            return
+    def action_abort(self) -> None:
+        """Abort a running agent call."""
+        if self._agent_running:
+            self._agent_running = False
+            self._log(Text("\n[dim]Aborted.[/dim]", style="dim"))
+            self._set_thinking(False)
+        else:
+            # If no agent running, pass escape to TextArea
+            self.query_one("#user-input", TextArea).focus()
 
-        event.input.value = ""
+    # ── thinking state ──
 
-        # Handle slash commands
+    def _set_thinking(self, on: bool) -> None:
+        self.thinking = on
+        ta = self.query_one("#user-input", TextArea)
+        ta.disabled = on
+        status = self.query_one("#status-bar", Static)
+        if on:
+            status.update("[dim]● Hax is thinking...[/dim]  |  esc — abort")
+        else:
+            status.update("ctrl+enter — send  |  ctrl+c — quit  |  /help for commands")
+
+    # ── input handling ──
+
+    def on_text_area_changed(self, event: TextArea.Changed) -> None:
+        """Check for Ctrl+Enter to submit."""
+        # TextArea doesn't have a direct "submit" event like Input.
+        # We detect Ctrl+Enter via a key binding on the TextArea.
+        pass
+
+
+    # ── on_key for ctrl+enter detection ──
+
+    def on_key(self, event) -> None:
+        """Detect ctrl+enter on the TextArea to submit."""
+        from textual.keys import Keys
+
+        if event.key == Keys.Enter and event.ctrl:
+            ta = self.query_one("#user-input", TextArea)
+            text = ta.text.strip()
+            if not text:
+                return
+
+            ta.text = ""
+            self._handle_message(text)
+            event.prevent_default()
+            event.stop()
+
+    def _handle_message(self, text: str) -> None:
+        """Process a user message."""
         if text.startswith("/"):
-            await self._handle_slash(text)
-            return
+            self._handle_slash(text)
+        else:
+            self._write_user(text)
+            # Start async agent call
+            asyncio.create_task(self._run_agent(text))
 
-        # Regular message
-        self._add_message(Message(role="user", content=text))
-        self._show_thinking()
-
-        try:
-            response = await self._call_agent(text)
-            self._hide_thinking()
-            self._add_message(Message(role="hax", content=response))
-        except Exception as exc:
-            self._hide_thinking()
-            self._add_message(
-                Message(
-                    role="hax",
-                    content=f"Something broke: {exc}",
-                )
-            )
-
-    async def _handle_slash(self, text: str) -> None:
+    def _handle_slash(self, text: str) -> None:
+        """Handle slash commands."""
         cmd = text.lower().strip()
 
         if cmd in ("/quit", "/q", "/exit"):
@@ -225,33 +237,39 @@ class HaxJobsChat(App):
 
         if cmd in ("/help", "/h"):
             help_text = (
-                "**Commands:**\n"
-                "- `/help` — this message\n"
-                "- `/quit` — exit\n"
-                "- `/profile` — show your career graph\n"
-                "- `/clear` — clear chat\n\n"
-                "Just type to talk to me about jobs, your career, or anything job-search related."
+                "**Commands**\n\n"
+                "`/help` — this message\n"
+                "`/profile` — show your career graph\n"
+                "`/quit` — exit\n"
+                "`/clear` — clear the scrollback\n\n"
+                "Just talk to me normally. I can help with job discovery, "
+                "evaluating roles, building packs, and figuring out your next move."
             )
-            self._add_message(Message(role="hax", content=help_text))
+            self._write_hax(help_text)
             return
 
         if cmd in ("/profile", "/p"):
-            self._add_message(Message(role="user", content=text))
+            self._write_user(text)
             profile_text = self._build_profile_summary()
-            self._add_message(Message(role="hax", content=profile_text))
+            self._write_hax(profile_text)
             return
 
         if cmd in ("/clear", "/c"):
             log = self.query_one("#chat-log", RichLog)
             log.clear()
-            self.messages_list = []
             return
 
-        self._add_message(Message(role="hax", content=f"Unknown command: {text}. Try /help."))
+        self._write_hax(f"Unknown command: `{text}`. Try `/help`.")
 
     def _build_profile_summary(self) -> str:
+        """Build a markdown profile summary from the career graph."""
         try:
+            from haxjobs.employment.store import CareerStore
+
+            if self._store is None:
+                self._store = CareerStore(str(CAREER_DB_PATH))
             store = self._store
+
             rows = store._conn.execute("SELECT * FROM persons LIMIT 1").fetchall()
             if not rows:
                 return "No profile data. Run `haxjobs migrate` first."
@@ -270,68 +288,68 @@ class HaxJobsChat(App):
                 parts.append(f"### {t['name']}")
                 skills = store.list_skills(t["track_id"])
                 if skills:
-                    skill_names = [f"{s['name']} ({s['proficiency']})" for s in skills]
-                    parts.append(f"**Skills:** {', '.join(skill_names)}")
+                    icons = {"primary": "★", "strong": "●", "working": "○", "learning": "·"}
+                    skill_parts = [f"{icons.get(s['proficiency'], '?')} {s['name']} ({s['proficiency']})" for s in skills]
+                    parts.append(f"**Skills:** {', '.join(skill_parts)}")
                 gaps = store.list_gaps(t["track_id"])
                 if gaps:
-                    gap_names = [g["skill_name"] for g in gaps]
+                    gap_names = [f"{g['skill_name']} → {g['target_proficiency']}" for g in gaps]
                     parts.append(f"**Gaps:** {', '.join(gap_names)}")
+                constraints = store.list_hard_constraints(t["track_id"])
+                if constraints:
+                    c_list = [c["constraint_text"] for c in constraints]
+                    parts.append(f"**Hard constraints:** {', '.join(c_list)}")
+                preferences = store.list_preferences(t["track_id"])
+                if preferences:
+                    p_list = [f"{p['key']}: {p['value']}" for p in preferences]
+                    parts.append(f"**Preferences:** {', '.join(p_list)}")
                 parts.append("")
 
             return "\n".join(parts)
         except Exception as exc:
             return f"Couldn't load profile: {exc}"
 
-    async def _call_agent(self, user_message: str) -> str:
-        """Call the agent loop with the user's message."""
-        from haxjobs.agent_core.runtime import run_stage0, RunRequest
-        from haxjobs.agent_core.types import RunExitReason
-        from haxjobs.employment.review_job import build_stage1_tools, assemble_job_review_request
-        from haxjobs.model.fake import FakeModelClient
+    async def _run_agent(self, user_message: str) -> None:
+        """Run the agent loop in response to a user message."""
+        self._agent_running = True
+        self._set_thinking(True)
 
-        # For now: use fake model to avoid requiring provider credentials in TUI
-        # The fake model returns a canned response acknowledging the message
-        fake = FakeModelClient(responses=[])
-
-        system = self._build_system_prompt()
-        request = RunRequest(system_message=system, user_message=user_message)
-
-        result = await run_stage0(request, model=fake)
-
-        if result.exit_reason == RunExitReason.COMPLETED:
-            parts = result.response_parts or []
-            if parts:
-                return parts[-1].get("text", str(parts[-1]))
-            return "I processed that but don't have a clear answer yet."
-
-        return f"[Agent loop ended: {result.exit_reason.value}]"
-
-    def _build_system_prompt(self) -> str:
-        """Build the chat system prompt with Hax identity and profile context."""
-        profile_blurb = ""
         try:
-            store = self._store
-            rows = store._conn.execute("SELECT * FROM persons LIMIT 1").fetchall()
-            if rows:
-                p = rows[0]
-                profile_blurb = (
-                    f"You are talking to {p['name']}, a {p['location']}-based "
-                    f"software engineer looking for backend/AI roles. "
-                    f"Salary target: {p['salary_range']}. "
-                    f"Work authorization: {p['work_authorization']}."
-                )
-        except Exception:
-            pass
+            # For now: simulated agent call that keeps the TUI responsive
+            # Will be wired to actual agent loop separately
+            await asyncio.sleep(1)
+
+            response = self._build_fake_response(user_message)
+            self._write_hax(response)
+
+        except Exception as exc:
+            self._write_error(f"Agent call failed: {exc}")
+        finally:
+            self._agent_running = False
+            self._set_thinking(False)
+
+    def _build_fake_response(self, user_message: str) -> str:
+        """Build a placeholder response. Replace with real agent call."""
+        person = self._load_person_name()
+        lower = user_message.lower()
+
+        if any(w in lower for w in ("job", "role", "position", "find", "search", "discover")):
+            return (
+                "Good question. Job discovery is one of the next things we're building. "
+                "Right now I can see your career graph and help you think through what roles "
+                "fit, but the actual job scraping and evaluation pipeline isn't wired up yet.\n\n"
+                "What kind of role are you looking for? Backend? AI/ML? Platform?"
+            )
+        if any(w in lower for w in ("profile", "cv", "resume", "skill", "career graph")):
+            return self._build_profile_summary()
+        if any(w in lower for w in ("hello", "hey", "hi", "yo", "what's up")):
+            return f"Yo, {person}. What are we working on today?"
 
         return (
-            "You are Hax, a career agent. You help people find jobs, evaluate fit, "
-            "prepare applications, and navigate their career.\n\n"
-            "Your style: sharp, direct, like a smart friend. No corporate speak. "
-            "No em dashes. Short sentences. Concrete details.\n\n"
-            f"{profile_blurb}\n\n"
-            "You have access to tools but only use them when asked. "
-            "Respond naturally to conversation. If someone asks about their profile, "
-            "tell them to try /profile."
+            f"I hear you, {person}. We're still in the early stages — the career graph "
+            "is built, the agent loop works, and now we're wiring up discovery, evaluation, "
+            "and packs. What you're asking about isn't fully ready yet, but it's coming.\n\n"
+            "For now, try `/profile` to see your career graph, or `/help` for what's available."
         )
 
 
