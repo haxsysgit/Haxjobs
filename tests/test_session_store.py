@@ -267,14 +267,21 @@ def test_session_and_config_created_in_one_transaction(store: SessionStore):
 
 
 def test_create_session_requires_valid_configuration(store: SessionStore):
-    """Invalid configuration is rejected before a session row is created."""
+    """Blank and invalid configuration is rejected before insertion."""
     with pytest.raises(TypeError):
         store.create_session("missing")  # type: ignore[call-arg]
-    for value in ("", "   ", "not-json", "[]"):
+    for value in ("", "   ", "not-json"):
         with pytest.raises(ValueError, match="configuration_json"):
             store.create_session("sc3", configuration_json=value)
     assert store.get_session("sc3") is None
     assert store.get_session_configuration("sc3") is None
+
+
+def test_opaque_json_configuration_accepts_string_and_list(store: SessionStore):
+    """The core stores valid opaque JSON without imposing an object schema."""
+    for session_id, config in (("sc-string", '"opaque scope"'), ("sc-list", '["p1", 2]')):
+        store.create_session(session_id, configuration_json=config)
+        assert store.get_session_configuration(session_id) == config
 
 
 def test_duplicate_create_session_fails(store: SessionStore):

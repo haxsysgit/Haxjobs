@@ -28,7 +28,7 @@ class SourceObservation(BaseModel):
     """Structured source retrieval observation — safe for model and JSONL."""
 
     ok: bool
-    job_ref: int
+    job_ref: str
     source_url: str
     final_url: str = ""
     source_type: str = ""
@@ -191,22 +191,32 @@ class JobSourceFetcher:
         self,
         resolver: Callable | None = None,
         transport_factory: Callable | None = None,
+        resolver_timeout: float = _TIMEOUT,
     ) -> None:
         """Resolver and transport_factory are for test injection only.
 
         resolver(hostname) -> [(family, address), ...]
         transport_factory(url, timeout) -> file-like response object
+        resolver_timeout bounds the await of the off-loop resolver. Cancelling
+        that await cannot stop an already-running resolver thread.
         """
         self._resolver = resolver
         self._transport_factory = transport_factory
+        self._resolver_timeout = resolver_timeout
 
     async def _resolve_public_addresses(self, hostname: str) -> tuple[bool, str]:
-        """Run resolver work off the event loop, including injected resolvers."""
+        """Run resolver work off-loop with a bounded await."""
         import asyncio
 
-        return await asyncio.to_thread(
-            _check_public_addresses, hostname, resolver=self._resolver
-        )
+        try:
+            return await asyncio.wait_for(
+                asyncio.to_thread(
+                    _check_public_addresses, hostname, resolver=self._resolver
+                ),
+                timeout=self._resolver_timeout,
+            )
+        except asyncio.TimeoutError:
+            return False, "DNS resolution timed out"
 
     async def fetch_from_job(self, job) -> SourceObservation:
         """Fetch source for a saved Job (Pydantic model or row dict).
@@ -216,11 +226,11 @@ class JobSourceFetcher:
         # Support both Pydantic models and dict rows
         if hasattr(job, 'source_url'):
             source_url = job.source_url
-            job_ref = int(job.external_ref) if job.external_ref else 0
+            job_ref = str(job.external_ref or "")
             allowed_hosts = tuple(job.allowed_source_hosts) if hasattr(job, 'allowed_source_hosts') else ()
         else:
             source_url = job.get('source_url', '')
-            job_ref = 0
+            job_ref = str(job.get('external_ref', '') or '')
             import json
             raw_hosts = job.get('allowed_source_hosts', '[]')
             if isinstance(raw_hosts, str):
@@ -259,13 +269,14 @@ class JobSourceFetcher:
         # Check DNS addresses are all public
         ok, addr_error = await self._resolve_public_addresses(hostname)
         if not ok:
+            timed_out = addr_error == "DNS resolution timed out"
             return SourceObservation(
                 ok=False,
                 job_ref=job_ref,
                 source_url=source_url,
                 host=hostname,
-                status="invalid_source",
-                code="non_public_address",
+                status="unavailable" if timed_out else "invalid_source",
+                code="dns_timeout" if timed_out else "non_public_address",
                 error=addr_error,
             )
 
@@ -285,14 +296,14 @@ class JobSourceFetcher:
                 error=f"fetch failed: {exc}",
             )
 
-    async def _do_fetch_async(self, url: str, job_ref: int, hostname: str) -> SourceObservation:
+    async def _do_fetch_async(self, url: str, job_ref: str, hostname: str) -> SourceObservation:
         """Offload all blocking transport work, including injected fakes."""
         import asyncio
 
         return await asyncio.to_thread(self._do_fetch, url, job_ref, hostname)
 
     def _do_fetch(
-        self, url: str, job_ref: int, hostname: str
+        self, url: str, job_ref: str, hostname: str
     ) -> SourceObservation:
         """Internal fetch with byte/text limits and content type checks."""
         if self._transport_factory is not None:
@@ -368,7 +379,7 @@ class JobSourceFetcher:
     def _process_response(
         self,
         url: str,
-        job_ref: int,
+        job_ref: str,
         hostname: str,
         status_code: int,
         headers: dict,

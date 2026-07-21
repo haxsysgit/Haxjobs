@@ -2,7 +2,7 @@
 
 ## Status
 
-Final review is pending and not approved. This focused writer pass starts at `65dd9d6` and makes one correctness/truthfulness repair commit. No live model, public network, private fixture, provider configuration, credential, plan, or state path was used.
+Final review is pending and not approved. This focused writer pass starts at exact `0a29152` and makes one correctness/truthfulness repair commit. No live model, public network, private fixture, provider configuration, credential, plan, or state path was used.
 
 ## Prior review history
 
@@ -21,13 +21,22 @@ Final review is pending and not approved. This focused writer pass starts at `65
 5. External cancellation during a slow tool explicitly cancels and joins child tasks, persists only a truthful cancellation failure when possible, emits one interruption, and records session measurement/settlement.
 6. Manual proof now distinguishes text-only CLI `--fake` from the deterministic automated tool trajectory.
 7. All three Plan 004 drawio edge styles are orthogonal and PNGs were re-exported from the final XML.
-8. Current docs and deliverables report 223 tests, with exact per-file collection recorded in the report below.
+8. Current docs and deliverables report 229 tests, with exact per-file collection recorded in the report below.
+
+## Repairs in this focused pass
+
+1. Stream cancellation preserves already-received assistant text as a durable interrupted partial; external task cancellation follows the same truthful boundary.
+2. Tool-call and both assistant persistence failure branches emit one `TURN_FAILED`; no completion is claimed.
+3. DNS resolution is awaited with a bounded timeout while retaining the `to_thread` cancellation limitation.
+4. Source observations preserve string `Job.external_ref` values without integer conversion.
+5. Session storage validates only nonblank valid JSON and preserves opaque string/list values; employment scope validation remains in composition.
+6. Manual proof now migrates the tracked synthetic fixture into a safe temporary career DB before fake chat, with the fake model's text-only limitation explicit.
 
 ## Writer verification
 
 | Check | Result |
 |---|---|
-| Full pytest suite | 223 passed |
+| Full pytest suite | 229 passed |
 | Focused regression tests | passed |
 | `py_compile` | passed |
 | `uv lock --check` | passed |

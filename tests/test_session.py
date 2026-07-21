@@ -837,6 +837,47 @@ async def test_measurement_row_contains_no_content_values(store: SessionStore):
 
 
 @pytest.mark.asyncio
+async def test_stream_cancel_persists_user_and_partial_assistant(store: SessionStore):
+    """A delayed stream cancellation durably keeps only truthful partial text."""
+    store.create_session("s-stream-cancel", configuration_json='{"scope":"test"}')
+    model = FakeModelClient(
+        stream_events=[[
+            ModelStreamEvent(
+                event_type=ModelStreamEventType.TEXT_DELTA, delta="received",
+            ),
+            ModelStreamEvent(
+                event_type=ModelStreamEventType.TEXT_DELTA, delta=" later",
+            ),
+            ModelStreamEvent(
+                event_type=ModelStreamEventType.RESPONSE_COMPLETED,
+                finish_reason="stop",
+            ),
+        ]],
+        delay_ms=50,
+    )
+    session = AgentSession(
+        session_id="s-stream-cancel", session_store=store, model=model,
+        system_prompt=lambda: "sys", context_messages=lambda: [],
+        tool_registry_fn=lambda: ToolRegistry(), active_tool_names_fn=lambda: (),
+    )
+    events: list[LiveEvent] = []
+    session.subscribe(events.append)
+
+    task = asyncio.create_task(session.prompt("cancel after first chunk"))
+    await asyncio.sleep(0.06)
+    session.abort()
+    result = await task
+
+    assert result.exit_reason == TurnExitReason.INTERRUPTED
+    stored = [row["payload_json"] for row in store.load_messages("s-stream-cancel")]
+    assert [message["kind"] for message in stored] == ["user", "assistant"]
+    assert stored[1]["status"] == "interrupted"
+    assert stored[1]["content"] == "received"
+    assert sum(event.event_type == LiveEventType.TURN_INTERRUPTED for event in events) == 1
+    assert not any(event.event_type == LiveEventType.TURN_COMPLETED for event in events)
+
+
+@pytest.mark.asyncio
 async def test_measurement_interrupted_turn(store: SessionStore):
     """An interrupted turn still records exit_reason=interrupted."""
     store.create_session("s-int", configuration_json='{"person_id": "test", "track_id": "test"}')

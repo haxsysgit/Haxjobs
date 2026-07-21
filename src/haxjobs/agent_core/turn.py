@@ -292,6 +292,45 @@ async def run_turn(
                         except Exception:
                             pass
                     break
+        except asyncio.CancelledError:
+            # External task cancellation can interrupt the provider iterator
+            # without giving it a chance to observe cancel_event. Preserve only
+            # text that was actually received, and mark it interrupted rather
+            # than manufacturing a completed response.
+            if accumulated_text:
+                assistant_msg = AssistantMessage(
+                    message_id=_mid(),
+                    turn_id=turn_id,
+                    content=accumulated_text,
+                    status="interrupted",
+                )
+                new_messages.append(assistant_msg)
+                try:
+                    persist_message(assistant_msg)
+                except Exception as exc:
+                    logger.warning("partial assistant persistence failed: %s", exc)
+            safe_failure = "externally cancelled during streaming"
+            emit(
+                LiveEvent(
+                    session_id=session_id,
+                    turn_id=turn_id,
+                    event_type=LiveEventType.TURN_INTERRUPTED,
+                )
+            )
+            return TurnResult(
+                turn_id=turn_id,
+                exit_reason=TurnExitReason.INTERRUPTED,
+                final_text=accumulated_text,
+                model_steps=model_steps,
+                tool_starts=tool_starts,
+                new_messages=new_messages,
+                safe_failure=safe_failure,
+                user_message_id=user_message_id,
+                model_name=captured_model_name,
+                provider_name=captured_provider_name,
+                usage=captured_usage,
+                input_characters=input_characters,
+            )
         except Exception as exc:
             model_failed = True
             safe_failure = str(exc)
@@ -318,9 +357,17 @@ async def run_turn(
                 persist_message(assistant_msg)
             except Exception:
                 safe_failure = "assistant message persistence failed"
+                emit(
+                    LiveEvent(
+                        session_id=session_id,
+                        turn_id=turn_id,
+                        event_type=LiveEventType.TURN_FAILED,
+                        error=safe_failure,
+                    )
+                )
                 return TurnResult(
                     turn_id=turn_id,
-                    exit_reason=TurnExitReason.MODEL_FAILED,
+                    exit_reason=TurnExitReason.PERSISTENCE_FAILED,
                     final_text=accumulated_text,
                     model_steps=model_steps,
                     tool_starts=tool_starts,
@@ -352,9 +399,17 @@ async def run_turn(
             persist_message(assistant_msg)
         except Exception:
             safe_failure = "assistant message persistence failed"
+            emit(
+                LiveEvent(
+                    session_id=session_id,
+                    turn_id=turn_id,
+                    event_type=LiveEventType.TURN_FAILED,
+                    error=safe_failure,
+                )
+            )
             return TurnResult(
                 turn_id=turn_id,
-                exit_reason=TurnExitReason.MODEL_FAILED,
+                exit_reason=TurnExitReason.PERSISTENCE_FAILED,
                 final_text=accumulated_text,
                 model_steps=model_steps,
                 tool_starts=tool_starts,
@@ -427,9 +482,17 @@ async def run_turn(
                 persist_message(tc_msg)
             except Exception:
                 safe_failure = "tool call persistence failed"
+                emit(
+                    LiveEvent(
+                        session_id=session_id,
+                        turn_id=turn_id,
+                        event_type=LiveEventType.TURN_FAILED,
+                        error=safe_failure,
+                    )
+                )
                 return TurnResult(
                     turn_id=turn_id,
-                    exit_reason=TurnExitReason.MODEL_FAILED,
+                    exit_reason=TurnExitReason.PERSISTENCE_FAILED,
                     final_text=accumulated_text,
                     model_steps=model_steps,
                     tool_starts=tool_starts,

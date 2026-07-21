@@ -1491,4 +1491,60 @@ async def test_persist_message_failure_aborts_turn():
     )
 
     assert not handler_called, "Handler should not have been called after persist failure"
-    assert result.exit_reason == TurnExitReason.MODEL_FAILED
+    assert result.exit_reason == TurnExitReason.PERSISTENCE_FAILED
+    assert sum(e.event_type == LiveEventType.TURN_FAILED for e in events) == 1
+
+
+@pytest.mark.asyncio
+async def test_assistant_persistence_failure_emits_turn_failed_without_completion():
+    """A final assistant write failure has one truthful terminal failure event."""
+    events: list[LiveEvent] = []
+    fake = FakeModelClient(stream_events=[_fake_stream("partial but not durable")])
+
+    def failing_persist(msg: ConversationMessage) -> None:
+        if msg.kind == "assistant":
+            raise RuntimeError("assistant store unavailable")
+
+    result = await run_turn(
+        session_id="s1", turn_id="t1", model=fake, system_prompt="sys",
+        context_messages=[], history=[], tool_registry=ToolRegistry(), active_tools=(),
+        cancel_event=asyncio.Event(), emit=_fake_emit(events),
+        persist_message=failing_persist, user_message_id=_uid(),
+    )
+
+    assert result.exit_reason == TurnExitReason.PERSISTENCE_FAILED
+    assert sum(e.event_type == LiveEventType.TURN_FAILED for e in events) == 1
+    assert not any(e.event_type == LiveEventType.TURN_COMPLETED for e in events)
+
+
+@pytest.mark.asyncio
+async def test_tool_turn_assistant_persistence_failure_emits_turn_failed():
+    """The assistant-with-tool-call persistence boundary also emits failure."""
+    events: list[LiveEvent] = []
+    registry, active = _fake_registry()
+    fake = FakeModelClient(stream_events=[[
+        ModelStreamEvent(
+            event_type=ModelStreamEventType.COMPLETE_TOOL_CALL,
+            call_id="assistant-persist-fail", tool_name="test_tool",
+            arguments='{"value":"x"}',
+        ),
+        ModelStreamEvent(
+            event_type=ModelStreamEventType.RESPONSE_COMPLETED,
+            finish_reason="tool_calls",
+        ),
+    ]])
+
+    def failing_persist(msg: ConversationMessage) -> None:
+        if msg.kind == "assistant":
+            raise RuntimeError("assistant store unavailable")
+
+    result = await run_turn(
+        session_id="s1", turn_id="t1", model=fake, system_prompt="sys",
+        context_messages=[], history=[], tool_registry=registry, active_tools=active,
+        cancel_event=asyncio.Event(), emit=_fake_emit(events),
+        persist_message=failing_persist, user_message_id=_uid(),
+    )
+
+    assert result.exit_reason == TurnExitReason.PERSISTENCE_FAILED
+    assert sum(e.event_type == LiveEventType.TURN_FAILED for e in events) == 1
+    assert not any(e.event_type == LiveEventType.TOOL_STARTED for e in events)

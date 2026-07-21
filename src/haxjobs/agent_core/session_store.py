@@ -114,13 +114,11 @@ class SessionStore:
         Raises IntegrityError on duplicate session_id (plain INSERT, no ON CONFLICT).
         """
         if not isinstance(configuration_json, str) or not configuration_json.strip():
-            raise ValueError("configuration_json must be a non-empty JSON object")
+            raise ValueError("configuration_json must be a nonblank JSON value")
         try:
-            configuration = json.loads(configuration_json)
+            json.loads(configuration_json)
         except (json.JSONDecodeError, TypeError) as exc:
             raise ValueError("configuration_json must be valid JSON") from exc
-        if not isinstance(configuration, dict) or not configuration:
-            raise ValueError("configuration_json must be a non-empty JSON object")
 
         now = _now()
 

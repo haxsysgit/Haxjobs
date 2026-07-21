@@ -10,15 +10,29 @@ Final review is pending, not approved. No live model, public network, private fi
 
 ## Safe fake CLI proof
 
+Use a fresh temporary directory for both databases. The tracked synthetic fixture is migrated into that temporary career database before starting chat; neither command reads or mutates `state/`.
+
 ```bash
-PYTHONPATH=src:. uv run -- haxjobs chat --new --fake --session-db /tmp/haxjobs-plan004-manual.db
+set -eu
+TMP_DIR="$(mktemp -d /tmp/haxjobs-plan004-proof.XXXXXX)"
+trap 'rm -rf "$TMP_DIR"' EXIT
+CAREER_DB="$TMP_DIR/career.db"
+SESSION_DB="$TMP_DIR/session.db"
+
+HAXJOBS_CAREER_DB="$CAREER_DB" \
+  PYTHONPATH=src:. uv run -- haxjobs migrate \
+  --fixture tests/fixtures/job_review/career.json
+
+HAXJOBS_CAREER_DB="$CAREER_DB" \
+  PYTHONPATH=src:. uv run -- haxjobs chat --new --fake \
+  --session-db "$SESSION_DB"
 ```
 
-The CLI fake model is deliberately text-only. It does **not** call job tools, inspect a source, or record an assessment. The safe observation is only that a no-network text response can be entered and persisted in a configured session. No tool trajectory is promised by this command.
+Enter a short text prompt and press Ctrl+D on an empty prompt to exit. The CLI fake model is deliberately text-only. It does **not** call job tools, inspect a source, or record an assessment. The safe observation is only that a no-network text response can be entered and persisted in a configured session using the same temporary career database.
 
 ## Automated trajectory proof
 
-The saved-job tool trajectory is covered separately by the deterministic pytest tests, including injected resolver/transport and no public network:
+The saved-job tool trajectory is covered separately by deterministic pytest tests, including injected resolver/transport and no public network:
 
 ```bash
 PYTHONPATH=src:. uv run python3 -m pytest -q \

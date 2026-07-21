@@ -431,15 +431,11 @@ class AgentSession:
                 f"Create a new session with --new."
             )
         try:
-            parsed_cfg = json.loads(cfg)
+            json.loads(cfg)
         except (json.JSONDecodeError, TypeError) as exc:
             raise ValueError(
                 f"Session {session_id} has invalid configuration; create a new session."
             ) from exc
-        if not isinstance(parsed_cfg, dict) or not parsed_cfg:
-            raise ValueError(
-                f"Session {session_id} has invalid configuration; create a new session."
-            )
 
         session = cls(
             session_id=session_id,

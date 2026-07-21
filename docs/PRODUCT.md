@@ -155,7 +155,7 @@ Plan 004 conversational runtime with durable tool effects:
 - Stable deterministic IDs for career graph migration (idempotent, repeatable)
 - `haxjobs chat` CLI with `--new`/`--resume`/`--fake`/`--person-id`/`--track-id` modes
 - Career profile management CLI: `haxjobs profile migrate/show/track/skill/evidence/gap/constraint`
-- 223 tests, zero network in pytest
+- 229 tests, zero network in pytest
 
 Everything from the legacy product (web app, discovery scrapers, evaluation pipeline, pack builder, decisions engine, cron scripts, FastAPI routes, React frontend) was deleted at the greenfield wipe. These rebuild from scratch on the new runtime.
 
