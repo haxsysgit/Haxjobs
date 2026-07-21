@@ -2,7 +2,7 @@
 
 ## Status
 
-Final review is pending and not approved. This focused writer pass starts at exact `58f0807` and makes one final correctness/truthfulness repair commit. No live model, public network, private fixture, provider configuration, credential, plan, or state path was used.
+Final review is pending and not approved. This focused writer pass starts at exact `285f424` and makes one correctness repair commit. No live model, public network, private fixture, provider configuration, credential, plan, or state path was used.
 
 ## Prior review history
 
@@ -14,24 +14,29 @@ Final review is pending and not approved. This focused writer pass starts at exa
 | `65dd9d6` | blocked | Session configuration, tool-event ordering, and assessment/source/cancellation truthfulness defects |
 | `0a29152` | accepted with blockers | Lifecycle, scope, cancellation, and diagram edge/cell repairs |
 | `58f0807` | accepted with blockers | Partial stream preservation and other correctness repairs; provider-neutral cancelled failure classification remained |
+| `285f424` | accepted with blockers | Provider cancellation classification repaired; seven further correctness blockers remained |
 
 ## Final-pass repairs
 
-1. `run_turn()` now treats the provider-neutral `RESPONSE_FAILED` category `cancelled` exactly like cancellation: one `TURN_INTERRUPTED`, an interrupted partial assistant message when text exists, an interrupted `TurnResult`, and no `TURN_FAILED`.
-2. Deterministic regressions cover a partial-text cancelled failure directly and through `AgentSession`, including the interrupted measurement and durable partial status.
-3. `conversation-trajectory.drawio` now routes resume through the actual `get_job` read path, which reads the current Job and latest assessment for the active track. Resume never routes to or writes `record_job_assessment`.
-4. The ledger's SessionStore wording now states that opaque valid JSON values, including strings and lists, are accepted; employment scope validation remains in composition.
+1. Source DNS validation now requires `ipaddress.ip_address(address).is_global`, including rejection of `100.64.0.1`.
+2. Tool cancellation joins and inspects the dispatch task before synthesizing cancellation, so a handler that catches cancellation and commits a success persists/emits the real result.
+3. AgentSession history read and host/setup failures return failed results, emit exactly one `TURN_FAILED` plus `SESSION_SETTLED`, and record measurements when storage permits.
+4. Chat `--new`/`--resume` modes are mutually exclusive; person/track scope flags require `--new` and are rejected on resume at parser and composition runtime boundaries.
+5. Idempotency conflicts use the top-level `{ok:false, code:"idempotency_conflict", error:...}` envelope while same-payload replay remains successful and conflict remains write-free.
+6. SessionStore now enforces only nonblank configuration text and preserves arbitrary opaque values; employment composition remains responsible for scope JSON validation.
+7. Migration no longer references the deleted private fixture path: CLI migration requires an explicit `--fixture` path.
+8. Deterministic regressions cover all seven blockers. The existing trajectory/diagram repairs remain unchanged.
 
 ## Diagram attribution
 
-The original PNG exports occurred in earlier repair commit `0766d56`. Diagram cell reductions, orthogonal-edge repairs, and their re-exports occurred in earlier repair commit `0a29152`. `58f0807` did not contain diagram export or cell repairs. This final pass changes only the trajectory semantics and re-exports its corrected PNG; all diagrams remain below 35 cells.
+The original PNG exports occurred in earlier repair commit `0766d56`. Diagram cell reductions, orthogonal-edge repairs, and their re-exports occurred in earlier repair commit `0a29152`; the trajectory correction was recorded before this focused pass. This pass does not alter diagrams; all diagrams remain below 35 cells.
 
 ## Writer verification
 
 | Check | Result |
 |---|---|
-| Full pytest suite | 231 passed in 45.83s |
-| Focused regression tests | 2 passed |
+| Full pytest suite | 238 passed in 45.80s |
+| Focused blocker regression suite | 100 passed |
 | `py_compile` | passed |
 | `uv lock --check` | passed |
 | `git diff --check` | passed |

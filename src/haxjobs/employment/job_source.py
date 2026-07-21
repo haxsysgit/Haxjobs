@@ -141,7 +141,7 @@ def _check_public_addresses(hostname: str, resolver: Callable | None = None) -> 
         except ValueError:
             return False, f"unparseable address: {addr}"
 
-        if ip.is_loopback or ip.is_private or ip.is_link_local or ip.is_multicast or ip.is_reserved or ip.is_unspecified:
+        if not ip.is_global:
             return False, f"non-public address resolved: {addr} ({_ip_class(ip)})"
 
     return True, ""
@@ -160,6 +160,8 @@ def _ip_class(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> str:
         return "reserved"
     if ip.is_unspecified:
         return "unspecified"
+    if not ip.is_global:
+        return "non_global"
     return "public"
 
 

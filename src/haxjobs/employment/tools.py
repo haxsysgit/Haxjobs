@@ -76,6 +76,7 @@ class RecordJobAssessmentInput(BaseModel):
 
 class RecordJobAssessmentOutput(BaseModel):
     ok: bool
+    code: str = ""
     assessment_id: str = ""
     recommendation: str = ""
     sequence: int | None = None
@@ -231,12 +232,11 @@ def build_employment_tool_registry(
             ).model_dump()
 
         if isinstance(result, job_actions.IdempotencyConflict):
-            return RecordJobAssessmentOutput(
-                ok=False,
-                assessment_id=result.existing_assessment_id,
-                recommendation=result.existing_recommendation,
-                error=f"Idempotency conflict: {result.conflict_detail}",
-            ).model_dump()
+            return {
+                "ok": False,
+                "code": "idempotency_conflict",
+                "error": f"Idempotency conflict: {result.conflict_detail}",
+            }
 
         return RecordJobAssessmentOutput(
             ok=True,

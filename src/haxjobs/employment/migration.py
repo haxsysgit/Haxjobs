@@ -178,11 +178,12 @@ def migrate_career_fixture(fixture: CareerFixture, db_path: str | Path) -> Caree
 
 
 def migrate_cli_entrypoint(fixture_path: str | None = None) -> CareerStore | None:
-    """Load fixture, run migration, print summary. Returns open store or None."""
+    """Load an explicitly selected fixture, run migration, and print summary."""
     if fixture_path is None:
-        fixture_path = "state/experiments/fixtures/backend-career.json"
+        print("Fixture path required. Provide --fixture <path>.")
+        import sys
+        sys.exit(2)
 
-    from pathlib import Path
     if not Path(fixture_path).exists():
         print(f"Fixture not found: {fixture_path}")
         print("Create it from your profile or run: haxjobs profile migrate --fixture <path>")

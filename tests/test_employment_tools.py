@@ -130,7 +130,7 @@ async def test_record_job_assessment_idempotent_replay(store: CareerStore):
 
 @pytest.mark.asyncio
 async def test_record_job_assessment_idempotency_conflict(store: CareerStore):
-    """Same call_id + different payload returns structured error, writes nothing."""
+    """Conflict is a top-level failure and does not write a second assessment."""
     registry, active = build_employment_tool_registry(store, track_id="t1")
 
     args1 = {
@@ -161,8 +161,13 @@ async def test_record_job_assessment_idempotency_conflict(store: CareerStore):
         active_names=active,
         context=ctx,
     )
-    assert second["data"]["ok"] is False
-    assert "conflict" in second["data"].get("error", "").lower()
+    assert second == {
+        "ok": False,
+        "code": "idempotency_conflict",
+        "error": second["error"],
+    }
+    assert "conflict" in second["error"].lower()
+    assert len(store.list_assessments("job-49", "t1")) == 1
 
 
 @pytest.mark.asyncio

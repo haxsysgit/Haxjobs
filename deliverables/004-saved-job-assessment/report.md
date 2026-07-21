@@ -2,7 +2,7 @@
 
 ## Status
 
-**IMPLEMENTED — FINAL REVIEW PENDING** — All 231 automated tests pass in this worktree with no private fixture. Fresh Luna reviews blocked the candidate at `65dd9d6`; this focused repair addresses the accepted findings. Final review remains pending and is not approved. Live provider verification is deferred (controller-owned).
+**IMPLEMENTED — FINAL REVIEW PENDING** — All 238 automated tests pass in this worktree with no private fixture. The focused repair based on exact `285f424` addresses the seven accepted correctness blockers. Final review remains pending and is not approved. Live provider verification is deferred (controller-owned).
 
 ## Files created
 
@@ -12,10 +12,11 @@
 | `src/haxjobs/employment/job_actions.py` | Plain Python actions: import, get, record, assess jobs |
 | `src/haxjobs/employment/tools.py` | Employment tool definitions (get_job, inspect_job_source, record_job_assessment) |
 | `tests/test_job_actions.py` | Job import, source snapshot, migration, assessment, idempotency tests |
-| `tests/test_employment_tools.py` | Tool dispatch tests (7 tests) |
+| `tests/test_employment_tools.py` | Tool dispatch tests, including top-level idempotency conflict failure (7 tests) |
 | `tests/test_trajectory_job_328.py` | Full no-network fake trajectory + resume test (2 tests) |
-| `tests/test_job_source.py` | Blocking DNS/transport event-loop heartbeat, DNS timeout, and string external-reference regressions |
+| `tests/test_job_source.py` | Blocking DNS/transport event-loop heartbeat, DNS timeout, string external-reference, and non-global-address regressions |
 | `tests/test_durable_tool_effects.py` | Persistence order, dangling calls, idempotency, scope, cleanup (9 tests) |
+| `tests/test_cli.py` | Deterministic rejection of conflicting chat modes/scope flags and implicit migration fixtures (4 tests) |
 
 ## Files modified
 
@@ -24,10 +25,10 @@
 | `src/haxjobs/agent_core/tools.py` | Added `ToolExecutionContext`, `EffectKind`, `ToolDefinition` metadata, handler now takes `(input, context)` |
 | `src/haxjobs/agent_core/turn.py` | Added `persist_message` callback (required), `user_message_id`, `TurnResult` usage/input_characters fields, truthful interrupted partial assistant persistence, and live failure events for every terminal message-persistence boundary |
 | `src/haxjobs/agent_core/session.py` | `persist_message` wiring, dangling call detection on resume, measurement recording on every turn exit path |
-| `src/haxjobs/agent_core/session_store.py` | Added `session_configuration` table, `turn_measurements` table, `record_measurement()`, opaque valid-JSON configuration validation, and config round-trip methods |
+| `src/haxjobs/agent_core/session_store.py` | Added `session_configuration` table, `turn_measurements` table, nonblank opaque configuration storage, `record_measurement()`, and config round-trip methods |
 | `src/haxjobs/employment/schema.py` | Added `Job`, `ConstraintCheck`, `JobAssessment` models; `CareerFixture` now requires `person_id`, `person_name`, `track_name` |
 | `src/haxjobs/employment/store.py` | Added `jobs` and `job_assessments` tables, `list_people()`, job/assessment CRUD methods; `link_skill_evidence` made idempotent with `ON CONFLICT DO NOTHING` |
-| `src/haxjobs/employment/migration.py` | Stable IDs from `identifiers.py`, person name from fixture, contradictory gap prevention |
+| `src/haxjobs/employment/migration.py` | Stable IDs from `identifiers.py`, person name from fixture, contradictory gap prevention, explicit fixture path requirement |
 | `src/haxjobs/employment/fixtures.py` | Required `person_id`, `person_name`, `track_name` on `CareerFixture` |
 | `src/haxjobs/employment/host.py` | Tools moved to `employment/tools.py`, uses `build_employment_tool_registry()` |
 | `src/haxjobs/employment/context.py` | Evidence content included (not just labels), privacy label, verification flag, deduplication, character caps |
@@ -39,9 +40,9 @@
 | `src/haxjobs/interfaces/__init__.py` | Removed `experiment_cli` export |
 | `tests/test_career_graph.py` | Uses synthetic fixture; added migration integrity tests (deterministic IDs, person name, contradictory gaps, idempotent links, required fields) |
 | `tests/test_turn_runtime.py` | Removed duplicate `_TestOutput`; added ToolExecutionContext, persistence failure event, cancel event, and provider-cancelled failure tests; updated all handler signatures to `(input, ctx)` |
-| `tests/test_session.py` | Added unconfigured session, interrupted partial-history, dangling call, no duplicate, no auto-retry, idempotent resume, measurement, and provider-cancelled settlement tests |
+| `tests/test_session.py` | Added unconfigured session, history-read failure settlement, interrupted partial-history, dangling call, no duplicate, no auto-retry, idempotent resume, measurement, and provider-cancelled settlement tests |
 | `tests/test_employment_host.py` | Added scope selection tests (single/multi/zero person/track), evidence content tests |
-| `tests/test_session_store.py` | Added opaque string/list configuration, blank/invalid validation, round-trip, transaction, duplicate tests |
+| `tests/test_session_store.py` | Added opaque string/list/arbitrary-text configuration, blank validation, round-trip, transaction, duplicate tests |
 | `tests/test_live_events.py` | Updated test that referenced deleted events module |
 | `tests/fixtures/job_review/career.json` | Added `person_id`, `person_name`, `track_name` |
 | `AGENTS.md` | Updated for conversational runtime |
@@ -66,27 +67,28 @@
 ## Test results
 
 ```
-231 passed (full suite; runtime varies by environment)
+238 passed (full suite; runtime varies by environment)
 ```
 
 Verified: `uv lock --check` ok, `py_compile` all src/ and tests/ ok, `git diff --check` ok.
 
-Exact collected/tested per-file count (from `pytest --collect-only -q tests/`, 231 collected and 231 passed):
+Exact collected/tested per-file count (from `pytest --collect-only -q tests/`, 238 collected and 238 passed):
 - `tests/test_career_graph.py`: 28
 - `tests/test_conversation_messages.py`: 20
 - `tests/test_durable_tool_effects.py`: 9
 - `tests/test_employment_host.py`: 20
 - `tests/test_employment_tools.py`: 7
 - `tests/test_job_actions.py`: 13
-- `tests/test_job_source.py`: 3
+- `tests/test_cli.py`: 4
+- `tests/test_job_source.py`: 4
 - `tests/test_live_events.py`: 19
 - `tests/test_model_streaming.py`: 11
-- `tests/test_session.py`: 33
+- `tests/test_session.py`: 34
 - `tests/test_session_store.py`: 22
 - `tests/test_terminal.py`: 14
 - `tests/test_terminal_pty.py`: 2
 - `tests/test_trajectory_job_328.py`: 2
-- `tests/test_turn_runtime.py`: 28
+- `tests/test_turn_runtime.py`: 29
 
 ## Architecture invariants confirmed
 
@@ -140,7 +142,7 @@ Three independent Flash reviews identified three deliverable blockers against ca
 
 1. **Missing review-ledger.md and manual-proof.md.** Created with factual review record and controller-owned proof procedure + verified `--help` output.
 2. **Oversized employment-models.drawio (36 non-root cells).** Simplified to 32 non-root cells. PNG re-exported at 640×524.
-3. **Stale doc references.** Test counts were updated to 229 in the earlier repair commit; `--ignore=tests/test_terminal_pty.py` removed; deleted module/CLI descriptions corrected; `state/experiments/` path removed from user-facing docs.
+3. **Stale doc references.** Test counts were corrected in the earlier repair commit; `--ignore=tests/test_terminal_pty.py` removed; deleted module/CLI descriptions corrected; `state/experiments/` path removed from user-facing docs.
 
 Architecture and correctness reviews were approved on the initial repair candidate with one nonblocking close observation (test-career-store exercises synthetic fixture only; real private DB migration is controller-owned).
 
@@ -150,11 +152,11 @@ Initial controller verification round identified three blocking findings against
 
 1. **PTY test isolation (tests/test_terminal_pty.py):** Both `test_terminal_pty_enter_submits_and_escape_interrupts` and `test_terminal_pty_escape_during_streaming_interrupts` defaulted `HAXJOBS_CAREER_DB` to `state/career_graph.db`, violating Plan 004 Phase A's isolated synthetic-test rule. Fixed by adding `_isolated_career_db()` helper that creates a temp career DB migrated from `tests/fixtures/job_review/career.json` and cleaning up after each test.
 2. **Missing PNG exports:** Three `.drawio` files had no PNG exports. All three exported via local `/opt/drawio/drawio -x -f png`. Each PNG verified with valid signature and nonzero IHDR dimensions.
-3. **Report metadata:** Report claimed COMPLETE but listed PTY tests as "fail due to environment" and PNGs as deferred. Corrected in the earlier repair commit to report exact 229 passes and present PNGs.
+3. **Report metadata:** Report claimed COMPLETE but listed PTY tests as "fail due to environment" and PNGs as deferred. Corrected in the earlier repair commit to report the exact passing suite and present PNGs.
 
 ## Current correctness repairs addressed
 
-- `SessionStore.create_session` requires a nonblank valid JSON value and preserves opaque strings/lists unchanged; employment scope validation remains at composition. Historic unconfigured or invalid rows fail clearly on resume.
+- `SessionStore.create_session` requires only nonblank opaque text and preserves strings, lists, and arbitrary values unchanged; employment composition validates its expected scope JSON. Historic unconfigured rows fail clearly on resume.
 - Tool results are persisted before lifecycle completion/failure events. Failed result persistence stops model progression, emits persistence failure/terminal events, and leaves dangling-call reconciliation intact.
 - Runtime source inspection accepts only saved Job data; the fixture-era `fetch(JobFixture, ...)` entry point and Stage 1 experiment wording are gone.
 - Assessment input no longer accepts a model track scope. Registry dispatch binds the active track and a two-track regression proves no cross-track/person write.
@@ -162,6 +164,10 @@ Initial controller verification round identified three blocking findings against
 - Manual proof states that CLI `--fake` is text-only; saved-job tool trajectory proof is automated and deterministic.
 - All three final diagram XML files use orthogonal connectors; the trajectory now routes resume through the `get_job` read path for the current Job and latest assessment, with no assessment write. PNGs were re-exported and checked for valid dimensions.
 - Source inspection, bounded DNS offloading, string external references, deterministic trajectory, job-column migrations, idempotency, scope ownership, and initial-message persistence remain covered by deterministic focused tests.
+
+## Focused correctness repair pass
+
+Based on exact `285f424`, this pass repairs: `ipaddress.is_global` source validation; cancellation outcome inspection after handler cancellation; failed session read/setup settlement; mutually exclusive chat mode and scope flags; top-level idempotency conflict envelopes; opaque SessionStore configuration; and the stale migration fixture fallback. Deterministic regressions cover each code blocker. Controller-owned manual/live proof remains honestly deferred.
 
 ## Commit
 

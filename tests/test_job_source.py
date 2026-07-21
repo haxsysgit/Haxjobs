@@ -63,6 +63,24 @@ async def test_blocking_resolver_times_out_without_blocking_event_loop():
 
 
 @pytest.mark.asyncio
+async def test_shared_address_space_is_rejected_as_non_global():
+    """DNS validation requires ipaddress.is_global, including 100.64/10."""
+    fetcher = JobSourceFetcher(
+        resolver=lambda hostname: [(2, "100.64.0.1")],
+        transport_factory=lambda url, timeout: pytest.fail("transport must not run"),
+    )
+    result = await fetcher.fetch_from_job({
+        "external_ref": "shared-address",
+        "source_url": "https://example.com/jobs/shared",
+        "allowed_source_hosts": ["example.com"],
+    })
+
+    assert result.ok is False
+    assert result.code == "non_public_address"
+    assert "100.64.0.1" in result.error
+
+
+@pytest.mark.asyncio
 async def test_nonnumeric_job_external_ref_source_inspection_succeeds():
     """Source diagnostics preserve a general string external_ref."""
     class Response:

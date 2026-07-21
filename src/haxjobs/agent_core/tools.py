@@ -151,6 +151,16 @@ class ToolRegistry:
                 "error": "tool output does not match declared schema",
             }
 
+        # A handler may return the standard failure envelope directly. This
+        # keeps domain failures (notably idempotency conflicts) out of a
+        # successful ``data`` object.
+        if result.get("ok") is False and result.get("code"):
+            return {
+                "ok": False,
+                "code": result["code"],
+                "error": result.get("error", "tool execution failed"),
+            }
+
         # Truncate if needed
         result_str = json.dumps(result, default=str)
         if len(result_str) > tool.max_result_chars:

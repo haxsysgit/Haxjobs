@@ -68,22 +68,23 @@ def main(argv: list[str] | None = None):
     prof_con.set_defaults(func=cmd_profile_constraint_add)
 
     prof_migrate = prof_sub.add_parser("migrate", help="Migrate career fixture to graph")
-    prof_migrate.add_argument("--fixture", default=None,
+    prof_migrate.add_argument("--fixture", required=True,
                               help="Path to career fixture JSON")
     prof_migrate.set_defaults(func=cmd_profile_migrate)
 
     # ── shortcut: haxjobs migrate ──
     migrate_cmd = sub.add_parser("migrate", help="Quick: migrate career fixture to graph")
-    migrate_cmd.add_argument("--fixture", default=None,
+    migrate_cmd.add_argument("--fixture", required=True,
                              help="Path to career fixture JSON")
     migrate_cmd.set_defaults(func=cmd_profile_migrate)
 
     # ── chat / default command ──
     chat = sub.add_parser("chat", help="Open a live conversation with Hax")
-    chat.add_argument("--new", action="store_true",
-                      help="Create a new session (don't resume latest)")
-    chat.add_argument("--resume", default=None, metavar="ID",
-                      help="Resume a specific session by ID")
+    chat_mode = chat.add_mutually_exclusive_group()
+    chat_mode.add_argument("--new", action="store_true",
+                           help="Create a new session (don't resume latest)")
+    chat_mode.add_argument("--resume", default=None, metavar="ID",
+                           help="Resume a specific session by ID")
     chat.add_argument("--fake", action="store_true",
                       help="Use fake model — no network")
     chat.add_argument("--fake-delay", type=int, default=0, metavar="MS",
@@ -97,6 +98,10 @@ def main(argv: list[str] | None = None):
     chat.set_defaults(func=cmd_chat)
 
     args = parser.parse_args(argv)
+    if getattr(args, "command", None) == "chat":
+        has_scope = bool(args.person_id or args.track_id)
+        if has_scope and not args.new:
+            parser.error("--person-id/--track-id are only valid with --new")
     if not hasattr(args, "func"):
         # Default: open or resume latest session (same as `haxjobs chat`)
         from haxjobs.interfaces.terminal import run_terminal
@@ -160,6 +165,9 @@ def cmd_chat(args) -> None:
 
         if session_id:
             print(f"Resuming session: {session_id}")
+
+        if session_id and (args.person_id or args.track_id):
+            raise ValueError("--person-id/--track-id cannot be used with --resume")
 
         session = compose_session(
             session_id=session_id,

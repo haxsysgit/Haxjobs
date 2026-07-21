@@ -1093,6 +1093,79 @@ async def test_tool_dispatch_wins_over_simultaneous_cancel():
     assert result.exit_reason == TurnExitReason.INTERRUPTED
 
 
+# ── Regression: cancellation cannot hide a committed handler effect ──
+
+@pytest.mark.asyncio
+async def test_handler_catches_cancellation_and_returns_committed_success():
+    """A handler that catches task cancellation wins over synthetic cancelled."""
+    from pydantic import BaseModel
+
+    events: list[LiveEvent] = []
+    registry = ToolRegistry()
+    started = asyncio.Event()
+
+    class _Input(BaseModel):
+        value: str
+
+    class _Output(BaseModel):
+        ok: bool
+        value: str = ""
+
+    async def catches_cancel(input_obj, ctx):
+        started.set()
+        try:
+            await asyncio.sleep(10)
+        except asyncio.CancelledError:
+            # Model a handler that has committed before acknowledging cancel.
+            return {"ok": True, "value": "committed"}
+
+    registry.register(ToolDefinition(
+        name="commits_on_cancel",
+        description="commits before acknowledging cancellation",
+        input_model=_Input,
+        output_model=_Output,
+        handler=catches_cancel,
+    ))
+    fake = FakeModelClient(stream_events=[[
+        ModelStreamEvent(
+            event_type=ModelStreamEventType.COMPLETE_TOOL_CALL,
+            call_id="commit-call",
+            tool_name="commits_on_cancel",
+            arguments='{"value":"x"}',
+        ),
+        ModelStreamEvent(
+            event_type=ModelStreamEventType.RESPONSE_COMPLETED,
+            finish_reason="tool_calls",
+        ),
+    ]])
+
+    task = asyncio.create_task(run_turn(
+        session_id="s-commit-cancel",
+        turn_id="t-commit-cancel",
+        model=fake,
+        system_prompt="sys",
+        context_messages=[],
+        history=[],
+        tool_registry=registry,
+        active_tools=("commits_on_cancel",),
+        cancel_event=asyncio.Event(),
+        emit=_fake_emit(events),
+        persist_message=_persist,
+        user_message_id=_uid(),
+    ))
+    await started.wait()
+    task.cancel()
+    result = await task
+
+    tool_results = [m for m in result.new_messages if m.kind == "tool_result"]
+    assert len(tool_results) == 1
+    assert tool_results[0].ok is True
+    assert tool_results[0].result["value"] == "committed"
+    assert sum(e.event_type == LiveEventType.TOOL_COMPLETED for e in events) == 1
+    assert not any(e.event_type == LiveEventType.TOOL_FAILED for e in events)
+    assert result.exit_reason == TurnExitReason.INTERRUPTED
+
+
 # ── Regression: QUEUED exit reason exists and is not INTERRUPTED ──
 
 def test_queued_reason_is_distinct():

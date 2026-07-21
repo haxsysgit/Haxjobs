@@ -109,16 +109,13 @@ class SessionStore:
     def create_session(self, session_id: str, configuration_json: str) -> None:
         """Create a configured session and configuration in one transaction.
 
-        Configuration is validated before the session row is inserted, so an
-        invalid request cannot leave a historic-style unconfigured session.
-        Raises IntegrityError on duplicate session_id (plain INSERT, no ON CONFLICT).
+        Configuration is opaque text at this layer; only its nonblank invariant
+        is enforced before the session row is inserted. Domain composition owns
+        any JSON or schema validation. Raises IntegrityError on duplicate
+        session_id (plain INSERT, no ON CONFLICT).
         """
         if not isinstance(configuration_json, str) or not configuration_json.strip():
-            raise ValueError("configuration_json must be a nonblank JSON value")
-        try:
-            json.loads(configuration_json)
-        except (json.JSONDecodeError, TypeError) as exc:
-            raise ValueError("configuration_json must be valid JSON") from exc
+            raise ValueError("configuration_json must be nonblank text")
 
         now = _now()
 

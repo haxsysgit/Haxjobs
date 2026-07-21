@@ -266,20 +266,20 @@ def test_session_and_config_created_in_one_transaction(store: SessionStore):
     assert store.get_session_configuration("sc2") == config
 
 
-def test_create_session_requires_valid_configuration(store: SessionStore):
-    """Blank and invalid configuration is rejected before insertion."""
+def test_create_session_requires_nonblank_configuration(store: SessionStore):
+    """Only blank configuration is rejected; parsing belongs to composition."""
     with pytest.raises(TypeError):
         store.create_session("missing")  # type: ignore[call-arg]
-    for value in ("", "   ", "not-json"):
+    for index, value in enumerate(("", "   ")):
         with pytest.raises(ValueError, match="configuration_json"):
-            store.create_session("sc3", configuration_json=value)
-    assert store.get_session("sc3") is None
-    assert store.get_session_configuration("sc3") is None
+            store.create_session(f"sc-blank-{index}", configuration_json=value)
 
 
-def test_opaque_json_configuration_accepts_string_and_list(store: SessionStore):
-    """The core stores valid opaque JSON without imposing an object schema."""
-    for session_id, config in (("sc-string", '"opaque scope"'), ("sc-list", '["p1", 2]')):
+def test_opaque_configuration_accepts_and_preserves_any_nonblank_text(store: SessionStore):
+    """The core stores strings, lists, and arbitrary opaque text unchanged."""
+    values = ('"opaque scope"', '["p1", 2]', "not-json", "  arbitrary text  ")
+    for index, config in enumerate(values):
+        session_id = f"sc-opaque-{index}"
         store.create_session(session_id, configuration_json=config)
         assert store.get_session_configuration(session_id) == config
 

@@ -6,7 +6,7 @@
 |------|-------------|
 | `plan.md` | Copy of Plan 004 specification |
 | `report.md` | Implementation completion report |
-| `review-ledger.md` | Reviewer findings and decisions (3 reviews, all blockers addressed) |
+| `review-ledger.md` | Reviewer findings and decisions (prior reviews plus focused correctness repair; final review pending) |
 | `manual-proof.md` | Controller-owned safe run procedure and CLI verification |
 | `employment-models.drawio` | Employment model schema diagram (source) |
 | `employment-models.png` | Employment model schema diagram (PNG export, 640×524) |
@@ -19,7 +19,7 @@ All PNGs exported via `/opt/drawio/drawio -x -f png`. Each has a valid PNG signa
 
 ## Key achievements
 
-- 231 automated tests pass (full suite, including PTY terminal tests with isolated temp career DB)
+- 238 automated tests pass (full suite, including PTY terminal tests with isolated temp career DB)
 - First state-changing employment workflow: user asks → get_job → inspect → assess
 - Durable tool execution boundaries: persist before handler, persist after handler
 - Immutable session configuration: person/track scope pinned at creation
@@ -31,7 +31,7 @@ All PNGs exported via `/opt/drawio/drawio -x -f png`. Each has a valid PNG signa
 ## Verification
 
 ```bash
-PYTHONPATH=src:. uv run python3 -m pytest -q tests/            # 231 passed
+PYTHONPATH=src:. uv run python3 -m pytest -q tests/            # 238 passed
 PYTHONPATH=src:. uv run python3 -m py_compile $(find src tests -name '*.py')  # ok
 uv lock --check                                                # ok
 git diff --check                                               # ok

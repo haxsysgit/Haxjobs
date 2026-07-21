@@ -103,7 +103,33 @@ async def test_user_message_persistence_failure_stops_before_model(store: Sessio
     assert not any(event.event_type == LiveEventType.TURN_COMPLETED for event in events)
     assert store._conn.execute(
         "SELECT COUNT(*) FROM turn_measurements"
-    ).fetchone()["COUNT(*)"] == 0
+    ).fetchone()["COUNT(*)"] == 1
+    assert sum(e.event_type == LiveEventType.TURN_FAILED for e in events) == 1
+    assert sum(e.event_type == LiveEventType.SESSION_SETTLED for e in events) == 1
+
+
+@pytest.mark.asyncio
+async def test_history_read_failure_is_failed_and_settled(store: SessionStore):
+    """A history read error cannot become a manufactured completed turn."""
+    session = _make_session(store)
+    events: list[LiveEvent] = []
+    session.subscribe(events.append)
+
+    def fail_load(session_id):
+        raise OSError("session database unavailable")
+
+    store.load_messages = fail_load  # type: ignore[method-assign]
+    result = await session.prompt("must not run")
+
+    assert result.exit_reason == TurnExitReason.MODEL_FAILED
+    assert "history read failed" in result.safe_failure
+    assert sum(e.event_type == LiveEventType.TURN_FAILED for e in events) == 1
+    assert sum(e.event_type == LiveEventType.SESSION_SETTLED for e in events) == 1
+    measurement = store._conn.execute(
+        "SELECT exit_reason FROM turn_measurements WHERE session_id = 's1'"
+    ).fetchone()
+    assert measurement["exit_reason"] == "history_read_failure"
+    assert not any(e.event_type == LiveEventType.TURN_COMPLETED for e in events)
 
 
 # ── Two turns replay prior canonical history ──

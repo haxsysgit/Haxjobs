@@ -10,7 +10,6 @@ session configuration validation.
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import time
 import uuid
@@ -162,8 +161,27 @@ class AgentSession:
             self._cancel_event = asyncio.Event()
             try:
                 last_result = await self._run_turn(text)
-            except Exception:
+            except Exception as exc:
+                # Never let an orchestration/read failure fall through to the
+                # synthetic COMPLETED result below.
                 logger.exception("_run_turn unexpected error")
+                failure = f"turn execution failed: {exc}"
+                self._emit(LiveEvent(
+                    session_id=self.session_id,
+                    turn_id="",
+                    event_type=LiveEventType.TURN_FAILED,
+                    error=failure,
+                ))
+                self._emit(LiveEvent(
+                    session_id=self.session_id,
+                    turn_id="",
+                    event_type=LiveEventType.SESSION_SETTLED,
+                ))
+                last_result = TurnResult(
+                    turn_id="",
+                    exit_reason=TurnExitReason.MODEL_FAILED,
+                    safe_failure=failure,
+                )
             finally:
                 self._cancel_event = None
         if last_result is None:
@@ -198,18 +216,13 @@ class AgentSession:
             self._turn_count -= 1
             safe_failure = f"user message persistence failed: {exc}"
             logger.error(safe_failure)
-            self._emit(
-                LiveEvent(
-                    session_id=self.session_id,
-                    turn_id=turn_id,
-                    event_type=LiveEventType.TURN_FAILED,
-                    error=safe_failure,
-                )
-            )
-            return TurnResult(
+            return self._settle_failed_turn(
                 turn_id=turn_id,
-                exit_reason=TurnExitReason.PERSISTENCE_FAILED,
+                started_at=started_at,
+                started_mono=started_mono,
                 safe_failure=safe_failure,
+                measurement_reason="user_message_persistence_failed",
+                result_reason=TurnExitReason.PERSISTENCE_FAILED,
             )
 
         # Emit SESSION_STARTED exactly once, after the first user message is
@@ -240,67 +253,41 @@ class AgentSession:
             tool_registry = self._tool_registry_fn()
             active_tool_names = self._active_tool_names_fn()
         except Exception as exc:
-            logger.error("host/context setup failed: %s", exc)
-            self._emit(
-                LiveEvent(
-                    session_id=self.session_id,
-                    turn_id=turn_id,
-                    event_type=LiveEventType.TURN_FAILED,
-                    error="Host or context setup failed",
-                )
-            )
-            self._store.mark_turn_settled(self.session_id, self._turn_count)
-            self._record_measurement(
+            safe_failure = f"host/context setup failed: {exc}"
+            logger.error(safe_failure)
+            return self._settle_failed_turn(
                 turn_id=turn_id,
                 started_at=started_at,
                 started_mono=started_mono,
-                exit_reason="host_setup_failure",
-            )
-            self._emit(
-                LiveEvent(
-                    session_id=self.session_id,
-                    turn_id=turn_id,
-                    event_type=LiveEventType.SESSION_SETTLED,
-                )
-            )
-            return TurnResult(
-                turn_id=turn_id,
-                exit_reason=TurnExitReason.MODEL_FAILED,
-                safe_failure=f"host/context setup: {exc}",
+                safe_failure=safe_failure,
+                measurement_reason="host_setup_failure",
             )
 
-        # Load canonical history
-        stored = self._store.load_messages(self.session_id)
+        # Load canonical history. A store read failure is a failed turn, never
+        # an empty history that can accidentally produce a completion.
         try:
-            history = _parse_canonical_history(stored)
-        except CanonicalParseError as exc:
-            logger.error("canonical parse error: %s", exc)
-            self._emit(
-                LiveEvent(
-                    session_id=self.session_id,
-                    turn_id=turn_id,
-                    event_type=LiveEventType.TURN_FAILED,
-                    error=f"Session history corrupted: {exc}",
-                )
-            )
-            self._store.mark_turn_settled(self.session_id, self._turn_count)
-            self._record_measurement(
+            stored = self._store.load_messages(self.session_id)
+        except Exception as exc:
+            safe_failure = f"session history read failed: {exc}"
+            logger.error(safe_failure)
+            return self._settle_failed_turn(
                 turn_id=turn_id,
                 started_at=started_at,
                 started_mono=started_mono,
-                exit_reason="corrupt_history",
+                safe_failure=safe_failure,
+                measurement_reason="history_read_failure",
             )
-            self._emit(
-                LiveEvent(
-                    session_id=self.session_id,
-                    turn_id=turn_id,
-                    event_type=LiveEventType.SESSION_SETTLED,
-                )
-            )
-            return TurnResult(
+        try:
+            history = _parse_canonical_history(stored)
+        except Exception as exc:
+            safe_failure = f"session history corrupted: {exc}"
+            logger.error(safe_failure)
+            return self._settle_failed_turn(
                 turn_id=turn_id,
-                exit_reason=TurnExitReason.MODEL_FAILED,
-                safe_failure=f"canonical parse: {exc}",
+                started_at=started_at,
+                started_mono=started_mono,
+                safe_failure=safe_failure,
+                measurement_reason="corrupt_history",
             )
 
         # Run turn — persist_message passes through to session store
@@ -369,6 +356,44 @@ class AgentSession:
 
         return result
 
+    def _settle_failed_turn(
+        self,
+        *,
+        turn_id: str,
+        started_at: str,
+        started_mono: float,
+        safe_failure: str,
+        measurement_reason: str,
+        result_reason: TurnExitReason = TurnExitReason.MODEL_FAILED,
+    ) -> TurnResult:
+        """Emit and persist one truthful failed-turn settlement when possible."""
+        self._emit(LiveEvent(
+            session_id=self.session_id,
+            turn_id=turn_id,
+            event_type=LiveEventType.TURN_FAILED,
+            error=safe_failure,
+        ))
+        try:
+            self._store.mark_turn_settled(self.session_id, self._turn_count)
+        except Exception as exc:
+            logger.warning("failed-turn settlement write failed: %s", exc)
+        self._record_measurement(
+            turn_id=turn_id,
+            started_at=started_at,
+            started_mono=started_mono,
+            exit_reason=measurement_reason,
+        )
+        self._emit(LiveEvent(
+            session_id=self.session_id,
+            turn_id=turn_id,
+            event_type=LiveEventType.SESSION_SETTLED,
+        ))
+        return TurnResult(
+            turn_id=turn_id,
+            exit_reason=result_reason,
+            safe_failure=safe_failure,
+        )
+
     def _record_measurement(
         self,
         *,
@@ -430,12 +455,12 @@ class AgentSession:
                 f"Session {session_id} has no configuration (created before Plan 004). "
                 f"Create a new session with --new."
             )
-        try:
-            json.loads(cfg)
-        except (json.JSONDecodeError, TypeError) as exc:
+        # Configuration is opaque to the domain-free core. Employment
+        # composition validates its expected scope object before resume.
+        if not isinstance(cfg, str) or not cfg.strip():
             raise ValueError(
-                f"Session {session_id} has invalid configuration; create a new session."
-            ) from exc
+                f"Session {session_id} has blank configuration; create a new session."
+            )
 
         session = cls(
             session_id=session_id,

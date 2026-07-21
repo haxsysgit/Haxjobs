@@ -46,6 +46,9 @@ def compose_session(
         EmploymentSetupError: If the career graph is not set up.
         ValueError: If session configuration is missing or mismatched.
     """
+    if session_id and (person_id is not None or track_id is not None):
+        raise ValueError("scope selection is only valid when creating a new session")
+
     db_path = Path(session_db_path) if session_db_path else SESSION_DB_PATH
     session_store = SessionStore(db_path)
 
