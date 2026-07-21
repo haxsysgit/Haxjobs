@@ -79,7 +79,7 @@ All round-2 findings addressed in a single repair round covering 15 accepted fin
 - [x] Fake model used only in tests and --fake mode
 - [x] Fake model supports repeat mode for multi-turn sessions
 - [x] Fake model supports per-event delay for cancellation tests
-- [x] 209 tests all pass (fixture present)
+- [x] 217 tests all pass (fixture present)
 - [x] Both PTY tests pass (genuine mid-stream interruption verified)
 - [x] Diagrams exported to PNG; no trailing whitespace
 - [x] py_compile passes
@@ -120,9 +120,20 @@ Tests added:
 Test count: 217 (+2). Full suite passes twice. PTY tests pass twice. py_compile, uv lock, git diff all clean.
 Focused tests pass 5/5 repetitions.
 
-Note: The release gate extended beyond the nominal repair cap because a final reviewer found correctness blockers.
-This is recorded honestly here. The implementation commit SHA is produced by this change; the parent fills
-the index after merge.
+Note: The release gate extended beyond the nominal repair cap because a final reviewer found correctness blockers. Merging known incorrect tool results would have been worse than following the cap blindly. The approved implementation commit is `d6fa361`.
+
+### Final release approval
+
+Four new fresh-context DeepSeek V4 Pro reviewers inspected the same unchanged commit `d6fa361`:
+
+| Reviewer | Scope | Verdict |
+|----------|-------|---------|
+| A | Full plan, scope, layers, deliverables, diagrams, verification | RELEASE APPROVED |
+| B | Streaming, tools, cancellation, event cardinality, canonical results | RELEASE APPROVED |
+| C | Sessions, persistence, resume, context isolation, permissions, privacy | RELEASE APPROVED |
+| D | prompt_toolkit, PTY behavior, shutdown, docs, manual proof | RELEASE APPROVED |
+
+After approval, the operator ran a real configured-provider PTY conversation and a second bare `haxjobs` launch. Both exited cleanly and the second launch resumed the same session ID. Only pass/fail metadata was retained under `/tmp`.
 
 ### Round 3 (this commit) — Lifecycle defect cluster hardening
 

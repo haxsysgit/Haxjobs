@@ -5,7 +5,7 @@
 - Worktree: `/tmp/haxjobs-exec-003-corrected`
 - Branch: `advisor/003-corrected`
 - Baseline commit: `ae1dbce`
-- Implementation commit: produced by this change (see plans/README.md for parent SHA after merge)
+- Implementation commit: `d6fa361`
 
 ## PTY Smoke Test (stdlib pty)
 
@@ -35,7 +35,7 @@ tests/test_terminal_pty.py::test_terminal_pty_escape_during_streaming_interrupts
 ```
 
 Observed:
-1. Input sent, Escape sent after 50ms delay ✓
+1. Input sent with a delayed fake stream, then Escape sent while streaming was active ✓
 2. Terminal returned to "> " prompt after Escape ✓
 3. Ctrl+D exited cleanly ✓
 
@@ -51,11 +51,24 @@ HAXJOBS_SESSION_DB=/tmp/haxjobs-plan003-sessions.db uv run haxjobs chat --fake
 - Session created and composition verified ✓
 - Full interactive flow confirmed by PTY tests above
 
-## Live mode
+## Live configured-provider proof
 
-- Provider config exists at `~/.haxjobs/haxjobs.toml`
-- Live session composition verified
-- Full interactive flow confirmed by PTY tests above (fake mode structurally identical)
+A privacy-safe PTY check was run after all four release reviewers approved `d6fa361`:
+
+```bash
+python3 /tmp/haxjobs-live-pty-proof2.py
+```
+
+Observed:
+
+1. `haxjobs chat --new` opened in normal terminal mode.
+2. Enter submitted a real prompt to the configured provider.
+3. The requested response streamed back.
+4. Ctrl+D exited with status 0.
+5. A second bare `haxjobs` launch resumed the same session ID.
+6. The second process exited with status 0.
+
+Result metadata was written to `/tmp/haxjobs-plan003-live-proof2.json`. Raw terminal output stayed under `/tmp` and is not part of the deliverables because it may contain career context.
 
 ## Verified by tests
 

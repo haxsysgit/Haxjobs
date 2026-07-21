@@ -1,4 +1,4 @@
-# Plan 003 Corrected — Implementation Report (Repair Round 3)
+# Plan 003 Corrected - Final Implementation Report
 
 ## Summary
 
@@ -25,8 +25,8 @@ Repair round 1 applied 12 accepted reviewer findings. Repair round 2 applied 15 
 | `tests/test_session_store.py` | 17 tests |
 | `tests/test_turn_runtime.py` | 20 tests |
 | `tests/test_employment_host.py` | 9 tests |
-| `tests/test_session.py` | 13 tests |
-| `tests/test_terminal.py` | 13 tests |
+| `tests/test_session.py` | 18 tests |
+| `tests/test_terminal.py` | 14 tests |
 | `tests/test_terminal_pty.py` | 2 tests |
 
 ## Files modified
@@ -64,8 +64,8 @@ Repair round 1 applied 12 accepted reviewer findings. Repair round 2 applied 15 
 
 All 217 tests pass when the private career fixture (`state/experiments/fixtures/backend-career.json`) is present. The fixture is an untracked local file — not committed to the repository.
 
-New tests (Plan 003): 130 (20+19+11+17+20+9+13+13+2+6 round-3)
-Existing tests (Plans 001-002): 87 (23+27+37)
+Tests added or changed by corrected Plan 003: 132
+Tests present at baseline `ae1dbce`: 85
 Total: 217
 
 | Test file | Count |
@@ -209,6 +209,19 @@ haxjobs chat --new --fake (pipe input)             # creates session, accepts in
 haxjobs chat --fake (existing DB)                  # resumes latest session
 haxjobs chat --resume BADID --fake                 # prints clean "Error: Session not found: BADID"
 ```
+
+## Final release gate
+
+Implementation commit: `d6fa361`
+
+Four fresh DeepSeek V4 Pro release reviewers independently approved the unchanged implementation commit after checking plan compliance, runtime correctness, session and employment boundaries, terminal behavior, PTY tests, docs, and deliverables.
+
+A real configured-provider PTY run also passed outside the committed test suite:
+
+- `haxjobs chat --new` accepted a prompt and streamed the requested response
+- the process exited cleanly
+- a second bare `haxjobs` launch resumed the same session ID
+- only pass/fail metadata was retained under `/tmp`; career context and model output were not copied into deliverables
 
 ## Deferred work
 
