@@ -1,5 +1,7 @@
 """HaxJobs CLI."""
 import argparse
+import asyncio
+import sys
 
 from haxjobs.interfaces.experiment_cli import cmd_experiment_review_job
 from haxjobs.interfaces.profile_cli import (
@@ -99,11 +101,73 @@ def main(argv: list[str] | None = None):
                              help="Path to career fixture JSON")
     migrate_cmd.set_defaults(func=cmd_profile_migrate)
 
+    # ── chat / default command ──
+    chat = sub.add_parser("chat", help="Open a live conversation with Hax")
+    chat.add_argument("--new", action="store_true",
+                      help="Create a new session (don't resume latest)")
+    chat.add_argument("--resume", default=None, metavar="ID",
+                      help="Resume a specific session by ID")
+    chat.add_argument("--fake", action="store_true",
+                      help="Use fake model — no network")
+    chat.add_argument("--session-db", default=None,
+                      help="Override session database path")
+    chat.set_defaults(func=cmd_chat)
+
     args = parser.parse_args(argv)
     if not hasattr(args, "func"):
-        parser.print_help()
+        # Default: open chat if no subcommand given
+        from haxjobs.interfaces.terminal import run_terminal
+        from haxjobs.employment.composition import compose_session
+        from haxjobs.employment.host import EmploymentSetupError
+
+        try:
+            session = compose_session(fake=False)
+        except EmploymentSetupError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            print("Run 'haxjobs migrate' first.", file=sys.stderr)
+            return
+        asyncio.run(run_terminal(session))
         return
     args.func(args)
+
+
+def cmd_chat(args) -> None:
+    """Open a live conversation with Hax."""
+    from haxjobs.interfaces.terminal import run_terminal
+    from haxjobs.employment.composition import compose_session
+    from haxjobs.employment.host import EmploymentSetupError
+    from haxjobs.agent_core.session_store import SessionStore
+    from haxjobs.config import SESSION_DB_PATH
+
+    try:
+        session_db = args.session_db or str(SESSION_DB_PATH)
+
+        # Determine session_id
+        session_id = args.resume
+        if session_id is None and not args.new:
+            # Try to resume latest session
+            store = SessionStore(session_db)
+            try:
+                latest = store.latest_session_id()
+                if latest:
+                    session_id = latest
+            finally:
+                store.close()
+
+        if session_id:
+            print(f"Resuming session: {session_id}")
+
+        session = compose_session(
+            session_id=session_id,
+            fake=args.fake,
+            session_db_path=session_db,
+        )
+    except EmploymentSetupError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        print("Run 'haxjobs migrate' first.", file=sys.stderr)
+        return
+
+    asyncio.run(run_terminal(session))
 
 
 if __name__ == "__main__":

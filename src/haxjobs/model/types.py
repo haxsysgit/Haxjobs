@@ -1,5 +1,8 @@
 """Normalized model types — no provider-specific raw objects here."""
 
+from enum import Enum
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -67,3 +70,28 @@ class ModelFailure(BaseModel):
 
     def safe_summary(self) -> str:
         return f"Model failure [{self.category}]: {self.error}"
+
+
+# ── Streaming types ──
+
+class ModelStreamEventType(str, Enum):
+    TEXT_DELTA = "text_delta"
+    COMPLETE_TOOL_CALL = "complete_tool_call"
+    RESPONSE_COMPLETED = "response_completed"
+    RESPONSE_FAILED = "response_failed"
+
+
+class ModelStreamEvent(BaseModel):
+    """One event from a streaming model call — provider-neutral."""
+
+    event_type: ModelStreamEventType
+    delta: str = ""
+    call_id: str = ""
+    tool_name: str = ""
+    arguments: str = ""  # accumulated raw JSON
+    finish_reason: str = ""
+    usage: ModelUsage | None = None
+    model: str = ""
+    provider: str = ""
+    error: str = ""
+    category: str = ""

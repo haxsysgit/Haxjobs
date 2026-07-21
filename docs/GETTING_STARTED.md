@@ -1,8 +1,8 @@
 # Getting Started with HaxJobs
 
-HaxJobs is currently a greenfield employment-agent runtime under active development.
+HaxJobs is a greenfield employment-agent runtime under active development.
 
-The model boundary, bounded model and tool loop, source-inspection tool, career graph, and experiment runner exist. The interactive agent interface does not exist yet. The discarded Textual prototype was a profile browser and then a fake chat shell. Both missed the product, so they were deleted.
+The conversational agent interface is now live. You can open an inline prompt_toolkit terminal that streams real provider responses, dispatches employment tools, persists canonical conversation history, and resumes prior sessions.
 
 ## Install for development
 
@@ -14,96 +14,123 @@ uv sync
 
 Use Python 3.12 or newer.
 
-Run commands from the repository root for now:
+Run commands from the repository root:
 
 ```bash
 cd /home/hax/haxjobs
 ```
 
-## Current commands
+## Prerequisites
 
-```bash
-haxjobs --help
+### 1. Provider credentials
+
+Create `~/.haxjobs/haxjobs.toml`:
+
+```toml
+[provider]
+name = "deepseek"
+model = "deepseek-chat"
+api_key = "sk-..."
+base_url = "https://api.deepseek.com/v1"
 ```
 
-### Build the local career graph
+### 2. Career graph
+
+Migrate your private career fixture into the local graph:
 
 ```bash
 haxjobs migrate
 ```
 
-This reads the ignored private fixture at:
+This reads the ignored private fixture at `state/experiments/fixtures/backend-career.json` and writes the local database to `state/career_graph.db`.
 
-```text
-state/experiments/fixtures/backend-career.json
-```
-
-It writes the local database to:
-
-```text
-state/career_graph.db
-```
-
-### Inspect the career graph
+## Launch Hax
 
 ```bash
-haxjobs profile show
+haxjobs
 ```
 
-Profile CRUD commands are also available under:
+Or explicitly:
 
 ```bash
-haxjobs profile --help
+haxjobs chat
 ```
 
-### Run the observed job-review experiments
+This opens or resumes the latest live session. You'll see:
 
-No provider call:
+```
+Session ID: abc123def456
+Resume: haxjobs chat --resume abc123def456
+Type your message. Enter to submit, Ctrl+J for newline, Escape to interrupt.
+Ctrl+C to clear (or exit if empty), Ctrl+D to exit when empty.
+
+>
+```
+
+## Chat commands
+
+| Command | Behaviour |
+|---------|-----------|
+| `haxjobs` | Open or resume latest session |
+| `haxjobs chat` | Same as above |
+| `haxjobs chat --new` | Create a new session |
+| `haxjobs chat --resume ID` | Resume a specific session |
+| `haxjobs chat --fake` | Scripted development mode (no network) |
+
+## Key bindings
+
+| Key | Action |
+|-----|--------|
+| Enter | Submit |
+| Ctrl+J | Insert newline (guaranteed multiline) |
+| Shift+Enter | May work depending on terminal |
+| Escape | Interrupt the active turn |
+| Ctrl+C | Clear non-empty editor; exit when empty and idle |
+| Ctrl+D | Exit when editor is empty |
+
+Assistant text streams in real time. Tool lifecycle events appear from the runtime.
+
+## Remaining commands
 
 ```bash
-haxjobs experiment review-job --job 49 --fake
-haxjobs experiment review-job --job 328 --fake --inspect-source
+haxjobs profile show              # View career graph
+haxjobs profile migrate           # Rebuild career graph
+haxjobs experiment review-job     # Stage 0/1 experiments
 ```
 
-Configured provider:
+## Fake mode
+
+For development without provider calls:
 
 ```bash
-haxjobs experiment review-job --job 328 --live --inspect-source
+HAXJOBS_SESSION_DB=/tmp/haxjobs-dev.db haxjobs chat --fake
 ```
 
-The live command needs the private provider configuration and career fixture.
+```
+Session ID: dev-session
+Resume: haxjobs chat --resume dev-session
+Type your message. Enter to submit, Ctrl+J for newline, Escape to interrupt.
+Ctrl+C to clear (or exit if empty), Ctrl+D to exit when empty.
 
-## What works today
+> hello
 
-| Layer | Current state |
-|---|---|
-| Model boundary | OpenAI-compatible provider client plus deterministic fake client |
-| Agent core | Bounded model and tool loop, active tool enforcement, validated tool inputs and outputs |
-| Employment layer | Job review context, frozen fixtures, trusted job-source inspection, career graph schema and persistence |
-| Career graph | Person, career tracks, hierarchical skills, evidence, gaps, hard constraints, and preferences |
-| Interfaces | CLI commands for experiments and profile administration |
-| Interactive agent | Not built yet |
+FAKE: I am a simulated Hax model. The runtime is working correctly.
+```
 
-## Why there is no TUI yet
+## Current limitations
 
-A coding-agent-style terminal interface is not just a text box or a database viewer. It depends on runtime work that HaxJobs has not finished:
-
-- a real conversation or session API
-- streamed model events
-- user, assistant, tool-call, tool-result, and error events
-- cancellation and interruption
-- durable conversation state
-- context assembly from the career graph
-- an employment action boundary the agent can call
-- honest tool progress and approval rendering
-
-The next interface must sit on those runtime contracts. It must not contain fake responses or business logic.
+- One career person and one track are assumed.
+- `inspect_job_source` resolves refs 49 and 328 to known fixture paths only.
+- Context is not compacted. Long sessions may hit token limits.
+- No approval workflows, background operations, or sub-agents yet.
+- No web or desktop UI.
 
 ## Verify the current code
 
 ```bash
 PYTHONPATH=src:. uv run python3 -m pytest -q tests/
 PYTHONPATH=src:. uv run python3 -m py_compile $(find src tests -name '*.py')
+uv lock --check
 ```
 
 ## Current file map
@@ -111,32 +138,34 @@ PYTHONPATH=src:. uv run python3 -m py_compile $(find src tests -name '*.py')
 ```text
 src/haxjobs/
   model/          provider boundary and canonical model types
-  agent_core/     bounded runtime loop and tool registry
-  employment/     career graph, job review, fixtures, and source inspection
-  interfaces/     CLI adapters
+  agent_core/     messages, live events, turn runtime, session, session store, tools
+  employment/     career graph, host, context, job source, composition, fixtures
+  interfaces/     terminal client, CLI handlers
   cli.py          installed command entry point
   config.py       path configuration
 
-state/
-  career_graph.db
-  experiments/fixtures/
-  harness-runs/
-
 tests/
+  test_conversation_messages.py
+  test_live_events.py
+  test_model_streaming.py
+  test_session_store.py
+  test_turn_runtime.py
+  test_employment_host.py
+  test_session.py
+  test_terminal.py
   test_stage0_job_review.py
   test_stage1_source_inspection.py
   test_career_graph.py
 
-deliverables/
-  001-stage0/
-  002-stage1/
-  003-career-graph/
+deliverables/003-career-graph/
+  conversation-runtime.drawio / .png
+  interaction-flow.drawio / .png
 ```
 
 ## Progress documents
 
 - `docs/PRODUCT.md`: product direction and current limitations
 - `docs/HAXJOBS.md`: current architecture and built-versus-planned state
-- `discussion/research/2026-07-17-pi-hermes-job-native-harness-study.md`: runtime design reference
-- `plans/README.md`: completed implementation stages
+- `discussion/`: architecture decisions and research
+- `plans/README.md`: completed and corrected implementation stages
 - `deliverables/`: reports and diagrams for each completed stage

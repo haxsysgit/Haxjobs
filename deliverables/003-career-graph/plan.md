@@ -1,18 +1,42 @@
-# Plan 003: Career Graph Schema
+# Plan 003 (Corrected): Career Graph and Real Conversation Runtime
 
-## Purpose
-Replace the flat `CareerFixture` model with a relational career graph schema.
+| Key | Value |
+|-----|-------|
+| **Plan ID** | 003 |
+| **Title** | Career Graph and First Real Conversation |
+| **Status** | IMPLEMENTED (corrected) |
+| **Implementation commit** | (see report.md) |
+| **Correction baseline** | `7bd9a55` |
+| **Previous delivery** | Career graph at `9ee53be` |
 
-## Architecture
-- **schema.py**: Pydantic models for Person, CareerTrack, Skill, EvidenceItem, SkillEvidence, SkillGap, HardConstraint, Preference
-- **store.py**: SQLite persistence via stdlib sqlite3, WAL mode, no ORM
-- **migration.py**: One-time migration from CareerFixture JSON to graph schema
-- **profile_cli.py**: CLI handlers for `haxjobs profile ...` commands
-- **tui.py**: Textual TUI app for browsing the career graph
+## Scope
 
-## Key Decisions
-- SQLite in WAL mode with foreign keys enabled
-- Synchronous API — no async needed for local DB
-- Skills extracted from evidence via keyword matching against known tech list
-- Migration is idempotent via upserts (creates new tracks each run)
-- Rich for CLI table formatting, Textual for TUI
+The corrected Plan 003 keeps the delivered career graph and adds the smallest real conversational path over it:
+
+```
+inline terminal → employment session → domain-free turn runtime → model and tool loop → employment context and actions → career graph
+```
+
+Running `haxjobs` opens an inline conversation with Hax. Responses come from the configured provider. The terminal streams text, shows real tool lifecycle events, can interrupt work, persists canonical history, and can resume a prior session.
+
+## Phases delivered
+
+1. Canonical conversation messages (User, Assistant, ToolCall, ToolResult)
+2. Content-bearing live interaction events (separate from redacted telemetry)
+3. Streaming and cancellation in the model boundary
+4. Append-only session persistence (SQLite)
+5. Bounded streaming model and tool turn runtime
+6. Employment host and CareerStore context assembly
+7. Employment session with busy-input policy, subscribers, resume
+8. Inline prompt_toolkit terminal client
+9. Documentation, diagrams, and manual proof
+
+## Architecture rules enforced
+
+- Terminal imports only session protocol and live event types
+- Session owns canonical history, not career truth
+- Turn runtime is domain-free
+- CareerStore context selected per turn, never copied to session history
+- Live events stay separate from telemetry RunEvent
+- Provider adapter assembles stream chunks
+- One pending message slot for busy-input policy

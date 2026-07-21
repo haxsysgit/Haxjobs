@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="drawio" modified="2026-07-21T00:00:00.000Z" agent="HaxJobs Plan 003" version="30.2.4">
+  <diagram name="Interaction Flow" id="interaction-flow">
+    <mxGraphModel dx="1200" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        
+        <!-- Participants as swimlanes -->
+        <mxCell id="lane-user" value="User" style="swimlane;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="160" height="700" as="geometry"/>
+        </mxCell>
+        <mxCell id="lane-terminal" value="Terminal" style="swimlane;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="210" y="40" width="160" height="700" as="geometry"/>
+        </mxCell>
+        <mxCell id="lane-session" value="Session" style="swimlane;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="380" y="40" width="160" height="700" as="geometry"/>
+        </mxCell>
+        <mxCell id="lane-turn" value="Turn Runtime" style="swimlane;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="550" y="40" width="160" height="700" as="geometry"/>
+        </mxCell>
+        <mxCell id="lane-model" value="Model" style="swimlane;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="720" y="40" width="160" height="700" as="geometry"/>
+        </mxCell>
+        <mxCell id="lane-host" value="Host / Store" style="swimlane;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="890" y="40" width="160" height="700" as="geometry"/>
+        </mxCell>
+        
+        <!-- Step 1: Submit -->
+        <mxCell id="step1-label" value="1. Submit" style="text;html=1;fontSize=11;fontStyle=1;align=left;" vertex="1" parent="1">
+          <mxGeometry x="40" y="100" width="100" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="arrow1" value="Enter" style="endArrow=block;html=1;strokeWidth=3;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#6c8ebf;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="200" y="130" as="sourcePoint"/>
+            <mxPoint x="210" y="130" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Step 2: Persist user msg -->
+        <mxCell id="step2-label" value="2. Persist" style="text;html=1;fontSize=11;fontStyle=1;align=left;" vertex="1" parent="1">
+          <mxGeometry x="210" y="140" width="100" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="arrow2" value="prompt()" style="endArrow=block;html=1;strokeWidth=3;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#9673a6;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="370" y="170" as="sourcePoint"/>
+            <mxPoint x="380" y="170" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Step 3: Assemble context -->
+        <mxCell id="step3-label" value="3. Assemble context" style="text;html=1;fontSize=11;fontStyle=1;align=left;" vertex="1" parent="1">
+          <mxGeometry x="380" y="190" width="140" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="arrow3a" value="system_prompt()" style="endArrow=block;html=1;strokeWidth=2;exitX=0;exitY=0.7;exitDx=0;exitDy=0;entryX=1;entryY=0.3;entryDx=0;entryDy=0;strokeColor=#82b366;dashed=1;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="380" y="230" as="sourcePoint"/>
+            <mxPoint x="890" y="220" as="targetPoint"/>
+            <Array as="points">
+              <mxPoint x="360" y="230"/>
+              <mxPoint x="360" y="220"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="arrow3b" value="context_messages()" style="endArrow=block;html=1;strokeWidth=2;exitX=0;exitY=0.8;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#82b366;dashed=1;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="380" y="250" as="sourcePoint"/>
+            <mxPoint x="890" y="250" as="targetPoint"/>
+            <Array as="points">
+              <mxPoint x="360" y="250"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Step 4: Stream -->
+        <mxCell id="step4-label" value="4. Stream to model" style="text;html=1;fontSize=11;fontStyle=1;align=left;" vertex="1" parent="1">
+          <mxGeometry x="550" y="270" width="140" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="arrow4" value="stream()" style="endArrow=block;html=1;strokeWidth=3;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#d6b656;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="710" y="300" as="sourcePoint"/>
+            <mxPoint x="720" y="300" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="arrow4b" value="assistant_delta" style="endArrow=open;html=1;strokeWidth=2;exitX=0;exitY=0.4;exitDx=0;exitDy=0;entryX=1;entryY=0.2;entryDx=0;entryDy=0;strokeColor=#b85450;dashed=1;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="720" y="320" as="sourcePoint"/>
+            <mxPoint x="210" y="310" as="targetPoint"/>
+            <Array as="points">
+              <mxPoint x="700" y="320"/>
+              <mxPoint x="700" y="20"/>
+              <mxPoint x="200" y="20"/>
+              <mxPoint x="200" y="310"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Step 5: Tool call -->
+        <mxCell id="step5-label" value="5. Tool call" style="text;html=1;fontSize=11;fontStyle=1;align=left;" vertex="1" parent="1">
+          <mxGeometry x="550" y="340" width="140" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="arrow5a" value="tool_requested" style="endArrow=open;html=1;strokeWidth=2;exitX=0;exitY=0.3;exitDx=0;exitDy=0;entryX=1;entryY=0.3;entryDx=0;entryDy=0;strokeColor=#d6b656;dashed=1;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="550" y="380" as="sourcePoint"/>
+            <mxPoint x="210" y="370" as="targetPoint"/>
+            <Array as="points">
+              <mxPoint x="530" y="380"/>
+              <mxPoint x="530" y="40"/>
+              <mxPoint x="200" y="40"/>
+              <mxPoint x="200" y="370"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Step 6: Dispatch tool -->
+        <mxCell id="step6-label" value="6. Dispatch" style="text;html=1;fontSize=11;fontStyle=1;align=left;" vertex="1" parent="1">
+          <mxGeometry x="550" y="400" width="140" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="arrow6" value="dispatch()" style="endArrow=block;html=1;strokeWidth=3;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#d6b656;edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="380" y="430" as="sourcePoint"/>
+            <mxPoint x="550" y="430" as="targetPoint"/>
+            <Array as="points">
+              <mxPoint x="460" y="430"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="arrow6b" value="tool_completed" style="endArrow=open;html=1;strokeWidth=2;exitX=0;exitY=0.4;exitDx=0;exitDy=0;entryX=1;entryY=0.4;entryDx=0;entryDy=0;strokeColor=#d6b656;dashed=1;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="550" y="460" as="sourcePoint"/>
+            <mxPoint x="210" y="450" as="targetPoint"/>
+            <Array as="points">
+              <mxPoint x="530" y="460"/>
+              <mxPoint x="530" y="60"/>
+              <mxPoint x="200" y="60"/>
+              <mxPoint x="200" y="450"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Step 7: Settle -->
+        <mxCell id="step7-label" value="7. Settle / persist" style="text;html=1;fontSize=11;fontStyle=1;align=left;" vertex="1" parent="1">
+          <mxGeometry x="380" y="490" width="140" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="arrow7" value="append_message()" style="endArrow=block;html=1;strokeWidth=3;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#82b366;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="380" y="520" as="sourcePoint"/>
+            <mxPoint x="890" y="520" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Step 8: Resume -->
+        <mxCell id="step8-label" value="8. Resume (later)" style="text;html=1;fontSize=11;fontStyle=1;align=left;" vertex="1" parent="1">
+          <mxGeometry x="380" y="560" width="140" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="arrow8a" value="get_session()" style="endArrow=block;html=1;strokeWidth=3;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#82b366;dashed=1;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="380" y="590" as="sourcePoint"/>
+            <mxPoint x="890" y="590" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="arrow8b" value="load_messages()" style="endArrow=block;html=1;strokeWidth=3;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#82b366;dashed=1;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="970" y="610" as="sourcePoint"/>
+            <mxPoint x="890" y="610" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Step 9: Escape -->
+        <mxCell id="step9-label" value="9. Interrupt" style="text;html=1;fontSize=11;fontStyle=1;align=left;" vertex="1" parent="1">
+          <mxGeometry x="210" y="630" width="100" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="arrow9" value="Esc → abort()" style="endArrow=block;html=1;strokeWidth=3;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#9673a6;edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="370" y="660" as="sourcePoint"/>
+            <mxPoint x="380" y="660" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="arrow9b" value="cancel_event.set()" style="endArrow=block;html=1;strokeWidth=2;exitX=1;exitY=0.8;exitDx=0;exitDy=0;entryX=0;entryY=0.2;entryDx=0;entryDy=0;strokeColor=#82b366;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="540" y="680" as="sourcePoint"/>
+            <mxPoint x="550" y="680" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

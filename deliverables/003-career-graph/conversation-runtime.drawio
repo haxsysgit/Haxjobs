@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="drawio" modified="2026-07-21T00:00:00.000Z" agent="HaxJobs Plan 003" version="30.2.4">
+  <diagram name="Conversation Runtime" id="conv-runtime">
+    <mxGraphModel dx="1200" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        
+        <!-- Group: TerminalClient -->
+        <mxCell id="g-terminal" value="TerminalClient" style="swimlane;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="200" height="160" as="geometry"/>
+        </mxCell>
+        <mxCell id="terminal-edit" value="Editing &amp; key bindings" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="g-terminal">
+          <mxGeometry x="10" y="40" width="180" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="terminal-render" value="Render live events" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="g-terminal">
+          <mxGeometry x="10" y="80" width="180" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="terminal-display" value="Inline scrollback display" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="g-terminal">
+          <mxGeometry x="10" y="120" width="180" height="30" as="geometry"/>
+        </mxCell>
+        
+        <!-- Group: AgentSession -->
+        <mxCell id="g-session" value="AgentSession" style="swimlane;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="300" y="40" width="240" height="260" as="geometry"/>
+        </mxCell>
+        <mxCell id="session-prompt" value="prompt() / resume()" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="g-session">
+          <mxGeometry x="10" y="40" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="session-subscribe" value="subscribe(listener)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="g-session">
+          <mxGeometry x="10" y="80" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="session-abort" value="abort() → cancel_event" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="g-session">
+          <mxGeometry x="10" y="120" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="session-persist" value="Persist canonical history" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="g-session">
+          <mxGeometry x="10" y="160" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="session-busy" value="Busy-input: one pending slot" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="g-session">
+          <mxGeometry x="10" y="200" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="session-settled" value="session_settled emit" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="g-session">
+          <mxGeometry x="10" y="230" width="220" height="24" as="geometry"/>
+        </mxCell>
+        
+        <!-- Group: Turn Runtime -->
+        <mxCell id="g-turn" value="Turn Runtime (domain-free)" style="swimlane;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="600" y="40" width="250" height="260" as="geometry"/>
+        </mxCell>
+        <mxCell id="turn-projection" value="project_messages()" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="g-turn">
+          <mxGeometry x="10" y="40" width="230" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="turn-stream" value="Stream model output" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="g-turn">
+          <mxGeometry x="10" y="80" width="230" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="turn-emit" value="Emit live events (deltas)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="g-turn">
+          <mxGeometry x="10" y="120" width="230" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="turn-tools" value="Validate &amp; dispatch tools" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="g-turn">
+          <mxGeometry x="10" y="160" width="230" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="turn-loop" value="Model → tool → model loop" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="g-turn">
+          <mxGeometry x="10" y="200" width="230" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="turn-limit" value="max 5 model steps" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="g-turn">
+          <mxGeometry x="10" y="230" width="230" height="24" as="geometry"/>
+        </mxCell>
+        
+        <!-- Group: Model / Tools -->
+        <mxCell id="g-model" value="Model &amp; Tool Boundary" style="swimlane;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="910" y="40" width="250" height="200" as="geometry"/>
+        </mxCell>
+        <mxCell id="model-stream" value="ModelClient.stream()" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="g-model">
+          <mxGeometry x="10" y="40" width="230" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="model-complete" value="ModelClient.complete()" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="g-model">
+          <mxGeometry x="10" y="80" width="230" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="model-openai" value="OpenAI adapter" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="g-model">
+          <mxGeometry x="10" y="120" width="230" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="model-fake" value="FakeModelClient (tests)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="g-model">
+          <mxGeometry x="10" y="160" width="230" height="30" as="geometry"/>
+        </mxCell>
+        
+        <!-- Group: Employment Host -->
+        <mxCell id="g-host" value="EmploymentHost" style="swimlane;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="40" y="340" width="240" height="200" as="geometry"/>
+        </mxCell>
+        <mxCell id="host-prompt" value="system_prompt()" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="g-host">
+          <mxGeometry x="10" y="40" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="host-context" value="context_messages()" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="g-host">
+          <mxGeometry x="10" y="80" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="host-tools" value="registered_tools()" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="g-host">
+          <mxGeometry x="10" y="120" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="host-active" value="active_tool_names()" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="g-host">
+          <mxGeometry x="10" y="160" width="220" height="30" as="geometry"/>
+        </mxCell>
+        
+        <!-- Group: CareerStore -->
+        <mxCell id="g-career" value="CareerStore (SQLite)" style="swimlane;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="340" y="340" width="240" height="200" as="geometry"/>
+        </mxCell>
+        <mxCell id="career-person" value="Person profile" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="g-career">
+          <mxGeometry x="10" y="40" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="career-tracks" value="Career tracks &amp; skills" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="g-career">
+          <mxGeometry x="10" y="80" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="career-evidence" value="Evidence items" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="g-career">
+          <mxGeometry x="10" y="120" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="career-gaps" value="Skill gaps &amp; constraints" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="g-career">
+          <mxGeometry x="10" y="160" width="220" height="30" as="geometry"/>
+        </mxCell>
+        
+        <!-- Group: SessionStore -->
+        <mxCell id="g-sstore" value="SessionStore (SQLite)" style="swimlane;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="640" y="340" width="240" height="200" as="geometry"/>
+        </mxCell>
+        <mxCell id="sstore-messages" value="Append-only messages" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="g-sstore">
+          <mxGeometry x="10" y="40" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="sstore-sessions" value="Session table" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="g-sstore">
+          <mxGeometry x="10" y="80" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="sstore-replay" value="Deterministic sequence replay" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="g-sstore">
+          <mxGeometry x="10" y="120" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="sstore-resume" value="Session resume support" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="g-sstore">
+          <mxGeometry x="10" y="160" width="220" height="30" as="geometry"/>
+        </mxCell>
+        
+        <!-- Arrows between groups (thick orthogonal) -->
+        <mxCell id="arrow-t2s" value="" style="endArrow=block;html=1;strokeWidth=4;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#6c8ebf;" edge="1" parent="1" source="g-terminal" target="g-session">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="140" y="210" as="sourcePoint"/>
+            <mxPoint x="420" y="50" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="arrow-s2t" value="prompt(text)" style="endArrow=block;html=1;strokeWidth=4;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#82b366;" edge="1" parent="1" source="g-session" target="g-turn">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="550" y="170" as="sourcePoint"/>
+            <mxPoint x="600" y="170" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="arrow-t2m" value="stream()" style="endArrow=block;html=1;strokeWidth=4;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#d6b656;" edge="1" parent="1" source="g-turn" target="g-model">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="860" y="170" as="sourcePoint"/>
+            <mxPoint x="910" y="140" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="arrow-turn2host" value="context &amp; tools" style="endArrow=block;html=1;strokeWidth=4;exitX=0;exitY=0.8;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#9673a6;edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1" source="g-turn" target="g-host">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="590" y="350" as="sourcePoint"/>
+            <mxPoint x="290" y="440" as="targetPoint"/>
+            <Array as="points">
+              <mxPoint x="590" y="440"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="arrow-host2career" value="reads" style="endArrow=block;html=1;strokeWidth=4;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#9673a6;" edge="1" parent="1" source="g-host" target="g-career">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="290" y="440" as="sourcePoint"/>
+            <mxPoint x="340" y="440" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="arrow-session2store" value="persists" style="endArrow=block;html=1;strokeWidth=4;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#82b366;" edge="1" parent="1" source="g-session" target="g-sstore">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="420" y="310" as="sourcePoint"/>
+            <mxPoint x="760" y="340" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Label: Events flow back -->
+        <mxCell id="label-events" value="LiveEvent stream" style="text;html=1;align=center;verticalAlign=middle;fontStyle=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="900" y="255" width="150" height="30" as="geometry"/>
+        </mxCell>
+        
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

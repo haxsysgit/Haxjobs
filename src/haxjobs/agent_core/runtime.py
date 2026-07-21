@@ -16,7 +16,6 @@ from haxjobs.agent_core.events import (
 )
 from haxjobs.agent_core.tools import ToolRegistry
 from haxjobs.agent_core.types import (
-    AgentMessage,
     RunExitReason,
     RunRequest,
     RunResult,

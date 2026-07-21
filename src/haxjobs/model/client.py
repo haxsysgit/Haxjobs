@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import tomllib
 from pathlib import Path
-from typing import Protocol
+from typing import AsyncIterator, Protocol
 
 from openai import AsyncOpenAI
 
@@ -13,6 +14,8 @@ from haxjobs.model.types import (
     ModelMessage,
     ModelRequest,
     ModelResponse,
+    ModelStreamEvent,
+    ModelStreamEventType,
     ModelUsage,
     ToolCall,
     ToolSchema,
@@ -23,6 +26,12 @@ class ModelClient(Protocol):
     """Async model-call boundary — one stable door for the rest of the system."""
 
     async def complete(self, request: ModelRequest) -> ModelResponse | ModelFailure: ...
+
+    def stream(
+        self,
+        request: ModelRequest,
+        cancel_event: asyncio.Event,
+    ) -> AsyncIterator[ModelStreamEvent]: ...
 
 
 _DEFAULT_CREDENTIALS_PATH = Path.home() / ".haxjobs" / "haxjobs.toml"
@@ -121,6 +130,158 @@ class OpenAIModelClient:
                 error=str(exc),
                 category="provider_error",
                 retryable=False,
+                model=getattr(self, "_model", ""),
+                provider=getattr(self, "_provider", ""),
+            )
+
+    async def stream(
+        self,
+        request: ModelRequest,
+        cancel_event: asyncio.Event,
+    ) -> AsyncIterator[ModelStreamEvent]:
+        """Stream model output as ModelStreamEvent sequence.
+
+        Yields text_delta, complete_tool_call (when fully assembled),
+        response_completed, or response_failed events.
+        Stops and closes the provider stream when cancellation is set.
+        """
+        try:
+            client = self._ensure_client()
+            kwargs: dict = {
+                "model": self._model,
+                "messages": [
+                    m.model_dump(exclude_none=True) for m in request.messages
+                ],
+                "max_tokens": request.max_tokens,
+                "stream": True,
+                "stream_options": {"include_usage": True},
+            }
+            if request.tools:
+                kwargs["tools"] = [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": t.name,
+                            "description": t.description,
+                            "parameters": t.input_schema,
+                        },
+                    }
+                    for t in request.tools
+                ]
+
+            stream = await client.chat.completions.create(**kwargs)
+            accumulated_text = ""
+            finish_reason = ""
+            usage = None
+            # Accumulate tool calls by index
+            tool_call_builders: dict[int, dict] = {}
+            completed_tool_calls: set[str] = set()
+
+            try:
+                async for chunk in stream:
+                    if cancel_event.is_set():
+                        # Stop consuming, close the stream
+                        await stream.close()
+                        yield ModelStreamEvent(
+                            event_type=ModelStreamEventType.RESPONSE_FAILED,
+                            error="cancelled",
+                            category="cancelled",
+                            model=self._model,
+                            provider=self._provider,
+                        )
+                        return
+
+                    if not chunk.choices:
+                        # Usage chunk may have no choices
+                        if chunk.usage:
+                            usage = ModelUsage(
+                                prompt_tokens=chunk.usage.prompt_tokens,
+                                completion_tokens=chunk.usage.completion_tokens,
+                                total_tokens=chunk.usage.total_tokens,
+                            )
+                        continue
+
+                    choice = chunk.choices[0]
+                    delta = choice.delta
+
+                    if choice.finish_reason:
+                        finish_reason = choice.finish_reason
+
+                    # Text delta
+                    if delta.content:
+                        accumulated_text += delta.content
+                        yield ModelStreamEvent(
+                            event_type=ModelStreamEventType.TEXT_DELTA,
+                            delta=delta.content,
+                            model=self._model,
+                            provider=self._provider,
+                        )
+
+                    # Tool call deltas — accumulate only, emit after loop
+                    if delta.tool_calls:
+                        for tc_delta in delta.tool_calls:
+                            idx = tc_delta.index
+                            if idx not in tool_call_builders:
+                                tool_call_builders[idx] = {
+                                    "call_id": "",
+                                    "name": "",
+                                    "arguments": "",
+                                }
+                            builder = tool_call_builders[idx]
+                            if tc_delta.id:
+                                builder["call_id"] = tc_delta.id
+                            if tc_delta.function:
+                                if tc_delta.function.name:
+                                    builder["name"] = tc_delta.function.name
+                                if tc_delta.function.arguments:
+                                    builder["arguments"] += tc_delta.function.arguments
+
+            except asyncio.CancelledError:
+                # Task was cancelled externally — close the stream
+                try:
+                    await stream.close()
+                except Exception:
+                    pass
+                yield ModelStreamEvent(
+                    event_type=ModelStreamEventType.RESPONSE_FAILED,
+                    error="cancelled",
+                    category="cancelled",
+                    model=self._model,
+                    provider=self._provider,
+                )
+                return
+
+            # Emit any remaining tool calls that have arguments
+            for idx, builder in tool_call_builders.items():
+                if (
+                    builder["call_id"]
+                    and builder["name"]
+                    and builder["arguments"]
+                    and builder["call_id"] not in completed_tool_calls
+                ):
+                    completed_tool_calls.add(builder["call_id"])
+                    yield ModelStreamEvent(
+                        event_type=ModelStreamEventType.COMPLETE_TOOL_CALL,
+                        call_id=builder["call_id"],
+                        tool_name=builder["name"],
+                        arguments=builder["arguments"],
+                        model=self._model,
+                        provider=self._provider,
+                    )
+
+            yield ModelStreamEvent(
+                event_type=ModelStreamEventType.RESPONSE_COMPLETED,
+                finish_reason=finish_reason,
+                usage=usage,
+                model=self._model,
+                provider=self._provider,
+            )
+
+        except Exception as exc:
+            yield ModelStreamEvent(
+                event_type=ModelStreamEventType.RESPONSE_FAILED,
+                error=str(exc),
+                category="provider_error",
                 model=getattr(self, "_model", ""),
                 provider=getattr(self, "_provider", ""),
             )

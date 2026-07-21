@@ -45,6 +45,11 @@ CV_PROFILE_PATH = Path(_env("HAXJOBS_CV_PROFILE",
 # ── Career graph ──
 CAREER_DB_PATH = Path(_env("HAXJOBS_CAREER_DB", str(STATE_DIR / "career_graph.db")))
 
+# ── Session persistence ──
+SESSION_DB_PATH = Path(
+    _env("HAXJOBS_SESSION_DB", str(STATE_DIR / "sessions.db"))
+)
+
 # ── Registry ──
 REGISTRY_PATH = HAXJOBS_HOME / _cfg["paths"]["registry"]["cv_variants"]
 

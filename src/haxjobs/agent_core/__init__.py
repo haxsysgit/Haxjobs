@@ -1,7 +1,6 @@
 """HaxJobs agent core — domain-free messages, events, run artifacts, and model-call lifecycle."""
 
 from haxjobs.agent_core.types import (
-    AgentMessage,
     RunExitReason,
     RunRequest,
     RunResult,
@@ -17,7 +16,7 @@ from haxjobs.agent_core.runtime import run_stage0
 from haxjobs.agent_core.tools import ToolDefinition, ToolRegistry
 
 __all__ = [
-    "AgentMessage",
+
     "ArtifactWriter",
     "RunEvent",
     "RunEventType",

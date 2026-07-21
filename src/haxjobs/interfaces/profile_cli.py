@@ -200,4 +200,5 @@ def cmd_profile_constraint_add(args) -> None:
 def cmd_profile_migrate(args) -> None:
     from haxjobs.employment.migration import migrate_cli_entrypoint
     store = migrate_cli_entrypoint(args.fixture)
-    store.close()
+    if store is not None:
+        store.close()

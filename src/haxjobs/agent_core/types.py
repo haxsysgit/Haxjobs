@@ -8,17 +8,6 @@ from typing import Any
 from haxjobs.model.types import ModelUsage
 
 
-class AgentMessage:
-    """An internal message — not directly provider-compatible.
-
-    The context assembler projects these into ModelMessages for the provider.
-    """
-
-    def __init__(self, role: str, content: str) -> None:
-        self.role = role
-        self.content = content
-
-
 class RunExitReason(str, Enum):
     COMPLETED = "completed"
     MODEL_FAILED = "model_failed"
