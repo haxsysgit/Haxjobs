@@ -2,36 +2,44 @@
 
 Generated on 2026-07-17 from `discussion/` and the pinned Pi/Hermes source study.
 
-This plan set starts the new runtime with two controlled experiments:
+This plan set grows HaxJobs through observed job-search slices:
 
 ```text
-Stage 0
-  one observed provider call, no tools
+Stage 0 and 1
+  observed job review, then one trusted source tool
 
-Stage 1
-  the same runtime, one inspect_job_source(job_ref) tool
+Plan 003
+  career graph, durable conversation, and inline terminal
+
+Plan 004 and 005
+  saved job assessment, durable tool effects, then user decisions
 ```
-
-Stage 2 and later plans stay unwritten until Stage 1 traces show the next repeatable failure.
 
 ## Current execution blockers
 
-None.
+Plan 004 has one controller-owned prerequisite before its live verification gate:
 
-- Design baseline: `7da5786`
-- Execution baseline: the clean commit containing the reconciled plan; record its SHA before dispatch
-- Delivery models: `deepseek-v4-pro` and `deepseek-v4-flash` confirmed through Pi
-- Product provider: authenticated `deepseek-v4-flash` call confirmed with the HaxJobs configuration
-- Private fixture: `state/experiments/fixtures/backend-career.json` version 3, derived from the corrected `src/haxjobs/cv_profile.typed.json`, ignored by git, mode `0600`
+- update ignored `state/experiments/fixtures/backend-career.json` with required `person_id`, `person_name`, and `track_name`
+- keep the private fixture mode `0600`
+- automated tests use tracked synthetic fixtures and isolated databases; they must never require or mutate operator state
+
+Other execution facts:
+
+- Plan 004 design baseline: `0c412b0`
+- Delivery models: exact `deepseek-v4-pro` writer and exact `deepseek-v4-flash` reviewers
+- Product provider: configured and verified outside tracked files
+- Plan 005 remains blocked until Plan 004 is accepted and restamped against its final commit
 
 ## Execution order and status
 
-| Plan | Title | Priority | Effort | Depends on | Status | Final commit | Report SHA-256 |
-|---|---|---:|---:|---|---|---|---|
-| [001](001-stage0-observed-job-review.md) | Build the Stage 0 observed job review | P1 | L | clean reconciled execution baseline | DONE | `e396fd2` | pending |
+| Plan | Title | Priority | Effort | Depends on | Status | Final commit | Report reference | Notes |
+|---|---|---:|---:|---|---|---|---|---|
+| [001](001-stage0-observed-job-review.md) | Build the Stage 0 observed job review | P1 | L | clean reconciled execution baseline | DONE | `e396fd2` | pending | First no-tool observed job review. |
 | [002](002-stage1-source-inspection-loop.md) | Stage 1 bounded source-inspection loop | P1 | L | Plan 001 DONE at a28d5ba | DONE | `6d64624` | deliverables/002-stage1/ | Live runs completed 2026-07-20; Flash reviewers found 0 blockers, 1 minor (code NameError fixed in follow-up). |
 | [003](003-career-graph-schema.md) | Career graph schema, persistence, and profile CLI | P1 | M | Plan 002 DONE | DONE | `9ee53be` | deliverables/003-career-graph/ | Career graph retained. The completed plan's Textual TUI was later deleted because it was not an agent interface. |
-| [003-corrected](003-career-graph-schema.md) | Career graph and first real conversation (corrected) | P1 | M | Plan 003 career graph DONE | DONE | `d6fa361` | deliverables/003-career-graph/ | Four fresh DeepSeek V4 Pro release reviewers approved the same commit. Real provider PTY conversation and same-session resume passed. Final test count: 217. |
+| [003-corrected](003-career-graph-schema.md) | Career graph and first real conversation (corrected) | P1 | M | Plan 003 career graph DONE | DONE | `d6fa361` | deliverables/003-career-graph/ | Four fresh DeepSeek V4 Pro release reviewers approved the same commit. Real provider PTY conversation and same-session resume passed. Baseline 0c412b0 verified at 217 passed. |
+| [004](004-saved-job-assessment-and-durable-tool-effects.md) | Saved job assessment and durable tool effects | P1 | L | Plan 003-corrected DONE | TODO | - | - | First state-changing employment workflow: saved jobs, typed assessments, durable tool execution boundaries, immutable session configuration, content-free measurement, career migration integrity, Stage 0/1 runtime deletion. |
+| [005](005-user-job-decisions-and-conversation-recall.md) | User job decisions and conversation recall | P1 | L | Plan 004 DONE | TODO | - | - | Typed append-only user decisions linked to durable messages, retrievable across sessions. Apply records intent only. Assessment and decision stay separate. |
 
 The advisor/operator owns this table. Executors do not edit it.
 
@@ -41,7 +49,7 @@ Every plan collects its deliverable artifacts into one labelled folder
 under `deliverables/<plan-slug>/`: the implementation report, diagram
 source and PNG, fixture files, rubric, and a short `README.md`. The
 plan text is copied in as `plan.md`. Code in `src/` and test fixtures
-in `tests/` stay where they are. Do not symlink — copy sources so the
+in `tests/` stay where they are. Do not symlink; copy sources so the
 folder can be archived or shared independently.
 
 Status values:
@@ -65,11 +73,22 @@ Plan 002: Stage 1
   bounded model-tool loop
         |
         v
-Plan 003: Career Graph Schema
-  tracks, skills, evidence, gaps, persistence, CLI, TUI
+Plan 003: Career Graph Schema (corrected)
+  tracks, skills, evidence, gaps, persistence, CLI, inline terminal
+        |
+        v
+Plan 004: Saved Job Assessment and Durable Tool Effects
+  normalized jobs, typed assessments, durable tool execution,
+  immutable session configuration, content-free measurement,
+  career migration integrity, Stage 0/1 runtime deletion
+        |
+        v
+Plan 005: User Job Decisions and Conversation Recall
+  append-only decisions, natural language parsing,
+  cross-session recall, apply-as-intent-only
 ```
 
-Later plans (004+) stay unwritten until Plan 003 is accepted.
+Plans 004 and 005 are written and remain TODO. Plan 004 executes first. Plan 005 must be reconciled and restamped after Plan 004 is accepted.
 
 Tests passing alone do not admit Plan 002. Arinze's completed Job 328 rubric and the Plan 001 report must identify source inspection as the next missing capability.
 
@@ -95,7 +114,7 @@ Keep these as modules inside one Python distribution. No package monorepo.
 
 This acceptance resolves the architecture-shape and one-package questions in `discussion/006` for Stage 0 and Stage 1. It does not decide future document workspaces, coding workspaces, or bash isolation.
 
-The new runtime must not import or wrap `src/haxjobs/agent/`. The legacy agent stays untouched until a later migration plan proves replacement is warranted.
+The deleted legacy agent must not return. Plan 004 removes the remaining Stage 0/1 experiment runtime only after its replacement trajectories pass. Historical plans, reports, fixtures, and deliverables remain as evidence.
 
 ## Required delivery team
 
@@ -151,20 +170,17 @@ Raw review details remain local when they contain private material. The tracked 
 
 ## Deliverables required from every plan
 
-| Deliverable | Plan 001 | Plan 002 |
-|---|---|---|
-| Working boundary | one model call, no tools | same runtime, one source tool |
-| Deterministic tests | fake model | fake model plus fake resolver/transport |
-| Manual CLI | `haxjobs experiment review-job` | same command with `--inspect-source` |
-| Live fixture runs | Job 49 and Job 328 | Stage 0/1 comparison for both |
-| Human rubrics | Arinze completes two | Arinze completes required comparisons |
-| Private receipts | ignored `state/harness-runs/` | same |
-| Tracked report | `docs/implementation-reports/001-stage0-observed-job-review.md` | `docs/implementation-reports/002-stage1-source-inspection-loop.md` |
-| Current-state draw.io | `diagram/003-stage0-observed-job-review.drawio` | `diagram/004-stage1-source-inspection-loop.drawio` |
-| PNG from final source | required | required |
-| Diagram index/backlink | required | required |
-| Flash review ledger | required | required |
-| External advisor verdict | required | required |
+| Deliverable | Plan 001 | Plan 002 | Plan 004 | Plan 005 |
+|---|---|---|---|---|
+| Working boundary | one model call | one trusted source tool | saved assessment with durable tool effects | append-only user decision and recall |
+| Deterministic tests | fake model | fake resolver and transport | fake assessment trajectories and crash boundaries | fake decision and correction trajectories |
+| Manual interface | experiment CLI | experiment CLI with source inspection | existing inline chat | existing inline chat |
+| Live proof | Jobs 49 and 328 | Stage 0/1 comparison | saved assessment and resume | decision, correction, and recall |
+| Private evidence | ignored local receipts | ignored local receipts | safe metadata only | safe metadata only |
+| Deliverable folder | `deliverables/001-stage0/` | `deliverables/002-stage1/` | `deliverables/004-saved-job-assessment/` | `deliverables/005-job-decisions/` |
+| Draw.io source and PNG | required | required | three actual-state diagrams | two actual-state diagrams |
+| Review ledger | required | required | required | required |
+| External verdict | required | required | required | required |
 
 The Markdown report is the diagram companion. It records actual files, call paths, commands, outputs, run IDs, safe hashes, initial review findings, deferrals, and residual risks.
 
@@ -174,16 +190,18 @@ The report contains hashes for the draw.io source and PNG. It does not contain i
 
 This is a repository experiment interface, not a finished distributable career CLI.
 
+### Plans 001-003 (DONE)
+
 After Plan 001:
 
 ```bash
 # Zero-cost smoke run with tracked synthetic career data
-PYTHONPATH=src:. uv run haxjobs experiment review-job \
+PYTHONPATH=src:. uv run -- haxjobs experiment review-job \
   --job 49 --fake \
   --career-fixture tests/fixtures/job_review/career.json
 
 # Real configured-provider run with the ignored truthful career fixture
-PYTHONPATH=src:. uv run haxjobs experiment review-job \
+PYTHONPATH=src:. uv run -- haxjobs experiment review-job \
   --job 49 --live \
   --career-fixture state/experiments/fixtures/backend-career.json
 ```
@@ -192,15 +210,51 @@ After Plan 002:
 
 ```bash
 # Fully fake, including source transport. No socket opens.
-PYTHONPATH=src:. uv run haxjobs experiment review-job \
+PYTHONPATH=src:. uv run -- haxjobs experiment review-job \
   --job 328 --fake --inspect-source \
   --career-fixture tests/fixtures/job_review/career.json
 
 # Real configured provider and trusted-fixture source inspection
-PYTHONPATH=src:. uv run haxjobs experiment review-job \
+PYTHONPATH=src:. uv run -- haxjobs experiment review-job \
   --job 328 --live --inspect-source \
   --career-fixture state/experiments/fixtures/backend-career.json \
   --max-model-steps 3
+```
+
+Live calls are always explicit. There is no provider fallback.
+
+### Plans 004-005 (TODO)
+
+After Plan 004:
+
+```bash
+# Import job fixtures one way (operator-controlled)
+PYTHONPATH=src:. uv run -- python3 -m haxjobs.employment.job_actions \
+  import discussion/fixtures/harness/job-49.json
+PYTHONPATH=src:. uv run -- python3 -m haxjobs.employment.job_actions \
+  import discussion/fixtures/harness/job-328.json
+
+# Conversational job assessment (fake, no network)
+PYTHONPATH=src:. uv run -- haxjobs chat --new --fake
+# Type: "What do you think of job 328?"
+
+# Live conversation with real provider (auto-selects single person/track,
+# or specify explicitly with flags valid only with --new)
+PYTHONPATH=src:. uv run -- haxjobs chat --new
+PYTHONPATH=src:. uv run -- haxjobs chat --new --person-id person-abc123 --track-id track-abc123
+
+# Resume latest session
+PYTHONPATH=src:. uv run -- haxjobs chat
+```
+
+After Plan 005:
+
+```bash
+# Record a decision in conversation
+PYTHONPATH=src:. uv run -- haxjobs chat
+# Type: "yeah, skip job 49"
+# Type: "what did I decide about job 49?"
+# Hax retrieves from employment store, not just transcript
 ```
 
 Live calls are always explicit. There is no provider fallback.
@@ -211,12 +265,12 @@ Plan-specific commands are authoritative. The shared floor is:
 
 ```bash
 uv lock --check
-PYTHONPATH=src:. uv run python3 -m pytest -q tests/
-PYTHONPATH=src:. uv run python3 -m py_compile \
+PYTHONPATH=src:. uv run -- python3 -m pytest -q tests/
+PYTHONPATH=src:. uv run -- python3 -m py_compile \
   $(find src/haxjobs/model src/haxjobs/agent_core \
   src/haxjobs/employment src/haxjobs/interfaces tests -name '*.py')
-PYTHONPATH=src:. uv run haxjobs --help
-PYTHONPATH=src:. uv run haxjobs experiment review-job --help
+PYTHONPATH=src:. uv run -- haxjobs --help
+PYTHONPATH=src:. uv run -- haxjobs chat --help
 git diff --check
 ```
 
@@ -239,52 +293,36 @@ Each diagram must:
 - parse as XML
 - export through the local draw.io command
 - regenerate the tracked PNG from the final source
-- match a second independent export byte-for-byte
-- pass Reviewer C's visual clipping/readability check
-- be indexed in `diagram/README.md`
-- link from `discussion/006` and the implementation report
+- pass visual clipping, overlap, and readability review
+- live in the plan's self-contained deliverable folder
+- be linked from the completion report and deliverable README
 
 ## Deferred work
 
-These plans deliberately exclude:
+Plans 004 and 005 deliberately exclude:
 
-- sessions and conversation history
-- context retrieval and compaction
-- databases and career graph
-- company watches and schedulers
-- application decisions and packs
+- context compaction, summaries, embeddings, and token budgets
+- arbitrary URL intake and broad discovery
+- company watches, schedulers, and background workers
+- employability roadmaps and learning-pattern analysis
+- application packs, submission, outreach, and external effects
+- approval workflows
 - document and coding workspaces
 - generic filesystem and shell tools
-- approvals and external effects
-- browser and search fallback
-- web UI and API integration
-- streaming and provider fallback
-- plugins, skills, sub-agents, and workflow engines
-- telemetry and model-judge platforms
+- subagents, plugins, MCP, and workflow engines
+- web UI and API work
+- source-observation history and cross-process session locking
 
-## Findings considered and rejected
+## Planning decisions for this wave
 
-- **Build the full session/context system first:** rejected. Real job-review traces come first.
-- **Use the existing `src/haxjobs/agent/Agent`:** rejected. It mixes provider setup, messages, and tool execution.
-- **Delete the legacy agent in Plan 001:** rejected. Replacement has not been proved.
-- **Adopt PydanticAI now:** rejected. Plain Python is the decided experiment floor.
-- **Add web search or browser fallback in Stage 1:** rejected. A blocked source is valid evidence.
-- **Plan coding workspaces now:** rejected for this wave. They do not help the first job-review experiment.
-- **Write Stage 2 and Stage 3 plans now:** rejected. Later scope must come from Stage 1 traces.
-- **Require `context.md`, `plan.md`, or `progress.md`:** rejected. Those files are not part of the accepted design process.
-- **Keep duplicate generated plans from review subagents:** rejected and removed. Only the two linked canonical plans are executable.
+- Measure context pressure before building compaction.
+- Persist tool calls before effects and results before another model call.
+- Keep Hax assessments separate from user decisions.
+- Treat `apply` as user intent only. It causes no application or outreach effect.
+- Keep source URLs behind saved job IDs. The model never supplies arbitrary fetch targets.
+- Delete the superseded experiment runtime only after replacement trajectories pass.
+- Keep Plan 005 out of agent core. If it exposes an agent-core gap, stop and reconcile the plan.
 
 ## Not audited or planned
 
-This was a focused planning pass, not a whole-repository audit. It did not re-audit:
-
-- the old product pipeline
-- FastAPI routes
-- database correctness
-- discovery scrapers
-- packs and CV generation
-- packaging and deployment
-- company-watch persistence
-- future coding-workspace isolation
-
-Those surfaces are outside the first two experiments.
+This planning pass focused on saved jobs, assessments, durable tool effects, and user decisions. Discovery, packs, employability roadmaps, continuous operation, coding workspaces, outreach, deployment, and web interfaces remain outside Plans 004 and 005.
