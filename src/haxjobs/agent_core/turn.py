@@ -274,10 +274,52 @@ async def run_turn(
                     break
 
                 elif stream_event.event_type == ModelStreamEventType.RESPONSE_FAILED:
+                    final_text = accumulated_text
+                    if stream_event.category == "cancelled":
+                        # Providers may consume asyncio.CancelledError and
+                        # normalize it to this provider-neutral failure event.
+                        # It is still cancellation, not a model failure.
+                        exit_reason = TurnExitReason.INTERRUPTED
+                        safe_failure = stream_event.error or "interrupted during streaming"
+                        if accumulated_text:
+                            assistant_msg = AssistantMessage(
+                                message_id=_mid(),
+                                turn_id=turn_id,
+                                content=accumulated_text,
+                                status="interrupted",
+                            )
+                            new_messages.append(assistant_msg)
+                            try:
+                                persist_message(assistant_msg)
+                            except Exception as exc:
+                                logger.warning(
+                                    "partial assistant persistence failed: %s", exc
+                                )
+                        emit(
+                            LiveEvent(
+                                session_id=session_id,
+                                turn_id=turn_id,
+                                event_type=LiveEventType.TURN_INTERRUPTED,
+                            )
+                        )
+                        return TurnResult(
+                            turn_id=turn_id,
+                            exit_reason=exit_reason,
+                            final_text=final_text,
+                            model_steps=model_steps,
+                            tool_starts=tool_starts,
+                            new_messages=new_messages,
+                            safe_failure=safe_failure,
+                            user_message_id=user_message_id,
+                            model_name=captured_model_name,
+                            provider_name=captured_provider_name,
+                            usage=captured_usage,
+                            input_characters=input_characters,
+                        )
+
                     model_failed = True
                     safe_failure = stream_event.error or "model stream failed"
                     exit_reason = TurnExitReason.MODEL_FAILED
-                    final_text = accumulated_text
                     # Persist partial assistant text
                     if accumulated_text:
                         assistant_msg = AssistantMessage(

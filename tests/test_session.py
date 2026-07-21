@@ -919,6 +919,46 @@ async def test_measurement_interrupted_turn(store: SessionStore):
 
 
 @pytest.mark.asyncio
+async def test_provider_cancelled_failure_records_interrupted_measurement(store: SessionStore):
+    """A normalized provider cancellation settles as interrupted, not failed."""
+    store.create_session("s-provider-cancel", configuration_json='{"scope":"test"}')
+    model = FakeModelClient(
+        stream_events=[[
+            ModelStreamEvent(
+                event_type=ModelStreamEventType.TEXT_DELTA, delta="partial",
+            ),
+            ModelStreamEvent(
+                event_type=ModelStreamEventType.RESPONSE_FAILED,
+                error="cancelled",
+                category="cancelled",
+            ),
+        ]],
+    )
+    session = AgentSession(
+        session_id="s-provider-cancel", session_store=store, model=model,
+        system_prompt=lambda: "sys", context_messages=lambda: [],
+        tool_registry_fn=lambda: ToolRegistry(), active_tool_names_fn=lambda: (),
+    )
+    events: list[LiveEvent] = []
+    session.subscribe(events.append)
+
+    result = await session.prompt("stop after partial")
+
+    assert result.exit_reason == TurnExitReason.INTERRUPTED
+    stored = [row["payload_json"] for row in store.load_messages("s-provider-cancel")]
+    assert stored[-1]["kind"] == "assistant"
+    assert stored[-1]["status"] == "interrupted"
+    assert stored[-1]["content"] == "partial"
+    assert sum(e.event_type == LiveEventType.TURN_INTERRUPTED for e in events) == 1
+    assert not any(e.event_type == LiveEventType.TURN_FAILED for e in events)
+    measurement = store._conn.execute(
+        "SELECT exit_reason FROM turn_measurements WHERE session_id = ?",
+        ("s-provider-cancel",),
+    ).fetchone()
+    assert measurement["exit_reason"] == "interrupted"
+
+
+@pytest.mark.asyncio
 async def test_measurement_null_usage_when_provider_omits(store: SessionStore):
     """When provider returns no usage, measurement stores NULL tokens."""
     session = _make_session(store, model_count=1)

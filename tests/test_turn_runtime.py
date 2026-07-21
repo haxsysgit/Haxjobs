@@ -679,6 +679,50 @@ async def test_provider_failure_after_partial_text():
     assert assistant_msgs[-1].status in ("interrupted", "failed")
 
 
+# ── Provider cancellation normalized as a failure event ──
+
+@pytest.mark.asyncio
+async def test_cancelled_failure_after_partial_text_is_interrupted():
+    """A provider-neutral cancelled failure preserves partial text as interrupted."""
+    events: list[LiveEvent] = []
+    fake = FakeModelClient(
+        responses=[],
+        stream_events=[[
+            ModelStreamEvent(
+                event_type=ModelStreamEventType.TEXT_DELTA, delta="Partial reply",
+            ),
+            ModelStreamEvent(
+                event_type=ModelStreamEventType.RESPONSE_FAILED,
+                error="cancelled",
+                category="cancelled",
+            ),
+        ]],
+    )
+
+    result = await run_turn(
+        session_id="s-cancelled-failure",
+        turn_id="t-cancelled-failure",
+        model=fake,
+        system_prompt="sys",
+        context_messages=[],
+        history=[],
+        tool_registry=ToolRegistry(),
+        active_tools=(),
+        cancel_event=asyncio.Event(),
+        emit=_fake_emit(events),
+        persist_message=_persist,
+        user_message_id=_uid(),
+    )
+
+    assert result.exit_reason == TurnExitReason.INTERRUPTED
+    assert result.final_text == "Partial reply"
+    assistant_msgs = [m for m in result.new_messages if m.kind == "assistant"]
+    assert len(assistant_msgs) == 1
+    assert assistant_msgs[0].status == "interrupted"
+    assert sum(e.event_type == LiveEventType.TURN_INTERRUPTED for e in events) == 1
+    assert not any(e.event_type == LiveEventType.TURN_FAILED for e in events)
+
+
 # ── History projection includes prior turns ──
 
 @pytest.mark.asyncio

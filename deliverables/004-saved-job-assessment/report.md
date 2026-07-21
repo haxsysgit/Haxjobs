@@ -2,7 +2,7 @@
 
 ## Status
 
-**IMPLEMENTED — FINAL REVIEW PENDING** — All 229 automated tests pass in this worktree with no private fixture. Fresh Luna reviews blocked the candidate at `65dd9d6`; this focused repair addresses the accepted findings. Final review remains pending and is not approved. Live provider verification is deferred (controller-owned).
+**IMPLEMENTED — FINAL REVIEW PENDING** — All 231 automated tests pass in this worktree with no private fixture. Fresh Luna reviews blocked the candidate at `65dd9d6`; this focused repair addresses the accepted findings. Final review remains pending and is not approved. Live provider verification is deferred (controller-owned).
 
 ## Files created
 
@@ -38,8 +38,8 @@
 | `src/haxjobs/employment/__init__.py` | Removed `review_job` exports |
 | `src/haxjobs/interfaces/__init__.py` | Removed `experiment_cli` export |
 | `tests/test_career_graph.py` | Uses synthetic fixture; added migration integrity tests (deterministic IDs, person name, contradictory gaps, idempotent links, required fields) |
-| `tests/test_turn_runtime.py` | Removed duplicate `_TestOutput`; added ToolExecutionContext, persistence failure event, and cancel event tests; updated all handler signatures to `(input, ctx)` |
-| `tests/test_session.py` | Added unconfigured session, interrupted partial-history, dangling call, no duplicate, no auto-retry, idempotent resume, measurement tests |
+| `tests/test_turn_runtime.py` | Removed duplicate `_TestOutput`; added ToolExecutionContext, persistence failure event, cancel event, and provider-cancelled failure tests; updated all handler signatures to `(input, ctx)` |
+| `tests/test_session.py` | Added unconfigured session, interrupted partial-history, dangling call, no duplicate, no auto-retry, idempotent resume, measurement, and provider-cancelled settlement tests |
 | `tests/test_employment_host.py` | Added scope selection tests (single/multi/zero person/track), evidence content tests |
 | `tests/test_session_store.py` | Added opaque string/list configuration, blank/invalid validation, round-trip, transaction, duplicate tests |
 | `tests/test_live_events.py` | Updated test that referenced deleted events module |
@@ -66,12 +66,12 @@
 ## Test results
 
 ```
-229 passed in 45.16s
+231 passed (full suite; runtime varies by environment)
 ```
 
 Verified: `uv lock --check` ok, `py_compile` all src/ and tests/ ok, `git diff --check` ok.
 
-Exact collected/tested per-file count (from `pytest --collect-only -q tests/`, 229 collected and 229 passed):
+Exact collected/tested per-file count (from `pytest --collect-only -q tests/`, 231 collected and 231 passed):
 - `tests/test_career_graph.py`: 28
 - `tests/test_conversation_messages.py`: 20
 - `tests/test_durable_tool_effects.py`: 9
@@ -81,12 +81,12 @@ Exact collected/tested per-file count (from `pytest --collect-only -q tests/`, 2
 - `tests/test_job_source.py`: 3
 - `tests/test_live_events.py`: 19
 - `tests/test_model_streaming.py`: 11
-- `tests/test_session.py`: 32
+- `tests/test_session.py`: 33
 - `tests/test_session_store.py`: 22
 - `tests/test_terminal.py`: 14
 - `tests/test_terminal_pty.py`: 2
 - `tests/test_trajectory_job_328.py`: 2
-- `tests/test_turn_runtime.py`: 27
+- `tests/test_turn_runtime.py`: 28
 
 ## Architecture invariants confirmed
 
@@ -111,7 +111,7 @@ The `_fake_registry()` helper in `tests/test_turn_runtime.py` had two identical 
 Three draw.io source files and three exported PNGs, all under 35 cells:
 - `employment-models.drawio` (34 cells, 32 non-root) / `.png` (640×524) — Person, CareerTrack, Skill, Evidence, Job, JobAssessment relationships; ConstraintCheck noted as embedded field
 - `tool-effects.drawio` (22 cells) / `.png` (744×404) — Durable tool execution boundary, persist failures, dangling call detection
-- `conversation-trajectory.drawio` (21 cells) / `.png` (464×474) — Full job review trajectory: user → get_job → inspect → assess → resume
+- `conversation-trajectory.drawio` (21 cells) / `.png` (464×474) — Full job review trajectory: user → get_job → inspect → assess → resume; resume reads current Job + latest assessment through get_job and never records a new assessment
 
 All PNGs exported via `/opt/drawio/drawio -x -f png`. Each has a valid PNG signature and nonzero IHDR dimensions.
 
@@ -140,7 +140,7 @@ Three independent Flash reviews identified three deliverable blockers against ca
 
 1. **Missing review-ledger.md and manual-proof.md.** Created with factual review record and controller-owned proof procedure + verified `--help` output.
 2. **Oversized employment-models.drawio (36 non-root cells).** Simplified to 32 non-root cells. PNG re-exported at 640×524.
-3. **Stale doc references.** Test counts updated to 229; `--ignore=tests/test_terminal_pty.py` removed; deleted module/CLI descriptions corrected; `state/experiments/` path removed from user-facing docs.
+3. **Stale doc references.** Test counts were updated to 229 in the earlier repair commit; `--ignore=tests/test_terminal_pty.py` removed; deleted module/CLI descriptions corrected; `state/experiments/` path removed from user-facing docs.
 
 Architecture and correctness reviews were approved on the initial repair candidate with one nonblocking close observation (test-career-store exercises synthetic fixture only; real private DB migration is controller-owned).
 
@@ -150,7 +150,7 @@ Initial controller verification round identified three blocking findings against
 
 1. **PTY test isolation (tests/test_terminal_pty.py):** Both `test_terminal_pty_enter_submits_and_escape_interrupts` and `test_terminal_pty_escape_during_streaming_interrupts` defaulted `HAXJOBS_CAREER_DB` to `state/career_graph.db`, violating Plan 004 Phase A's isolated synthetic-test rule. Fixed by adding `_isolated_career_db()` helper that creates a temp career DB migrated from `tests/fixtures/job_review/career.json` and cleaning up after each test.
 2. **Missing PNG exports:** Three `.drawio` files had no PNG exports. All three exported via local `/opt/drawio/drawio -x -f png`. Each PNG verified with valid signature and nonzero IHDR dimensions.
-3. **Report metadata:** Report claimed COMPLETE but listed PTY tests as "fail due to environment" and PNGs as deferred. Corrected to report exact 229 passes and present PNGs.
+3. **Report metadata:** Report claimed COMPLETE but listed PTY tests as "fail due to environment" and PNGs as deferred. Corrected in the earlier repair commit to report exact 229 passes and present PNGs.
 
 ## Current correctness repairs addressed
 
@@ -158,9 +158,9 @@ Initial controller verification round identified three blocking findings against
 - Tool results are persisted before lifecycle completion/failure events. Failed result persistence stops model progression, emits persistence failure/terminal events, and leaves dangling-call reconciliation intact.
 - Runtime source inspection accepts only saved Job data; the fixture-era `fetch(JobFixture, ...)` entry point and Stage 1 experiment wording are gone.
 - Assessment input no longer accepts a model track scope. Registry dispatch binds the active track and a two-track regression proves no cross-track/person write.
-- Stream cancellation preserves a truthful interrupted partial assistant message; external tool cancellation cancels and joins active tool work, persists only a truthful cancellation failure when possible, emits one interruption, and records measurement/settlement.
+- Stream cancellation preserves a truthful interrupted partial assistant message, including provider-neutral `RESPONSE_FAILED` events with category `cancelled`; external tool cancellation cancels and joins active tool work, persists only a truthful cancellation failure when possible, emits one interruption, and records measurement/settlement.
 - Manual proof states that CLI `--fake` is text-only; saved-job tool trajectory proof is automated and deterministic.
-- All three final diagram XML files use orthogonal connectors; PNGs were re-exported and checked for valid dimensions.
+- All three final diagram XML files use orthogonal connectors; the trajectory now routes resume through the `get_job` read path for the current Job and latest assessment, with no assessment write. PNGs were re-exported and checked for valid dimensions.
 - Source inspection, bounded DNS offloading, string external references, deterministic trajectory, job-column migrations, idempotency, scope ownership, and initial-message persistence remain covered by deterministic focused tests.
 
 ## Commit

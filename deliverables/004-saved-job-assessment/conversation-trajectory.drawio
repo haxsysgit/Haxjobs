@@ -10,10 +10,10 @@
         <mxCell id="user-msg" value="What do you think of job 328?" style="text;fontSize=11;" vertex="1" parent="group-user">
           <mxGeometry x="10" y="30" width="140" height="25" as="geometry"/>
         </mxCell>
-        <mxCell id="group-get" value="get_job('job-328')" style="swimlane;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+        <mxCell id="group-get" value="get_job('job-328') | READ" style="swimlane;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
           <mxGeometry x="260" y="40" width="180" height="70" as="geometry"/>
         </mxCell>
-        <mxCell id="get-detail" value="READ | retry_safe=True&#xa;Returns thin job description" style="text;fontSize=10;" vertex="1" parent="group-get">
+        <mxCell id="get-detail" value="READ | retry_safe=True&#xa;Reads current Job + latest assessment&#xa;No assessment write" style="text;fontSize=10;" vertex="1" parent="group-get">
           <mxGeometry x="10" y="30" width="160" height="30" as="geometry"/>
         </mxCell>
         <mxCell id="group-inspect" value="inspect_job_source('job-328')" style="swimlane;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
@@ -40,7 +40,7 @@
         <mxCell id="res-q" value="What did you say about job 328?" style="text;fontSize=11;" vertex="1" parent="group-resume">
           <mxGeometry x="10" y="25" width="140" height="25" as="geometry"/>
         </mxCell>
-        <mxCell id="res-a" value="Hax retrieves&#xa;saved assessment&#xa;from employment store" style="text;fontSize=10;" vertex="1" parent="group-resume">
+        <mxCell id="res-a" value="Hax uses get_job READ path&#xa;to retrieve current Job +&#xa;latest assessment; no write" style="text;fontSize=10;" vertex="1" parent="group-resume">
           <mxGeometry x="10" y="55" width="140" height="40" as="geometry"/>
         </mxCell>
         <mxCell id="edge-u-g" value="" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-user" target="group-get">
@@ -58,7 +58,7 @@
         <mxCell id="edge-close" value="close + reopen" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;dashed=1;" edge="1" parent="1" source="group-reply" target="group-resume">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="edge-res-store" value="" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;dashed=1;" edge="1" parent="1" source="group-resume" target="group-record">
+        <mxCell id="edge-res-store" value="read Job + latest assessment" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;dashed=1;" edge="1" parent="1" source="group-resume" target="group-get">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
       </root>
