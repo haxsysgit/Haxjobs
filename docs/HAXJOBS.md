@@ -24,7 +24,7 @@ The model boundary knows nothing about careers. The agent core knows nothing abo
 - `src/haxjobs/config.py` — paths from `haxjobs.toml`
 - `src/haxjobs/cv_variants/` — user CV variant templates, registry, renderer (data, not code to rebuild)
 
-238 tests pass (all tests, including PTY terminal tests with isolated temp career DB). Stage 0/1 experiment runtime deleted after conversational runtime trajectories passed.
+244 tests pass (all tests, including PTY terminal tests with isolated temp career DB). Stage 0/1 experiment runtime deleted after conversational runtime trajectories passed.
 
 ### What was deleted
 

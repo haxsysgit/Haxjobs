@@ -212,6 +212,64 @@ async def test_failed_tool_result_persistence_emits_no_completed_event():
     assert not any(e.event_type == LiveEventType.TURN_COMPLETED for e in events)
 
 
+@pytest.mark.asyncio
+async def test_cancelled_tool_result_persistence_is_persistence_failed():
+    """A cancelled tool whose result cannot persist is not reported interrupted."""
+    from pydantic import BaseModel
+
+    class Input(BaseModel):
+        value: str
+
+    class Output(BaseModel):
+        ok: bool
+
+    registry = ToolRegistry()
+    started = asyncio.Event()
+
+    async def slow_handler(input_obj, ctx):
+        started.set()
+        await asyncio.sleep(30)
+        return {"ok": True}
+
+    registry.register(ToolDefinition(
+        name="cancel-persist", description="cancel persistence", input_model=Input,
+        output_model=Output, handler=slow_handler,
+    ))
+    persisted: list[ConversationMessage] = []
+
+    def persist(message: ConversationMessage) -> None:
+        if message.kind == "tool_result":
+            raise OSError("result store unavailable")
+        persisted.append(message)
+
+    cancel = asyncio.Event()
+    task = asyncio.create_task(run_turn(
+        session_id="s-cancel-persist", turn_id="t-cancel-persist",
+        model=FakeModelClient(stream_events=[[
+            ModelStreamEvent(
+                event_type=ModelStreamEventType.COMPLETE_TOOL_CALL,
+                call_id="cancel-persist-call", tool_name="cancel-persist",
+                arguments='{"value":"x"}',
+            ),
+            ModelStreamEvent(
+                event_type=ModelStreamEventType.RESPONSE_COMPLETED,
+                finish_reason="tool_calls",
+            ),
+        ]]),
+        system_prompt="sys", context_messages=[], history=[],
+        tool_registry=registry, active_tools=("cancel-persist",),
+        cancel_event=cancel, emit=_fake_emit([]), persist_message=persist,
+        user_message_id="user-cancel-persist",
+    ))
+    await started.wait()
+    cancel.set()
+    result = await task
+
+    assert result.exit_reason == TurnExitReason.PERSISTENCE_FAILED
+    assert result.safe_failure == "Tool result persistence failed."
+    assert [message.kind for message in persisted] == ["assistant", "tool_call"]
+
+
 # ── Dangling call on resume ──
 
 def test_dangling_call_appends_unknown_outcome():

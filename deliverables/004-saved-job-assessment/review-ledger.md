@@ -2,7 +2,7 @@
 
 ## Status
 
-Final review is pending and not approved. This focused writer pass starts at exact `e0390b5` and makes one correctness repair commit. No live model, public network, private fixture, provider configuration, credential, plan, or state path was used.
+Final review is pending and not approved. This focused writer pass starts at exact `de5f14e` and makes one correctness repair commit. No live model, public network, private fixture, provider configuration, credential, plan, or state path was used.
 
 ## Prior review history
 
@@ -17,11 +17,12 @@ Final review is pending and not approved. This focused writer pass starts at exa
 | `285f424` | accepted with blockers | Provider cancellation classification repaired; seven further correctness blockers remained |
 | `e0390b5` | accepted with blockers | Seven further correctness blockers remained: safe error boundary, settlement ordering, and separate ConstraintCheck artifact |
 
-## Final repair pass (`e0390b5`)
+## Focused repair pass (`de5f14e`)
 
-1. Runtime exception/provider/tool validation details are mapped once to stable public error categories. A regression injects secret/path/token/provider-body text and asserts neither `TurnResult` nor `LiveEvent` serialization contains it.
-2. Terminal lifecycle ownership moved to `AgentSession`: terminal turn events wait for durable settlement. Settlement failure returns `persistence_failed`, logs the storage exception, emits one generic `TURN_FAILED`, emits no `TURN_COMPLETED` or `SESSION_SETTLED`, and preserves durable messages/measurement for explicit recovery. `TerminalClient` also refuses arbitrary `TURN_FAILED.error` text.
-3. `employment-models.drawio` now has seven groups and a separate `ConstraintCheck` group with `constraint_id, constraint_text` and `result`; it has 34 non-root cells and a 784×524 PNG export.
+1. Tool-result persistence failures remain `PERSISTENCE_FAILED`, including cancellation races; the durable dangling-call recovery model is unchanged.
+2. Measurement and turn settlement are ordered transactionally from the interface perspective. Failed settlement or measurement emits no `SESSION_SETTLED`, does not skip in-memory counts, and permits a later retry.
+3. Employment source-observation and action failures use safe top-level envelopes; secret-string regressions cover both paths. External task cancellation wins over a provider that catches cancellation and emits `RESPONSE_COMPLETED`.
+4. `employment-models.drawio` now shows `JobAssessment` essentials (`assessment_id`, `recommendation`, `summary`) while retaining seven groups, `ConstraintCheck`, and 34 non-root cells; the PNG was re-exported.
 
 
 1. Source DNS validation now requires `ipaddress.ip_address(address).is_global`, including rejection of `100.64.0.1`.
@@ -41,8 +42,8 @@ The original PNG exports occurred in earlier repair commit `0766d56`. Diagram ce
 
 | Check | Result |
 |---|---|
-| Full pytest suite | 240 passed in 45.52s |
-| Focused blocker regression suite | 100 passed |
+| Full pytest suite | 244 passed |
+| Focused runtime/employment regression suite (`test_durable_tool_effects.py`, `test_employment_tools.py`, `test_session.py`, `test_turn_runtime.py`) | 85 passed |
 | `py_compile` | passed |
 | `uv lock --check` | passed |
 | `git diff --check` | passed |
@@ -60,4 +61,4 @@ All diagram edges include `edgeStyle=orthogonalEdgeStyle`, `orthogonalLoop=1`, a
 
 ## Review boundary
 
-Fresh final review remains controller-owned and pending. The report's live/private proof remains deferred; no approval is claimed here.
+Fresh final review remains controller-owned and pending. The controller-owned real-provider manual proof remains honestly blank/deferred; no approval is claimed here. The final commit SHA is reported by the writer after commit.

@@ -64,8 +64,8 @@ async def test_get_job_returns_job_fields(store: CareerStore):
 
 
 @pytest.mark.asyncio
-async def test_get_job_unknown_returns_error(store: CareerStore):
-    """get_job('job-999') returns ok=False in data with error."""
+async def test_get_job_unknown_returns_safe_top_level_failure(store: CareerStore):
+    """get_job failures use the standard safe top-level envelope."""
     registry, active = build_employment_tool_registry(store, track_id="t1")
 
     result = await registry.dispatch(
@@ -75,8 +75,9 @@ async def test_get_job_unknown_returns_error(store: CareerStore):
         context=_test_ctx(),
     )
 
-    assert result["data"]["ok"] is False
-    assert "not found" in result["data"].get("error", "").lower()
+    assert result["ok"] is False
+    assert result["code"] == "job_not_found"
+    assert "not found" not in result["error"].lower()
 
 
 @pytest.mark.asyncio
@@ -168,6 +169,51 @@ async def test_record_job_assessment_idempotency_conflict(store: CareerStore):
     }
     assert "conflict" in second["error"].lower()
     assert len(store.list_assessments("job-49", "t1")) == 1
+
+
+@pytest.mark.asyncio
+async def test_source_and_action_failures_never_leak_raw_error_text(store: CareerStore):
+    """Source diagnostics and action ValueErrors stay out of tool envelopes."""
+    secret = "PROVIDER_SECRET /private/source-response-token"
+
+    class FailingFetcher:
+        async def fetch_from_job(self, job):
+            from haxjobs.employment.job_source import SourceObservation
+            return SourceObservation(
+                ok=False,
+                job_ref=job.external_ref,
+                source_url=job.source_url,
+                status="unavailable",
+                code="fetch_exception",
+                error=secret,
+            )
+
+    registry, active = build_employment_tool_registry(
+        store, track_id="t1", fetcher=FailingFetcher()
+    )
+    source_result = await registry.dispatch(
+        name="inspect_job_source",
+        arguments=json.dumps({"job_id": "job-49"}),
+        active_names=active,
+        context=_test_ctx("source-secret"),
+    )
+    assert source_result["ok"] is False
+    assert source_result["code"] == "source_observation_failed"
+    assert secret not in json.dumps(source_result)
+
+    action_result = await registry.dispatch(
+        name="record_job_assessment",
+        arguments=json.dumps({
+            "job_id": secret,
+            "recommendation": "skip",
+            "summary": "invalid job",
+        }),
+        active_names=active,
+        context=_test_ctx("action-secret"),
+    )
+    assert action_result["ok"] is False
+    assert action_result["code"] == "assessment_invalid"
+    assert secret not in json.dumps(action_result)
 
 
 @pytest.mark.asyncio

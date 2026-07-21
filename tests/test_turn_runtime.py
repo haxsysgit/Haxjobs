@@ -632,6 +632,48 @@ async def test_cancellation_while_waiting_for_tool():
     assert result.exit_reason == TurnExitReason.INTERRUPTED
 
 
+@pytest.mark.asyncio
+async def test_external_task_cancel_wins_over_provider_completed_event():
+    """A provider swallowing CancelledError cannot manufacture a completion."""
+    started = asyncio.Event()
+    events: list[LiveEvent] = []
+
+    class CatchesCancellation:
+        async def stream(self, request, cancel_event):
+            started.set()
+            try:
+                await asyncio.sleep(30)
+            except asyncio.CancelledError:
+                # Deliberately imitate a provider that normalizes cancellation
+                # badly by emitting a completed response afterward.
+                yield ModelStreamEvent(
+                    event_type=ModelStreamEventType.TEXT_DELTA,
+                    delta="late provider output",
+                )
+                yield ModelStreamEvent(
+                    event_type=ModelStreamEventType.RESPONSE_COMPLETED,
+                    finish_reason="stop",
+                )
+
+    persisted: list[ConversationMessage] = []
+    task = asyncio.create_task(run_turn(
+        session_id="s-provider-catches", turn_id="t-provider-catches",
+        model=CatchesCancellation(), system_prompt="sys", context_messages=[],
+        history=[], tool_registry=ToolRegistry(), active_tools=(),
+        cancel_event=asyncio.Event(), emit=_fake_emit(events),
+        persist_message=persisted.append, user_message_id=_uid(),
+    ))
+    await started.wait()
+    task.cancel()
+    result = await task
+
+    assert result.exit_reason == TurnExitReason.INTERRUPTED
+    assert result.final_text == ""
+    assert persisted == []
+    assert not any(event.event_type == LiveEventType.TURN_COMPLETED for event in events)
+    assert sum(event.event_type == LiveEventType.TURN_INTERRUPTED for event in events) == 1
+
+
 # ── Provider failure after partial text ──
 
 @pytest.mark.asyncio

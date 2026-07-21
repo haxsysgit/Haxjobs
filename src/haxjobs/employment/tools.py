@@ -142,11 +142,13 @@ def build_employment_tool_registry(
     async def get_job_handler(input_obj: GetJobInput, ctx: ToolExecutionContext) -> dict[str, Any]:
         job = job_actions.get_job(store, input_obj.job_id)
         if job is None:
-            return GetJobOutput(
-                ok=False,
-                job_id=input_obj.job_id,
-                error=f"Job not found: {input_obj.job_id}",
-            ).model_dump()
+            # Keep failures in the standard top-level envelope. The job ID is
+            # model input, not a safe diagnostic to copy into public errors.
+            return {
+                "ok": False,
+                "code": "job_not_found",
+                "error": "job lookup failed",
+            }
 
         latest = job_actions.get_latest_assessment(store, job.job_id, track_id)
 
@@ -179,14 +181,21 @@ def build_employment_tool_registry(
             job_id=input_obj.job_id,
             fetcher=_fetcher,
         )
+        if not result.ok:
+            # SourceObservation diagnostics stay local to the action. Never
+            # place fetched/provider exception text in the tool envelope.
+            return {
+                "ok": False,
+                "code": "source_observation_failed",
+                "error": "source observation failed",
+            }
         return InspectJobSourceOutput(
-            ok=result.ok,
+            ok=True,
             job_id=input_obj.job_id,
             visible_text=result.visible_text,
             content_type=result.content_type,
             description_complete=result.description_complete,
             status=result.status,
-            error=result.error,
         ).model_dump()
 
     registry.register(ToolDefinition(
@@ -225,11 +234,14 @@ def build_employment_tool_registry(
 
         try:
             result = job_actions.record_assessment(store, assessment)
-        except ValueError as exc:
-            return RecordJobAssessmentOutput(
-                ok=False,
-                error=str(exc),
-            ).model_dump()
+        except ValueError:
+            # Action validation details can contain job/provider data. The
+            # public tool contract exposes only a stable safe category.
+            return {
+                "ok": False,
+                "code": "assessment_invalid",
+                "error": "assessment could not be recorded",
+            }
 
         if isinstance(result, job_actions.IdempotencyConflict):
             return {

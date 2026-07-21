@@ -328,8 +328,9 @@ class AgentSession:
                 user_message_id=user_msg.message_id,
             )
 
-        # Record measurement
-        self._record_measurement(
+        # Measurement is part of settlement. Do not mark the turn durable or
+        # publish a terminal lifecycle event when this write is unavailable.
+        measurement_ok = self._record_measurement(
             turn_id=turn_id,
             started_at=started_at,
             started_mono=started_mono,
@@ -341,18 +342,33 @@ class AgentSession:
             input_characters=result.input_characters,
             usage=result.usage,
         )
+        if not measurement_ok:
+            self._turn_count -= 1
+            measurement_failure = safe_error("measurement")
+            self._emit(LiveEvent(
+                session_id=self.session_id,
+                turn_id=turn_id,
+                event_type=LiveEventType.TURN_FAILED,
+                error=measurement_failure,
+            ))
+            from dataclasses import replace
+            return replace(
+                result,
+                exit_reason=TurnExitReason.PERSISTENCE_FAILED,
+                safe_failure=measurement_failure,
+            )
 
-        # Mark turn settled. If this write fails, canonical messages and the
-        # measurement remain durable while the session stays pending for
-        # recovery; no completion or SESSION_SETTLED event is published.
+        # Mark turn settled only after every durable turn record succeeds. If
+        # this write fails, canonical messages and measurement remain durable
+        # while the session stays pending for recovery; no completion or
+        # SESSION_SETTLED event is published.
         try:
             self._store.mark_turn_settled(self.session_id, self._turn_count)
         except Exception as exc:
             logger.warning("turn settlement persistence failed: %s", exc, exc_info=True)
             settlement_failure = safe_error("settlement")
             # Keep the in-memory counter aligned with the durable counter so
-            # the next explicit recovery prompt can settle at the next number
-            # rather than skipping the pending turn number.
+            # the next explicit recovery prompt can reuse the pending number.
             self._turn_count -= 1
             self._emit(LiveEvent(
                 session_id=self.session_id,
@@ -398,34 +414,54 @@ class AgentSession:
         measurement_reason: str,
         result_reason: TurnExitReason = TurnExitReason.MODEL_FAILED,
     ) -> TurnResult:
-        """Emit and persist one truthful failed-turn settlement when possible."""
+        """Persist and publish one truthful failed-turn settlement when possible."""
+        # Buffer TURN_FAILED until measurement and the settlement marker both
+        # succeed. This prevents a failed persistence attempt from looking like
+        # a settled turn to an interface subscriber.
+        if not self._record_measurement(
+            turn_id=turn_id,
+            started_at=started_at,
+            started_mono=started_mono,
+            exit_reason=measurement_reason,
+        ):
+            self._turn_count -= 1
+            measurement_failure = safe_error("measurement")
+            self._emit(LiveEvent(
+                session_id=self.session_id,
+                turn_id=turn_id,
+                event_type=LiveEventType.TURN_FAILED,
+                error=measurement_failure,
+            ))
+            return TurnResult(
+                turn_id=turn_id,
+                exit_reason=TurnExitReason.PERSISTENCE_FAILED,
+                safe_failure=measurement_failure,
+            )
+
+        try:
+            self._store.mark_turn_settled(self.session_id, self._turn_count)
+        except Exception as exc:
+            logger.warning("failed-turn settlement write failed: %s", exc, exc_info=True)
+            self._turn_count -= 1
+            settlement_failure = safe_error("settlement")
+            self._emit(LiveEvent(
+                session_id=self.session_id,
+                turn_id=turn_id,
+                event_type=LiveEventType.TURN_FAILED,
+                error=settlement_failure,
+            ))
+            return TurnResult(
+                turn_id=turn_id,
+                exit_reason=TurnExitReason.PERSISTENCE_FAILED,
+                safe_failure=settlement_failure,
+            )
+
         self._emit(LiveEvent(
             session_id=self.session_id,
             turn_id=turn_id,
             event_type=LiveEventType.TURN_FAILED,
             error=safe_failure,
         ))
-        try:
-            self._store.mark_turn_settled(self.session_id, self._turn_count)
-        except Exception as exc:
-            logger.warning("failed-turn settlement write failed: %s", exc, exc_info=True)
-            self._record_measurement(
-                turn_id=turn_id,
-                started_at=started_at,
-                started_mono=started_mono,
-                exit_reason=measurement_reason,
-            )
-            return TurnResult(
-                turn_id=turn_id,
-                exit_reason=TurnExitReason.PERSISTENCE_FAILED,
-                safe_failure=safe_error("settlement"),
-            )
-        self._record_measurement(
-            turn_id=turn_id,
-            started_at=started_at,
-            started_mono=started_mono,
-            exit_reason=measurement_reason,
-        )
         self._emit(LiveEvent(
             session_id=self.session_id,
             turn_id=turn_id,
@@ -450,7 +486,7 @@ class AgentSession:
         tool_starts: int = 0,
         input_characters: int = 0,
         usage=None,
-    ) -> None:
+    ) -> bool:
         """Record a measurement row. No content columns."""
         finished_at = _utcnow()
         duration_ms = (time.monotonic() - started_mono) * 1000
@@ -473,7 +509,9 @@ class AgentSession:
                 duration_ms=duration_ms,
             )
         except Exception as exc:
-            logger.warning("measurement recording failed: %s", exc)
+            logger.warning("measurement recording failed: %s", exc, exc_info=True)
+            return False
+        return True
 
     @classmethod
     def resume(

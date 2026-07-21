@@ -168,6 +168,33 @@ async def test_settlement_failure_is_pending_not_contradictory(store: SessionSto
 
 
 @pytest.mark.asyncio
+async def test_measurement_persistence_failure_is_not_settled(store: SessionStore):
+    """A measurement write failure is surfaced and leaves the turn retryable."""
+    session = _make_session(store, model_count=2)
+    events: list[LiveEvent] = []
+    session.subscribe(events.append)
+    original_record = store.record_measurement
+
+    def fail_measurement(**kwargs):
+        raise OSError("SECRET measurement backend")
+
+    store.record_measurement = fail_measurement  # type: ignore[method-assign]
+    result = await session.prompt("measurement must persist")
+
+    assert result.exit_reason == TurnExitReason.PERSISTENCE_FAILED
+    assert result.safe_failure == "Turn measurement persistence failed."
+    assert store.get_session("s1")["turn_count"] == 0
+    assert LiveEventType.SESSION_SETTLED not in [event.event_type for event in events]
+    assert sum(event.event_type == LiveEventType.TURN_FAILED for event in events) == 1
+    assert all("SECRET" not in event.model_dump_json() for event in events)
+
+    store.record_measurement = original_record  # type: ignore[method-assign]
+    recovered = await session.prompt("measurement retry")
+    assert recovered.exit_reason == TurnExitReason.COMPLETED
+    assert store.get_session("s1")["turn_count"] == 1
+
+
+@pytest.mark.asyncio
 async def test_history_read_failure_is_failed_and_settled(store: SessionStore):
     """A history read error cannot become a manufactured completed turn."""
     session = _make_session(store)

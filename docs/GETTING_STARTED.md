@@ -34,7 +34,7 @@ Migrate a career fixture into the local graph:
 
 ```bash
 # Using synthetic test fixture (no private data)
-uv run -- haxjobs profile migrate --fixture tests/fixtures/job_review/career.json
+uv run -- haxjobs migrate --fixture tests/fixtures/job_review/career.json
 ```
 
 This writes the local database to `state/career_graph.db`.

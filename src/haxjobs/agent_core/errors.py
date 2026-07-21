@@ -26,6 +26,7 @@ _MESSAGES = {
     "interrupted": "The turn was interrupted.",
     "limit": "The turn reached its execution limit.",
     "settlement": "Turn settlement persistence failed.",
+    "measurement": "Turn measurement persistence failed.",
     "turn": "The turn could not be completed.",
 }
 

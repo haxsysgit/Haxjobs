@@ -180,6 +180,14 @@ async def run_turn(
 
         try:
             async for stream_event in model.stream(model_request, cancel_event):
+                # Task.cancel() is independent of the cooperative event. A
+                # provider may catch CancelledError and still yield a terminal
+                # event, so inspect the task before accepting any event.
+                if _task_cancel_requested():
+                    cancel_event.set()
+                    exit_reason = TurnExitReason.INTERRUPTED
+                    safe_failure = safe_error("interrupted")
+                    break
                 if cancel_event.is_set():
                     exit_reason = TurnExitReason.INTERRUPTED
                     safe_failure = safe_error("interrupted")
@@ -261,6 +269,11 @@ async def run_turn(
                         )
 
                 elif stream_event.event_type == ModelStreamEventType.RESPONSE_COMPLETED:
+                    if _task_cancel_requested():
+                        cancel_event.set()
+                        exit_reason = TurnExitReason.INTERRUPTED
+                        safe_failure = safe_error("interrupted")
+                        break
                     finish_reason = stream_event.finish_reason
                     captured_usage = stream_event.usage
                     captured_model_name = stream_event.model
@@ -381,6 +394,42 @@ async def run_turn(
             safe_failure = safe_error("model")
             exit_reason = TurnExitReason.MODEL_FAILED
             break
+
+        # A provider can consume external task cancellation and make its
+        # iterator appear successful. Preserve only partial text and stop
+        # before assistant completion or tool effects.
+        if exit_reason == TurnExitReason.INTERRUPTED:
+            if accumulated_text:
+                assistant_msg = AssistantMessage(
+                    message_id=_mid(),
+                    turn_id=turn_id,
+                    content=accumulated_text,
+                    status="interrupted",
+                )
+                new_messages.append(assistant_msg)
+                try:
+                    persist_message(assistant_msg)
+                except Exception as exc:
+                    logger.warning("partial assistant persistence failed: %s", exc)
+            emit(LiveEvent(
+                session_id=session_id,
+                turn_id=turn_id,
+                event_type=LiveEventType.TURN_INTERRUPTED,
+            ))
+            return TurnResult(
+                turn_id=turn_id,
+                exit_reason=TurnExitReason.INTERRUPTED,
+                final_text=accumulated_text,
+                model_steps=model_steps,
+                tool_starts=tool_starts,
+                new_messages=new_messages,
+                safe_failure=safe_failure or safe_error("interrupted"),
+                user_message_id=user_message_id,
+                model_name=captured_model_name,
+                provider_name=captured_provider_name,
+                usage=captured_usage,
+                input_characters=input_characters,
+            )
 
         if model_failed:
             break
@@ -650,7 +699,20 @@ async def run_turn(
                         emit=emit,
                     )
                     if persistence_error:
-                        safe_failure = persistence_error
+                        return TurnResult(
+                            turn_id=turn_id,
+                            exit_reason=TurnExitReason.PERSISTENCE_FAILED,
+                            final_text=accumulated_text,
+                            model_steps=model_steps,
+                            tool_starts=tool_starts + 1,
+                            new_messages=new_messages,
+                            safe_failure=persistence_error,
+                            user_message_id=user_message_id,
+                            model_name=captured_model_name,
+                            provider_name=captured_provider_name,
+                            usage=captured_usage,
+                            input_characters=input_characters,
+                        )
                     tool_starts += 1
 
                 safe_failure = safe_failure or safe_error("interrupted")
@@ -735,7 +797,20 @@ async def run_turn(
                         emit=emit,
                     )
                     if persistence_error:
-                        safe_failure = persistence_error
+                        return TurnResult(
+                            turn_id=turn_id,
+                            exit_reason=TurnExitReason.PERSISTENCE_FAILED,
+                            final_text=accumulated_text,
+                            model_steps=model_steps,
+                            tool_starts=tool_starts + 1,
+                            new_messages=new_messages,
+                            safe_failure=persistence_error,
+                            user_message_id=user_message_id,
+                            model_name=captured_model_name,
+                            provider_name=captured_provider_name,
+                            usage=captured_usage,
+                            input_characters=input_characters,
+                        )
                     tool_starts += 1
                     provider_messages.append(
                         ModelMessage(
@@ -907,7 +982,7 @@ def _persist_and_emit_tool_result(
     try:
         persist_message(tr_msg)
     except Exception:
-        error = "tool result persistence failed"
+        error = safe_error("tool_result_persistence")
         emit(
             LiveEvent(
                 session_id=session_id,
@@ -976,6 +1051,12 @@ async def _cancel_and_join(task: asyncio.Task) -> None:
         return
     except Exception as exc:
         logger.debug("cancelled child task ended with error: %s", exc)
+
+
+def _task_cancel_requested() -> bool:
+    """Return whether the current task has an external cancellation pending."""
+    task = asyncio.current_task()
+    return task is not None and task.cancelling() > 0
 
 
 def _mid() -> str:

@@ -2,7 +2,7 @@
 
 ## Status
 
-**IMPLEMENTED — FINAL REVIEW PENDING** — All 240 automated tests pass in this worktree with no private fixture. The final Plan 004 repair from exact `e0390b5` adds the stable runtime error boundary, truthful settlement ordering/recovery, and a separate ConstraintCheck diagram entity. Final review remains pending and is not approved. Live provider verification is deferred (controller-owned).
+**IMPLEMENTED — FINAL REVIEW PENDING** — All 244 automated tests pass in this worktree with no private fixture. This focused Plan 004 repair starts at exact `de5f14e` and adds transactional measurement settlement, cancellation-safe tool persistence/model completion, safe employment failure envelopes, and the final JobAssessment diagram essentials. Final review remains pending and is not approved. Live provider verification is deferred (controller-owned).
 
 ## Files created
 
@@ -12,10 +12,10 @@
 | `src/haxjobs/employment/job_actions.py` | Plain Python actions: import, get, record, assess jobs |
 | `src/haxjobs/employment/tools.py` | Employment tool definitions (get_job, inspect_job_source, record_job_assessment) |
 | `tests/test_job_actions.py` | Job import, source snapshot, migration, assessment, idempotency tests |
-| `tests/test_employment_tools.py` | Tool dispatch tests, including top-level idempotency conflict failure (7 tests) |
+| `tests/test_employment_tools.py` | Tool dispatch tests, including top-level failure and source/action secret regressions (8 tests) |
 | `tests/test_trajectory_job_328.py` | Full no-network fake trajectory + resume test (2 tests) |
 | `tests/test_job_source.py` | Blocking DNS/transport event-loop heartbeat, DNS timeout, string external-reference, and non-global-address regressions |
-| `tests/test_durable_tool_effects.py` | Persistence order, dangling calls, idempotency, scope, cleanup (9 tests) |
+| `tests/test_durable_tool_effects.py` | Persistence order, dangling calls, cancellation persistence, idempotency, scope, cleanup (10 tests) |
 | `tests/test_cli.py` | Deterministic rejection of conflicting chat modes/scope flags and implicit migration fixtures (4 tests) |
 
 ## Files modified
@@ -41,8 +41,8 @@
 | `src/haxjobs/employment/__init__.py` | Removed `review_job` exports |
 | `src/haxjobs/interfaces/__init__.py` | Removed `experiment_cli` export |
 | `tests/test_career_graph.py` | Uses synthetic fixture; added migration integrity tests (deterministic IDs, person name, contradictory gaps, idempotent links, required fields) |
-| `tests/test_turn_runtime.py` | Removed duplicate `_TestOutput`; added ToolExecutionContext, persistence failure event, cancel event, and provider-cancelled failure tests; updated all handler signatures to `(input, ctx)` |
-| `tests/test_session.py` | Added unconfigured session, history-read failure settlement, interrupted partial-history, dangling call, no duplicate, no auto-retry, idempotent resume, measurement, provider-cancelled settlement, safe-error, and settlement-recovery tests |
+| `tests/test_turn_runtime.py` | Removed duplicate `_TestOutput`; added ToolExecutionContext, persistence failure, provider-cancelled failure, and external-task-cancellation regressions; updated all handler signatures to `(input, ctx)` |
+| `tests/test_session.py` | Added unconfigured session, history-read failure settlement, measurement failure, interrupted partial-history, dangling call, no duplicate, no auto-retry, idempotent resume, provider-cancelled settlement, safe-error, and settlement-recovery tests (37 tests) |
 | `tests/test_employment_host.py` | Added scope selection tests (single/multi/zero person/track), evidence content tests |
 | `tests/test_session_store.py` | Added opaque string/list/arbitrary-text configuration, blank validation, round-trip, transaction, duplicate tests |
 | `tests/test_live_events.py` | Updated test that referenced deleted events module |
@@ -69,28 +69,28 @@
 ## Test results
 
 ```
-240 passed (full suite; runtime varies by environment)
+244 passed (full suite; runtime varies by environment)
 ```
 
 Verified: `uv lock --check` ok, `py_compile` all src/ and tests/ ok, `git diff --check` ok.
 
-Exact collected/tested per-file count (from `pytest --collect-only -q tests/`, 240 collected and 240 passed):
+Exact collected/tested per-file count (from `pytest --collect-only -q tests/`, 244 collected and 244 passed):
 - `tests/test_career_graph.py`: 28
 - `tests/test_conversation_messages.py`: 20
-- `tests/test_durable_tool_effects.py`: 9
+- `tests/test_durable_tool_effects.py`: 10
 - `tests/test_employment_host.py`: 20
-- `tests/test_employment_tools.py`: 7
+- `tests/test_employment_tools.py`: 8
 - `tests/test_job_actions.py`: 13
 - `tests/test_cli.py`: 4
 - `tests/test_job_source.py`: 4
 - `tests/test_live_events.py`: 19
 - `tests/test_model_streaming.py`: 11
-- `tests/test_session.py`: 36
+- `tests/test_session.py`: 37
 - `tests/test_session_store.py`: 22
 - `tests/test_terminal.py`: 14
 - `tests/test_terminal_pty.py`: 2
 - `tests/test_trajectory_job_328.py`: 2
-- `tests/test_turn_runtime.py`: 29
+- `tests/test_turn_runtime.py`: 30
 
 ## Architecture invariants confirmed
 
@@ -175,8 +175,8 @@ Based on exact `285f424`, this pass repairs: `ipaddress.is_global` source valida
 
 - Runtime failures now pass through one stable category mapper. Exception/provider/tool validation details remain local to logs and are absent from `TurnResult.safe_failure` and `LiveEvent.error`; the regression injects a secret, path, and provider body.
 - Session terminal events are emitted only after the settlement marker succeeds. A settlement-write failure returns `persistence_failed`, emits one generic `TURN_FAILED`, emits no `TURN_COMPLETED` or `SESSION_SETTLED`, and leaves durable canonical messages/measurement pending for explicit recovery.
-- The employment model export now depicts `ConstraintCheck` as a separate seventh group with its real text/result fields rather than an embedded `constraint_checks[]` label.
+- The employment model export now depicts `JobAssessment` essentials (`assessment_id`, `recommendation`, `summary`) and `ConstraintCheck` as a separate group with its real text/result fields.
 
-## Commit
+## Focused repair and review boundary
 
-Plan 004 focused correctness repair commit applied at this worktree. Final review is pending, not approved. Report intentionally omits its containing commit SHA; controller records the final SHA after review.
+This repair starts at exact `de5f14e`. It does not modify the Plan, terminal interface, terminal tests, state, private fixtures, credentials, or provider configuration. Controller-owned real-provider manual proof remains deferred and honestly blank. Final review is pending, not approved; the final commit SHA is reported by the writer after commit.

@@ -15,11 +15,11 @@
 | `conversation-trajectory.drawio` | Full job review trajectory diagram (source) |
 | `conversation-trajectory.png` | Full job review trajectory diagram (PNG export, 464×474) |
 
-All PNGs exported via `/opt/drawio/drawio -x -f png`. Each has a valid PNG signature and nonzero IHDR dimensions. `employment-models` has 34 non-root cells, seven model groups, and a separate `ConstraintCheck` group with `constraint_id, constraint_text` and `result (pass | fail | unknown)` fields.
+All PNGs exported via `/opt/drawio/drawio -x -f png`. Each has a valid PNG signature and nonzero IHDR dimensions. `employment-models` has 34 non-root cells, seven model groups, real `JobAssessment` essentials (`assessment_id`, `recommendation`, `summary`), and a separate `ConstraintCheck` group with `constraint_id, constraint_text` and `result (pass | fail | unknown)` fields.
 
 ## Key achievements
 
-- 240 automated tests pass (full suite, including PTY terminal tests with isolated temp career DB)
+- 244 automated tests pass (full suite, including PTY terminal tests with isolated temp career DB)
 - First state-changing employment workflow: user asks → get_job → inspect → assess
 - Durable tool execution boundaries: persist before handler, persist after handler
 - Immutable session configuration: person/track scope pinned at creation
@@ -31,7 +31,7 @@ All PNGs exported via `/opt/drawio/drawio -x -f png`. Each has a valid PNG signa
 ## Verification
 
 ```bash
-PYTHONPATH=src:. uv run python3 -m pytest -q tests/            # 238 passed
+PYTHONPATH=src:. uv run python3 -m pytest -q tests/            # 244 passed
 PYTHONPATH=src:. uv run python3 -m py_compile $(find src tests -name '*.py')  # ok
 uv lock --check                                                # ok
 git diff --check                                               # ok
