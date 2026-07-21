@@ -9,7 +9,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import sys
-import traceback
 from typing import Callable
 
 from prompt_toolkit import PromptSession as PTKSession
@@ -56,23 +55,38 @@ class TerminalClient:
         try:
             await self._input_loop()
         finally:
-            # Abort any ongoing turn and settle prompt tasks before exit
+            # Cooperative abort — give the session time to persist interrupted state
             self._session.abort()
+            if self._prompt_tasks:
+                try:
+                    await asyncio.wait_for(
+                        asyncio.gather(*self._prompt_tasks, return_exceptions=True),
+                        timeout=1.0,
+                    )
+                except asyncio.TimeoutError:
+                    pass
+            # Force-cancel any remaining tasks
             for task in list(self._prompt_tasks):
                 if not task.done():
                     task.cancel()
-                    try:
-                        await task
-                    except (asyncio.CancelledError, Exception):
-                        pass
+            # Drain all tasks
+            if self._prompt_tasks:
+                await asyncio.gather(*self._prompt_tasks, return_exceptions=True)
             self._prompt_tasks.clear()
             unsub()
+            # Close session (persists final state, releases stores)
+            if hasattr(self._session, "close"):
+                self._session.close()
 
     def _on_event(self, event: LiveEvent) -> None:
         """Render a live event to the terminal."""
         try:
             if event.event_type == LiveEventType.USER_MESSAGE_ACCEPTED:
-                pass  # Input is already visible
+                # When turn_id is empty, this is a replacement notification
+                if event.text and not event.turn_id:
+                    sys.stdout.write(f"\n[{event.text}]\n")
+                    sys.stdout.flush()
+                # Otherwise user input is already visible
 
             elif event.event_type == LiveEventType.TURN_STARTED:
                 pass  # Implicit
@@ -186,10 +200,16 @@ class TerminalClient:
                     task = asyncio.ensure_future(self._session.prompt(text))
                     self._prompt_tasks.add(task)
                     task.add_done_callback(lambda t: self._prompt_tasks.discard(t))
-                    task.add_done_callback(
-                        lambda t: logger.error("prompt task failed: %s", t.exception())
-                        if t.exception() else None
-                    )
+
+                    def _safe_prompt_done(t: asyncio.Task) -> None:
+                        try:
+                            exc = t.exception()
+                            if exc is not None:
+                                logger.error("prompt task failed: %s", exc)
+                        except Exception:
+                            pass
+
+                    task.add_done_callback(_safe_prompt_done)
 
                 except EOFError:
                     break

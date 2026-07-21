@@ -11,7 +11,7 @@ import pytest
 
 from haxjobs.agent_core.live_events import LiveEvent, LiveEventType
 from haxjobs.agent_core.messages import ConversationMessage
-from haxjobs.agent_core.session import AgentSession
+from haxjobs.agent_core.session import AgentSession, CanonicalParseError
 from haxjobs.agent_core.session_store import SessionStore
 from haxjobs.agent_core.tools import ToolRegistry
 from haxjobs.model.fake import FakeModelClient
@@ -101,7 +101,7 @@ async def test_resume_after_close(store: SessionStore):
     store.mark_session_closed("s1")
 
     # Resume
-    resumed = await AgentSession.resume(
+    resumed = AgentSession.resume(
         session_id="s1",
         session_store=store,
         model=_fake_model_response("resumed answer", count=2),
@@ -167,10 +167,9 @@ async def test_subscriber_failure_does_not_fail_turn(store: SessionStore):
 
 # ── Resume non-existent session raises ──
 
-@pytest.mark.asyncio
-async def test_resume_nonexistent_session_raises(store: SessionStore):
+def test_resume_nonexistent_session_raises(store: SessionStore):
     with pytest.raises(ValueError, match="not found"):
-        await AgentSession.resume(
+        AgentSession.resume(
             session_id="nonexistent",
             session_store=store,
             model=_fake_model_response(),
@@ -223,3 +222,109 @@ async def test_session_started_emitted_once(store: SessionStore):
     await session.prompt("second turn")
     started_events_2 = [e for e in events if e.event_type == LiveEventType.SESSION_STARTED]
     assert len(started_events_2) == 1, "SESSION_STARTED emitted more than once"
+
+
+# ── CanonicalParseError on corrupted messages ──
+
+@pytest.mark.asyncio
+async def test_canonical_parse_error_on_corrupted(store: SessionStore):
+    """Corrupted session messages raise CanonicalParseError, not silently dropped."""
+    from haxjobs.agent_core.session import _parse_canonical_history
+
+    corrupted = [{
+        "sequence": 1,
+        "session_id": "s1",
+        "turn_id": "t1",
+        "message_kind": "assistant",
+        "payload_json": {"kind": "assistant", "message_id": "m1", "turn_id": "t1",
+                         "content": "ok", "status": "INVALID_STATUS"},
+        "created_at": "2025-01-01T00:00:00",
+    }]
+    with pytest.raises(CanonicalParseError):
+        _parse_canonical_history(corrupted)
+
+
+# ── Regression: QUEUED exit reason for busy session ──
+
+@pytest.mark.asyncio
+async def test_busy_returns_queued_not_interrupted(store: SessionStore):
+    """When session is busy, prompt returns QUEUED, not INTERRUPTED."""
+    from haxjobs.agent_core.turn import TurnExitReason
+
+    # Use a delayed fake model so the first turn stays busy long enough
+    model = FakeModelClient(
+        stream_events=[
+            [
+                ModelStreamEvent(
+                    event_type=ModelStreamEventType.TEXT_DELTA, delta="slow",
+                ),
+                ModelStreamEvent(
+                    event_type=ModelStreamEventType.RESPONSE_COMPLETED,
+                    finish_reason="stop",
+                ),
+            ],
+        ],
+        delay_ms=200,
+        repeat=True,
+    )
+    store.create_session("s1")
+    session = AgentSession(
+        session_id="s1",
+        session_store=store,
+        model=model,
+        system_prompt=lambda: "You are helpful.",
+        context_messages=lambda: [],
+        tool_registry_fn=lambda: ToolRegistry(),
+        active_tool_names_fn=lambda: (),
+    )
+
+    # Submit first prompt (will run)
+    task1 = asyncio.create_task(session.prompt("first"))
+    await asyncio.sleep(0.05)  # let it start streaming
+
+    # Submit second prompt while first is still running
+    result = await session.prompt("second")
+    assert result.exit_reason == TurnExitReason.QUEUED
+
+    # Let first finish
+    await task1
+
+
+# ── Regression: Host/context setup failure caught ──
+
+@pytest.mark.asyncio
+async def test_host_context_setup_failure_emits_turn_failed(store: SessionStore):
+    """If host/context setup raises, TURN_FAILED and SESSION_SETTLED are emitted."""
+    store.create_session("s1")
+
+    def broken_context():
+        raise RuntimeError("context explosion")
+
+    session = AgentSession(
+        session_id="s1",
+        session_store=store,
+        model=_fake_model_response(count=1),
+        system_prompt=lambda: "sys",
+        context_messages=broken_context,
+        tool_registry_fn=lambda: ToolRegistry(),
+        active_tool_names_fn=lambda: (),
+    )
+    events: list[LiveEvent] = []
+    session.subscribe(lambda e: events.append(e))
+
+    result = await session.prompt("hello")
+    assert result.exit_reason is not None
+    event_types = [e.event_type for e in events]
+    assert LiveEventType.TURN_FAILED in event_types
+    assert LiveEventType.SESSION_SETTLED in event_types
+
+
+# ── Regression: AgentSession.close() works ──
+
+def test_session_close(store: SessionStore):
+    """close() calls cleanup callbacks and closes the store."""
+    session = _make_session(store)
+    cleaned = []
+    session.add_cleanup(lambda: cleaned.append(True))
+    session.close()
+    assert len(cleaned) == 1

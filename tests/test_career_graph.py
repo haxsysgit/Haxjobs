@@ -417,3 +417,30 @@ def test_cli_profile_show():
     assert result.returncode == 0, f"stderr: {result.stderr}"
     assert "arinze-elensulu" in result.stdout
 
+
+# ── Regression: CareerStore file-backed DB gets 0600 permissions ──
+
+def test_career_store_file_permissions_0600(tmp_path: Path):
+    """File-backed CareerStore databases get chmod 0600.
+
+    :memory: stores skip chmod — this test only validates file databases.
+    """
+    db_path = tmp_path / "career_perm_test.db"
+    store = CareerStore(str(db_path))
+    store.close()
+
+    # Check permissions on the file
+    stat = db_path.stat()
+    perms = stat.st_mode & 0o777
+    assert perms == 0o600, (
+        f"Expected 0600, got {oct(perms)} on {db_path}"
+    )
+
+
+def test_career_store_memory_does_not_crash():
+    """:memory: CareerStore skips chmod without error."""
+    store = CareerStore(":memory:")
+    # Just prove it doesn't crash
+    assert store.get_person("no-one") is None
+    store.close()
+

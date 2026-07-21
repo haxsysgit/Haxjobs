@@ -21,6 +21,7 @@ def compose_session(
     *,
     session_id: str | None = None,
     fake: bool = False,
+    fake_delay_ms: float = 0,
     session_db_path: str | Path | None = None,
 ) -> AgentSession:
     """Create an AgentSession wired to real or fake providers.
@@ -28,6 +29,7 @@ def compose_session(
     Args:
         session_id: Existing session to resume, or None for a new session.
         fake: Use FakeModelClient with scriptable streams (for --fake mode).
+        fake_delay_ms: Per-event delay for fake model (cancellation tests).
         session_db_path: Override session database path.
 
     Returns:
@@ -55,7 +57,7 @@ def compose_session(
 
     # Model
     if fake:
-        model = _fake_model()
+        model = _fake_model(delay_ms=fake_delay_ms)
     else:
         model = OpenAIModelClient()
 
@@ -85,11 +87,18 @@ def compose_session(
             active_tool_names_fn=host.active_tool_names,
         )
 
+    # Register cleanup so CareerStore is closed when the session closes
+    session.add_cleanup(career_store.close)
+
     return session
 
 
-def _fake_model() -> FakeModelClient:
-    """Build a fake model with basic scripted responses."""
+def _fake_model(delay_ms: float = 0) -> FakeModelClient:
+    """Build a fake model with basic scripted responses.
+
+    Args:
+        delay_ms: Per-event delay for cancellation tests (0 = instant).
+    """
     return FakeModelClient(
         responses=[
             ModelResponse(
@@ -115,4 +124,6 @@ def _fake_model() -> FakeModelClient:
                 ),
             ],
         ],
+        repeat=True,
+        delay_ms=delay_ms,
     )

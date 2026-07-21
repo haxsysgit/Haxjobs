@@ -20,13 +20,19 @@ class FakeModelClient:
 
     def __init__(
         self,
-        responses: list[ModelResponse | ModelFailure],
+        responses: list[ModelResponse | ModelFailure] | None = None,
         stream_events: list[list[ModelStreamEvent]] | None = None,
+        repeat: bool = False,
+        delay_ms: float = 0,
     ) -> None:
+        responses = responses or []
+        stream_events = stream_events or []
         if not responses and not stream_events:
             raise ValueError("FakeModelClient requires at least one response or stream")
         self._responses = responses
-        self._stream_events = stream_events or []
+        self._stream_events = stream_events
+        self._repeat = repeat
+        self._delay = delay_ms / 1000.0 if delay_ms else 0.0
         self._index = 0
         self._stream_index = 0
         self.requests: list[ModelRequest] = []
@@ -47,14 +53,22 @@ class FakeModelClient:
         request: ModelRequest,
         cancel_event: asyncio.Event,
     ) -> AsyncIterator[ModelStreamEvent]:
-        """Yield scripted stream events. Supports optional per-event delay for cancellation tests."""
+        """Yield scripted stream events. Supports repeat mode and per-event delay."""
         self.requests.append(request)
-        if self._stream_index >= len(self._stream_events):
+        if not self._stream_events:
             raise RuntimeError(
-                f"FakeModelClient stream exhausted: {len(self._stream_events)} streams, "
-                f"stream {self._stream_index + 1}"
+                f"FakeModelClient stream exhausted: no stream events configured"
             )
-        events = self._stream_events[self._stream_index]
+        if self._repeat:
+            idx = self._stream_index % len(self._stream_events)
+        else:
+            if self._stream_index >= len(self._stream_events):
+                raise RuntimeError(
+                    f"FakeModelClient stream exhausted: {len(self._stream_events)} streams, "
+                    f"stream {self._stream_index + 1}"
+                )
+            idx = self._stream_index
+        events = self._stream_events[idx]
         self._stream_index += 1
         for event in events:
             if cancel_event.is_set():
@@ -64,6 +78,8 @@ class FakeModelClient:
                     category="cancelled",
                 )
                 return
+            if self._delay > 0:
+                await asyncio.sleep(self._delay)
             yield event
 
     @property

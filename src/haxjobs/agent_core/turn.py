@@ -44,6 +44,7 @@ class TurnExitReason(str, Enum):
     MODEL_FAILED = "model_failed"
     LIMIT_REACHED = "limit_reached"
     INTERRUPTED = "interrupted"
+    QUEUED = "queued"
 
 
 @dataclass
@@ -96,7 +97,23 @@ async def run_turn(
     # Build tool schemas once
     tool_schemas: list[ToolSchema] = []
     if active_tools:
-        tool_schemas = tool_registry.active_schemas(active_tools)
+        try:
+            tool_schemas = tool_registry.active_schemas(active_tools)
+        except ValueError as exc:
+            safe_failure = f"active tool schema setup failed: {exc}"
+            emit(
+                LiveEvent(
+                    session_id=session_id,
+                    turn_id=turn_id,
+                    event_type=LiveEventType.TURN_FAILED,
+                    error=safe_failure,
+                )
+            )
+            return TurnResult(
+                turn_id=turn_id,
+                exit_reason=TurnExitReason.MODEL_FAILED,
+                safe_failure=safe_failure,
+            )
 
     # Build initial provider messages: system + context + history projection
     provider_messages: list[ModelMessage] = project_messages(
@@ -120,7 +137,6 @@ async def run_turn(
             break
 
         model_steps += 1
-        request = ModelMessage  # placeholder, actual request built below
         accumulated_text = ""
         model_failed = False
         tool_call_events: list[ModelStreamEvent] = []

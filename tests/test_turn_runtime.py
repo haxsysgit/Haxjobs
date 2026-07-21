@@ -472,17 +472,16 @@ async def test_model_step_limit():
     assert result.model_steps == 2
 
 
-# ── Cancellation during text streaming ──
+# ── Cancellation during text streaming (real mid-stream) ──
 
 @pytest.mark.asyncio
-async def test_cancellation_during_text_streaming():
-    """Cancelling during text streaming returns interrupted status."""
+async def test_cancellation_during_text_streaming_mid_stream():
+    """Setting cancel_event mid-stream via delayed fake model returns INTERRUPTED."""
     events: list[LiveEvent] = []
     cancel = asyncio.Event()
 
-    # Stream with slow text that we cancel mid-way
+    # Use delayed fake model so we have time to cancel mid-stream
     fake = FakeModelClient(
-        responses=[],
         stream_events=[
             [
                 ModelStreamEvent(
@@ -491,10 +490,23 @@ async def test_cancellation_during_text_streaming():
                 ModelStreamEvent(
                     event_type=ModelStreamEventType.TEXT_DELTA, delta="lo",
                 ),
+                ModelStreamEvent(
+                    event_type=ModelStreamEventType.TEXT_DELTA, delta=" world",
+                ),
+                ModelStreamEvent(
+                    event_type=ModelStreamEventType.RESPONSE_COMPLETED,
+                    finish_reason="stop",
+                ),
             ],
         ],
+        delay_ms=50,
     )
-    cancel = asyncio.Event()
+
+    async def _cancel_soon():
+        await asyncio.sleep(0.06)  # Cancel after first delta, before third
+        cancel.set()
+
+    cancel_task = asyncio.create_task(_cancel_soon())
 
     result = await run_turn(
         session_id="s1",
@@ -509,12 +521,11 @@ async def test_cancellation_during_text_streaming():
         emit=_fake_emit(events),
     )
 
-    # Since the fake model doesn't check cancel_event within its stream,
-    # this will complete normally. For real cancellation, the test needs
-    # the stream to actually check cancel_event.
-    # This test proves the basic text flow works.
-    assert result.exit_reason == TurnExitReason.COMPLETED
-    assert "Hello" in result.final_text or result.final_text == ""
+    await cancel_task
+
+    assert result.exit_reason == TurnExitReason.INTERRUPTED
+    interrupted_events = [e for e in events if e.event_type == LiveEventType.TURN_INTERRUPTED]
+    assert len(interrupted_events) >= 1
 
 
 # ── Cancellation while waiting for tool task ──
@@ -870,3 +881,161 @@ async def test_responsive_tool_cancellation():
     assert result.exit_reason == TurnExitReason.INTERRUPTED
     # Must complete within 2 seconds — proves cancellation didn't wait for 5s tool
     assert elapsed < 2.0, f"Cancellation took {elapsed:.2f}s, expected < 2s"
+
+
+# ── Regression: QUEUED exit reason exists and is not INTERRUPTED ──
+
+def test_queued_reason_is_distinct():
+    """QUEUED is a distinct exit reason, not the same as INTERRUPTED."""
+    assert TurnExitReason.QUEUED == "queued"
+    assert TurnExitReason.QUEUED != TurnExitReason.INTERRUPTED
+
+
+# ── Regression: active_schemas failure caught and returned as MODEL_FAILED ──
+
+@pytest.mark.asyncio
+async def test_active_schemas_failure_returns_model_failed():
+    """If active_schemas raises ValueError, the turn returns MODEL_FAILED."""
+    events: list[LiveEvent] = []
+    registry = ToolRegistry()
+
+    fake = FakeModelClient(
+        stream_events=[_fake_stream("Should not be called.")],
+    )
+    cancel = asyncio.Event()
+
+    result = await run_turn(
+        session_id="s1",
+        turn_id="t1",
+        model=fake,
+        system_prompt="sys",
+        context_messages=[],
+        history=[],
+        tool_registry=registry,
+        active_tools=("nonexistent_tool",),
+        cancel_event=cancel,
+        emit=_fake_emit(events),
+    )
+
+    assert result.exit_reason == TurnExitReason.MODEL_FAILED
+    assert "active tool" in result.safe_failure.lower()
+    turn_failed_events = [e for e in events if e.event_type == LiveEventType.TURN_FAILED]
+    assert len(turn_failed_events) == 1
+
+
+# ── Regression: deterministic abort race — Escape right after Enter ──
+
+@pytest.mark.asyncio
+async def test_abort_before_turn_clears_cancel():
+    """If abort() sets cancel_event before _run_turn clears it, the turn is INTERRUPTED.
+
+    This is tested through the session layer where the window between prompt()
+    scheduling _run_turn and the clear() call is meaningful."""
+    from haxjobs.agent_core.session import AgentSession
+    from haxjobs.agent_core.session_store import SessionStore
+
+    store = SessionStore(":memory:")
+    store.create_session("s1")
+
+    # Use a delayed fake model so the stream doesn't finish instantly
+    session = AgentSession(
+        session_id="s1",
+        session_store=store,
+        model=FakeModelClient(
+            stream_events=[
+                [
+                    ModelStreamEvent(
+                        event_type=ModelStreamEventType.TEXT_DELTA, delta="Hello",
+                    ),
+                    ModelStreamEvent(
+                        event_type=ModelStreamEventType.RESPONSE_COMPLETED,
+                        finish_reason="stop",
+                    ),
+                ],
+            ],
+            delay_ms=200,
+            repeat=True,
+        ),
+        system_prompt=lambda: "sys",
+        context_messages=lambda: [],
+        tool_registry_fn=lambda: ToolRegistry(),
+        active_tool_names_fn=lambda: (),
+    )
+
+    # Schedule a prompt and abort immediately
+    prompt_task = asyncio.create_task(session.prompt("hello"))
+    await asyncio.sleep(0)  # yield to let prompt() schedule _run_turn
+    session.abort()
+
+    result = await prompt_task
+    assert result.exit_reason == TurnExitReason.INTERRUPTED
+
+
+# ── Regression: pending-turn race — no gap between settled and pending ──
+
+@pytest.mark.asyncio
+async def test_pending_turn_no_gap():
+    """When a pending message is ready, _busy never goes False between turns."""
+    from haxjobs.agent_core.session import AgentSession
+    from haxjobs.agent_core.session_store import SessionStore
+
+    store = SessionStore(":memory:")
+    store.create_session("s1")
+
+    # Use repeated streams so multiple turns work
+    model = FakeModelClient(
+        stream_events=[
+            [
+                ModelStreamEvent(
+                    event_type=ModelStreamEventType.TEXT_DELTA, delta="ok",
+                ),
+                ModelStreamEvent(
+                    event_type=ModelStreamEventType.RESPONSE_COMPLETED,
+                    finish_reason="stop",
+                ),
+            ],
+        ],
+        repeat=True,
+    )
+
+    session = AgentSession(
+        session_id="s1",
+        session_store=store,
+        model=model,
+        system_prompt=lambda: "sys",
+        context_messages=lambda: [],
+        tool_registry_fn=lambda: ToolRegistry(),
+        active_tool_names_fn=lambda: (),
+    )
+
+    busy_snaps: list[bool] = []
+
+    async def _monitor():
+        for _ in range(20):
+            busy_snaps.append(session._busy)
+            await asyncio.sleep(0.005)
+
+    # Start a turn, send a second message while busy, then monitor
+    t1 = asyncio.create_task(session.prompt("first"))
+    await asyncio.sleep(0.02)  # let the turn start
+
+    # Send second message (will become pending)
+    await session.prompt("second")
+
+    monitor = asyncio.create_task(_monitor())
+    await t1  # wait for first turn to finish and pending to start
+    await asyncio.sleep(0.1)
+    monitor.cancel()
+    try:
+        await monitor
+    except asyncio.CancelledError:
+        pass
+
+    # _busy should stay True once it becomes True (no gap)
+    # Skip initial samples before the first turn started
+    found_true = False
+    for i, v in enumerate(busy_snaps):
+        if v:
+            found_true = True
+        if found_true and not v:
+            pytest.fail(f"_busy was False at snap {i} after it became True — gap detected")

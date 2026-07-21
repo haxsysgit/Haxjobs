@@ -109,6 +109,8 @@ def main(argv: list[str] | None = None):
                       help="Resume a specific session by ID")
     chat.add_argument("--fake", action="store_true",
                       help="Use fake model — no network")
+    chat.add_argument("--fake-delay", type=int, default=0, metavar="MS",
+                      help="Per-event delay for fake model (ms, cancellation tests)")
     chat.add_argument("--session-db", default=None,
                       help="Override session database path")
     chat.set_defaults(func=cmd_chat)
@@ -144,6 +146,9 @@ def main(argv: list[str] | None = None):
             print(f"Error: {exc}", file=sys.stderr)
             print("Run 'haxjobs migrate' first.", file=sys.stderr)
             return
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return
         asyncio.run(run_terminal(session))
         return
     args.func(args)
@@ -178,11 +183,15 @@ def cmd_chat(args) -> None:
         session = compose_session(
             session_id=session_id,
             fake=args.fake,
+            fake_delay_ms=args.fake_delay or 0,
             session_db_path=session_db,
         )
     except EmploymentSetupError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         print("Run 'haxjobs migrate' first.", file=sys.stderr)
+        return
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
         return
 
     asyncio.run(run_terminal(session))

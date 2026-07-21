@@ -109,10 +109,16 @@ class CareerStore:
 
     def __init__(self, db_path: str | Path):
         db_path = Path(db_path)
-        db_path.parent.mkdir(parents=True, exist_ok=True)
+        is_memory = str(db_path) == ":memory:"
+        if not is_memory:
+            db_path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(str(db_path))
         self._conn.row_factory = _row_factory
+        if not is_memory:
+            self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.executescript(_DDL)
+        if not is_memory:
+            db_path.chmod(0o600)
 
     def close(self) -> None:
         self._conn.close()

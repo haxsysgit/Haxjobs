@@ -51,6 +51,7 @@ class AgentSession:
         self._turn_count = 0
         self._session_started_emitted = False
         self._pending_message: str | None = None
+        self._cleanup_callbacks: list[Callable[[], None]] = []
 
     def subscribe(self, listener: LiveEventEmitter) -> Callable[[], None]:
         """Subscribe to live events. Returns an unsubscribe function."""
@@ -76,6 +77,20 @@ class AgentSession:
             except Exception as exc:
                 logger.warning("session subscriber error: %s", exc)
 
+    def add_cleanup(self, callback: Callable[[], None]) -> None:
+        """Register a cleanup callback called by close(). Domain-neutral."""
+        self._cleanup_callbacks.append(callback)
+
+    def close(self) -> None:
+        """Close the session store and run cleanup callbacks."""
+        for cb in self._cleanup_callbacks:
+            try:
+                cb()
+            except Exception:
+                pass
+        self._cleanup_callbacks.clear()
+        self._store.close()
+
     async def prompt(self, text: str) -> TurnResult:
         """Submit user text for a new turn. Queues if busy.
 
@@ -91,13 +106,13 @@ class AgentSession:
                         session_id=self.session_id,
                         turn_id="",
                         event_type=LiveEventType.USER_MESSAGE_ACCEPTED,
-                        text=f"Pending message replaced",
+                        text="Pending message replaced",
                     )
                 )
-            # Return a placeholder — caller should handle busy state
+            # Return a truthful typed result — not interrupted
             return TurnResult(
                 turn_id="",
-                exit_reason=TurnExitReason.INTERRUPTED,
+                exit_reason=TurnExitReason.QUEUED,
                 safe_failure="session busy, message queued",
             )
 
@@ -106,7 +121,6 @@ class AgentSession:
     async def _run_turn(self, text: str) -> TurnResult:
         """Execute one conversational turn."""
         self._busy = True
-        self._cancel_event.clear()
         turn_id = _tid()
         self._turn_count += 1
 
@@ -139,15 +153,90 @@ class AgentSession:
                 )
             )
 
+            # ── Honour any abort set before the turn started ──
+            # _cancel_event.clear() is delayed until after persistence so an abort
+            # delivered between prompt scheduling and _run_turn start is seen.
+            was_aborted = self._cancel_event.is_set()
+            self._cancel_event.clear()
+            if was_aborted:
+                self._emit(
+                    LiveEvent(
+                        session_id=self.session_id,
+                        turn_id=turn_id,
+                        event_type=LiveEventType.TURN_INTERRUPTED,
+                    )
+                )
+                self._store.mark_turn_settled(self.session_id, self._turn_count)
+                self._emit(
+                    LiveEvent(
+                        session_id=self.session_id,
+                        turn_id=turn_id,
+                        event_type=LiveEventType.SESSION_SETTLED,
+                    )
+                )
+                return TurnResult(
+                    turn_id=turn_id,
+                    exit_reason=TurnExitReason.INTERRUPTED,
+                    safe_failure="aborted before model call",
+                )
+
             # Get current system prompt, context, and tools
-            system_prompt = self._system_prompt_fn()
-            context_msgs = self._context_messages_fn()
-            tool_registry = self._tool_registry_fn()
-            active_tool_names = self._active_tool_names_fn()
+            try:
+                system_prompt = self._system_prompt_fn()
+                context_msgs = self._context_messages_fn()
+                tool_registry = self._tool_registry_fn()
+                active_tool_names = self._active_tool_names_fn()
+            except Exception as exc:
+                logger.error("host/context setup failed: %s", exc)
+                self._emit(
+                    LiveEvent(
+                        session_id=self.session_id,
+                        turn_id=turn_id,
+                        event_type=LiveEventType.TURN_FAILED,
+                        error="Host or context setup failed",
+                    )
+                )
+                self._store.mark_turn_settled(self.session_id, self._turn_count)
+                self._emit(
+                    LiveEvent(
+                        session_id=self.session_id,
+                        turn_id=turn_id,
+                        event_type=LiveEventType.SESSION_SETTLED,
+                    )
+                )
+                return TurnResult(
+                    turn_id=turn_id,
+                    exit_reason=TurnExitReason.MODEL_FAILED,
+                    safe_failure=f"host/context setup: {exc}",
+                )
 
             # Load canonical history
             stored = self._store.load_messages(self.session_id)
-            history = _parse_canonical_history(stored)
+            try:
+                history = _parse_canonical_history(stored)
+            except CanonicalParseError as exc:
+                logger.error("canonical parse error: %s", exc)
+                self._emit(
+                    LiveEvent(
+                        session_id=self.session_id,
+                        turn_id=turn_id,
+                        event_type=LiveEventType.TURN_FAILED,
+                        error=f"Session history corrupted: {exc}",
+                    )
+                )
+                self._store.mark_turn_settled(self.session_id, self._turn_count)
+                self._emit(
+                    LiveEvent(
+                        session_id=self.session_id,
+                        turn_id=turn_id,
+                        event_type=LiveEventType.SESSION_SETTLED,
+                    )
+                )
+                return TurnResult(
+                    turn_id=turn_id,
+                    exit_reason=TurnExitReason.MODEL_FAILED,
+                    safe_failure=f"canonical parse: {exc}",
+                )
 
             # Run turn
             result = await run_turn(
@@ -182,22 +271,26 @@ class AgentSession:
             return result
 
         finally:
-            self._busy = False
-
-            # Process pending message if any
+            # Process pending message if any — keep _busy=True across the chain
             pending = self._pending_message
             self._pending_message = None
             if pending is not None:
-                # Run the pending message asynchronously
-                # but don't await it (to avoid re-entrancy issues)
                 task = asyncio.create_task(self._run_turn(pending))
-                task.add_done_callback(
-                    lambda t: logger.error("pending turn failed: %s", t.exception())
-                    if t.exception() else None
-                )
+
+                def _safe_pending_done(t: asyncio.Task) -> None:
+                    try:
+                        exc = t.exception()
+                        if exc is not None:
+                            logger.error("pending turn failed: %s", exc)
+                    except Exception:
+                        pass
+
+                task.add_done_callback(_safe_pending_done)
+            else:
+                self._busy = False
 
     @classmethod
-    async def resume(
+    def resume(
         cls,
         session_id: str,
         session_store: SessionStore,
@@ -234,10 +327,17 @@ def _mid() -> str:
     return uuid.uuid4().hex[:12]
 
 
+class CanonicalParseError(Exception):
+    """Raised when stored session messages cannot be parsed."""
+
+
 def _parse_canonical_history(
     stored: list[dict],
 ) -> list[ConversationMessage]:
-    """Parse stored messages back into ConversationMessage objects."""
+    """Parse stored messages back into ConversationMessage objects.
+
+    Raises CanonicalParseError on any corrupt message instead of silently dropping.
+    """
     from haxjobs.agent_core.messages import (
         AssistantMessage,
         ToolCallMessage,
@@ -258,6 +358,14 @@ def _parse_canonical_history(
                 result.append(ToolCallMessage.model_validate(payload))
             elif kind == "tool_result":
                 result.append(ToolResultMessage.model_validate(payload))
+            else:
+                raise CanonicalParseError(
+                    f"Unknown message kind '{kind}' at sequence {row.get('sequence', '?')}"
+                )
+        except CanonicalParseError:
+            raise
         except Exception as exc:
-            logger.warning("failed to parse stored message kind=%s: %s", kind, exc)
+            raise CanonicalParseError(
+                f"Failed to parse kind={kind} at sequence {row.get('sequence', '?')}: {exc}"
+            ) from exc
     return result

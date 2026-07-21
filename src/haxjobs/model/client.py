@@ -175,7 +175,6 @@ class OpenAIModelClient:
             usage = None
             # Accumulate tool calls by index
             tool_call_builders: dict[int, dict] = {}
-            completed_tool_calls: set[str] = set()
 
             try:
                 async for chunk in stream:
@@ -260,9 +259,7 @@ class OpenAIModelClient:
                     builder["call_id"]
                     and builder["name"]
                     and builder["arguments"]
-                    and builder["call_id"] not in completed_tool_calls
                 ):
-                    completed_tool_calls.add(builder["call_id"])
                     yield ModelStreamEvent(
                         event_type=ModelStreamEventType.COMPLETE_TOOL_CALL,
                         call_id=builder["call_id"],
