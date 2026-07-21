@@ -424,5 +424,6 @@ def test_cli_profile_show():
 
 def test_tui_import():
     """TUI module imports cleanly."""
-    from haxjobs.interfaces.tui import HaxJobsTUI
-    assert HaxJobsTUI is not None
+    from haxjobs.interfaces.tui import HaxJobsChat, run_tui
+    assert HaxJobsChat is not None
+    assert run_tui is not None

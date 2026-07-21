@@ -1,234 +1,341 @@
-"""HaxJobs TUI — Textual app for browsing the career graph."""
+"""HaxJobs TUI — conversational agent chat interface."""
 
 from __future__ import annotations
 
+import asyncio
+import json
+from datetime import datetime, timezone
+from dataclasses import dataclass, field
+from typing import ClassVar
+
+from rich.markdown import Markdown
+from rich.panel import Panel
+from rich.text import Text
 from textual.app import App, ComposeResult
-from textual.containers import Container
-from textual.screen import Screen
-from textual.widgets import DataTable, Footer, Header, Static, Tree
 from textual.binding import Binding
+from textual.containers import Container, VerticalScroll
+from textual.reactive import reactive
+from textual.widgets import Footer, Header, Input, RichLog, Static
+from textual.worker import Worker, WorkerState
 
 from haxjobs.config import CAREER_DB_PATH
 from haxjobs.employment.store import CareerStore
 
 
-class _ProfileOverview(Screen):
-    """Top-level screen: person + track list."""
-
-    BINDINGS = [
-        Binding("q", "quit", "Quit", key_display="q"),
-        Binding("escape", "app.pop_screen", "Back", key_display="Esc"),
-        Binding("enter", "drill_track", "Track Detail", key_display="Enter"),
-    ]
-
-    CSS_PATH = None
-
-    def __init__(self, db_path: str):
-        super().__init__()
-        self._db_path = db_path
-
-    def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
-        yield Static("", id="person_info")
-        yield Static("", id="track_hint")
-        yield Tree("Career Tracks", id="track_tree")
-        yield Footer()
-
-    def on_mount(self) -> None:
-        store = CareerStore(self._db_path)
-        try:
-            person_rows = store._conn.execute("SELECT * FROM persons").fetchall()
-            self._track_map: dict[str, str] = {}
-
-            if not person_rows:
-                self.query_one("#person_info", Static).update(
-                    "[yellow]No profile data. Run 'haxjobs profile migrate' first.[/yellow]"
-                )
-                return
-
-            prow = person_rows[0]
-            self.query_one("#person_info", Static).update(
-                f"[bold]Person:[/bold] {prow['name']} ({prow['person_id']})  |  "
-                f"Location: {prow['location']}  |  Salary: {prow['salary_range']}"
-            )
-
-            tree = self.query_one("#track_tree", Tree)
-            tracks = store.list_tracks(prow["person_id"])
-            for track in tracks:
-                node = tree.root.add(track["name"])
-                node.data = track["track_id"]
-                self._track_map[track["name"]] = track["track_id"]
-
-            tree.focus()
-
-            self.query_one("#track_hint", Static).update(
-                "Use ↑↓ to navigate tracks, Enter to drill into track detail, q to quit"
-            )
-        finally:
-            store.close()
-
-    def action_drill_track(self) -> None:
-        tree = self.query_one("#track_tree", Tree)
-        node = tree.cursor_node
-        if node is not None and node.data:
-            self.app.push_screen(
-                _TrackDetail(node.data, node.label.plain if node.label else "Track", self._db_path)
-            )
+# ── simple message model ──
 
 
-class _TrackDetail(Screen):
-    """Track detail screen: skills, gaps, constraints, preferences."""
-
-    BINDINGS = [
-        Binding("q", "quit", "Quit", key_display="q"),
-        Binding("escape", "app.pop_screen", "Back", key_display="Esc"),
-        Binding("tab", "focus_next", "Next", key_display="Tab"),
-        Binding("enter", "drill_skill", "Skill Detail", key_display="Enter"),
-    ]
-
-    CSS_PATH = None
-
-    def __init__(self, track_id: str, track_name: str, db_path: str):
-        super().__init__()
-        self._track_id = track_id
-        self._track_name = track_name
-        self._db_path = db_path
-
-    def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
-        yield Static(f"[bold]Track:[/bold] {self._track_name} ({self._track_id})")
-        with Container(id="track_sections"):
-            yield Static("[bold]Skills:[/bold]")
-            yield Tree("Skills", id="skill_tree")
-            yield Static("[bold]Skill Gaps:[/bold]")
-            yield DataTable(id="gaps_table")
-            yield Static("[bold]Hard Constraints:[/bold]")
-            yield DataTable(id="constraints_table")
-            yield Static("[bold]Preferences:[/bold]")
-            yield DataTable(id="prefs_table")
-        yield Footer()
-
-    def on_mount(self) -> None:
-        store = CareerStore(self._db_path)
-        try:
-            # Skills tree
-            skill_tree = store.get_skill_tree(self._track_id)
-            tree = self.query_one("#skill_tree", Tree)
-            self._skill_map: dict[str, str] = {}
-            for sid, node in skill_tree.items():
-                self._add_skill_node(tree.root, node)
-
-            # Gaps
-            gaps = store.list_gaps(self._track_id)
-            gt = self.query_one("#gaps_table", DataTable)
-            gt.add_columns("Skill", "Target")
-            for g in gaps:
-                gt.add_row(g["skill_name"], g["target_proficiency"])
-
-            # Constraints
-            constraints = store.list_hard_constraints(self._track_id)
-            ct = self.query_one("#constraints_table", DataTable)
-            ct.add_column("Constraint")
-            for c in constraints:
-                ct.add_row(c["constraint_text"])
-
-            # Preferences
-            prefs = store.list_preferences(self._track_id)
-            pt = self.query_one("#prefs_table", DataTable)
-            pt.add_columns("Key", "Value", "Weight")
-            for p in prefs:
-                pt.add_row(p["key"], p["value"], p["weight"])
-        finally:
-            store.close()
-
-    def _add_skill_node(self, parent, node: dict) -> None:
-        prof_icon = {
-            "primary": "★",
-            "strong": "●",
-            "working": "○",
-            "learning": "·",
-        }.get(node.get("proficiency", "working"), "?")
-        label = f"{prof_icon} {node['name']} [{node['proficiency']}]"
-        child = parent.add(label)
-        child.data = node["skill_id"]
-        self._skill_map[node["name"]] = node["skill_id"]
-        for sub in node.get("children", []):
-            self._add_skill_node(child, sub)
-
-    def action_drill_skill(self) -> None:
-        tree = self.query_one("#skill_tree", Tree)
-        node = tree.cursor_node
-        if node is not None and node.data:
-            self.app.push_screen(
-                _SkillDetail(node.data, node.label.plain if node.label else "Skill", self._db_path)
-            )
+@dataclass
+class Message:
+    role: str  # "user" | "hax" | "tool" | "system"
+    content: str
+    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).strftime("%H:%M"))
+    tool_name: str | None = None
+    tool_ok: bool | None = None
 
 
-class _SkillDetail(Screen):
-    """Skill detail screen: metadata + linked evidence."""
-
-    BINDINGS = [
-        Binding("q", "quit", "Quit", key_display="q"),
-        Binding("escape", "app.pop_screen", "Back", key_display="Esc"),
-    ]
-
-    CSS_PATH = None
-
-    def __init__(self, skill_id: str, skill_label: str, db_path: str):
-        super().__init__()
-        self._skill_id = skill_id
-        self._skill_label = skill_label
-        self._db_path = db_path
-
-    def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
-        yield Static("", id="skill_info")
-        yield Static("[bold]Linked Evidence:[/bold]")
-        yield DataTable(id="evidence_table")
-        yield Footer()
-
-    def on_mount(self) -> None:
-        store = CareerStore(self._db_path)
-        try:
-            skill = store.get_skill(self._skill_id)
-            if skill:
-                self.query_one("#skill_info", Static).update(
-                    f"[bold]Skill:[/bold] {skill['name']} [{skill['proficiency']}] "
-                    f"({skill['skill_id']})"
-                )
-            evidence = store.list_evidence_for_skill(self._skill_id)
-            et = self.query_one("#evidence_table", DataTable)
-            et.add_columns("Label", "Source", "Verified")
-            for ev in evidence:
-                et.add_row(
-                    ev["label"],
-                    ev["source"],
-                    ev.get("verified_at", "never")[:19] if ev.get("verified_at") else "never",
-                )
-        finally:
-            store.close()
+# ── the chat app ──
 
 
-class HaxJobsTUI(App):
-    """Career graph TUI browser."""
+class HaxJobsChat(App):
+    """Terminal agent chat — like Pi but for your career."""
 
-    TITLE = "HaxJobs Career Graph"
-    SUB_TITLE = "Profile Browser"
+    TITLE = "HaxJobs"
+    SUB_TITLE = "your career agent"
     CSS = """
     Screen {
-        background: #1a1a2e;
+        background: #0d1117;
+    }
+
+    #chat-scroll {
+        height: 1fr;
+        padding: 1 2;
+        scrollbar-size: 0 0;
+    }
+
+    #input-area {
+        dock: bottom;
+        height: auto;
+        padding: 0 2 1 2;
+        background: #0d1117;
+    }
+
+    #user-input {
+        border: tall $accent;
+        background: #161b22;
+        color: #c9d1d9;
+        margin: 0;
+    }
+
+    #user-input:focus {
+        border: tall $accent-lighten-2;
+    }
+
+    RichLog {
+        background: #0d1117;
+        border: none;
+        padding: 0;
+    }
+
+    RichLog:focus {
+        border: none;
+    }
+
+    .hax-name {
+        color: #58a6ff;
+    }
+
+    .tool-ok {
+        color: #3fb950;
+    }
+
+    .tool-fail {
+        color: #f85149;
     }
     """
 
-    def __init__(self, db_path: str | None = None):
+    BINDINGS: ClassVar = [
+        Binding("ctrl+c", "quit", "Quit", show=False),
+    ]
+
+    messages_list: reactive[list[Message]] = reactive(list)
+
+    def __init__(self):
         super().__init__()
-        self._db_path = str(db_path or CAREER_DB_PATH)
+        self._store = CareerStore(str(CAREER_DB_PATH))
+        self._thinking = False
+
+    def compose(self) -> ComposeResult:
+        yield Header(show_clock=True)
+        yield VerticalScroll(RichLog(id="chat-log", highlight=True, markup=True, wrap=True), id="chat-scroll")
+        with Container(id="input-area"):
+            yield Input(placeholder="Message Hax...", id="user-input")
+        yield Footer()
 
     def on_mount(self) -> None:
-        self.push_screen(_ProfileOverview(self._db_path))
+        log = self.query_one("#chat-log", RichLog)
+        log.write("")
+
+        # Greeting
+        person = self._load_person_name()
+        self._add_message(
+            Message(
+                role="hax",
+                content=f"Yo, {person}. I'm Hax — your career agent. What do you want to work on?",
+            )
+        )
+
+        self.query_one("#user-input", Input).focus()
+
+    def _load_person_name(self) -> str:
+        try:
+            rows = self._store._conn.execute("SELECT name FROM persons LIMIT 1").fetchall()
+            if rows:
+                return rows[0]["name"]
+        except Exception:
+            pass
+        return "boss"
+
+    def _add_message(self, msg: Message) -> None:
+        log = self.query_one("#chat-log", RichLog)
+        ts = f"[dim]{msg.timestamp}[/dim]"
+
+        if msg.role == "user":
+            panel = Panel(
+                Text(msg.content, style="white"),
+                title=f"{ts} you",
+                title_align="right",
+                border_style="bright_blue",
+                padding=(0, 1),
+            )
+            log.write(panel)
+
+        elif msg.role == "hax":
+            panel = Panel(
+                Markdown(msg.content),
+                title=f"{ts} [bold bright_green]Hax[/bold bright_green]",
+                title_align="left",
+                border_style="green",
+                padding=(0, 1),
+            )
+            log.write(panel)
+
+        elif msg.role == "tool":
+            status = "[green]ok[/green]" if msg.tool_ok else "[red]failed[/red]"
+            name = msg.tool_name or "tool"
+            panel = Panel(
+                Text(msg.content[:300] + ("..." if len(msg.content) > 300 else ""), style="dim"),
+                title=f"{ts} [dim]🔧 {name} {status}[/dim]",
+                title_align="left",
+                border_style="yellow" if msg.tool_ok else "red",
+                padding=(0, 1),
+            )
+            log.write(panel)
+
+        self.messages_list.append(msg)
+
+    def _show_thinking(self) -> None:
+        self._thinking = True
+        log = self.query_one("#chat-log", RichLog)
+        log.write(Text("  ● ● ●", style="dim green"))
+        self.query_one("#user-input", Input).disabled = True
+
+    def _hide_thinking(self) -> None:
+        self._thinking = False
+        log = self.query_one("#chat-log", RichLog)
+        # RichLog doesn't support removing lines easily, so we just write the response after
+        self.query_one("#user-input", Input).disabled = False
+        self.query_one("#user-input", Input).focus()
+
+    async def on_input_submitted(self, event: Input.Submitted) -> None:
+        text = event.value.strip()
+        if not text:
+            return
+
+        event.input.value = ""
+
+        # Handle slash commands
+        if text.startswith("/"):
+            await self._handle_slash(text)
+            return
+
+        # Regular message
+        self._add_message(Message(role="user", content=text))
+        self._show_thinking()
+
+        try:
+            response = await self._call_agent(text)
+            self._hide_thinking()
+            self._add_message(Message(role="hax", content=response))
+        except Exception as exc:
+            self._hide_thinking()
+            self._add_message(
+                Message(
+                    role="hax",
+                    content=f"Something broke: {exc}",
+                )
+            )
+
+    async def _handle_slash(self, text: str) -> None:
+        cmd = text.lower().strip()
+
+        if cmd in ("/quit", "/q", "/exit"):
+            self.exit()
+            return
+
+        if cmd in ("/help", "/h"):
+            help_text = (
+                "**Commands:**\n"
+                "- `/help` — this message\n"
+                "- `/quit` — exit\n"
+                "- `/profile` — show your career graph\n"
+                "- `/clear` — clear chat\n\n"
+                "Just type to talk to me about jobs, your career, or anything job-search related."
+            )
+            self._add_message(Message(role="hax", content=help_text))
+            return
+
+        if cmd in ("/profile", "/p"):
+            self._add_message(Message(role="user", content=text))
+            profile_text = self._build_profile_summary()
+            self._add_message(Message(role="hax", content=profile_text))
+            return
+
+        if cmd in ("/clear", "/c"):
+            log = self.query_one("#chat-log", RichLog)
+            log.clear()
+            self.messages_list = []
+            return
+
+        self._add_message(Message(role="hax", content=f"Unknown command: {text}. Try /help."))
+
+    def _build_profile_summary(self) -> str:
+        try:
+            store = self._store
+            rows = store._conn.execute("SELECT * FROM persons LIMIT 1").fetchall()
+            if not rows:
+                return "No profile data. Run `haxjobs migrate` first."
+
+            person = rows[0]
+            tracks = store.list_tracks(person["person_id"])
+            parts = [
+                f"## {person['name']}",
+                f"**Location:** {person['location']}",
+                f"**Salary range:** {person['salary_range']}",
+                f"**Work authorization:** {person['work_authorization']}",
+                "",
+            ]
+
+            for t in tracks:
+                parts.append(f"### {t['name']}")
+                skills = store.list_skills(t["track_id"])
+                if skills:
+                    skill_names = [f"{s['name']} ({s['proficiency']})" for s in skills]
+                    parts.append(f"**Skills:** {', '.join(skill_names)}")
+                gaps = store.list_gaps(t["track_id"])
+                if gaps:
+                    gap_names = [g["skill_name"] for g in gaps]
+                    parts.append(f"**Gaps:** {', '.join(gap_names)}")
+                parts.append("")
+
+            return "\n".join(parts)
+        except Exception as exc:
+            return f"Couldn't load profile: {exc}"
+
+    async def _call_agent(self, user_message: str) -> str:
+        """Call the agent loop with the user's message."""
+        from haxjobs.agent_core.runtime import run_stage0, RunRequest
+        from haxjobs.agent_core.types import RunExitReason
+        from haxjobs.employment.review_job import build_stage1_tools, assemble_job_review_request
+        from haxjobs.model.fake import FakeModelClient
+
+        # For now: use fake model to avoid requiring provider credentials in TUI
+        # The fake model returns a canned response acknowledging the message
+        fake = FakeModelClient(responses=[])
+
+        system = self._build_system_prompt()
+        request = RunRequest(system_message=system, user_message=user_message)
+
+        result = await run_stage0(request, model=fake)
+
+        if result.exit_reason == RunExitReason.COMPLETED:
+            parts = result.response_parts or []
+            if parts:
+                return parts[-1].get("text", str(parts[-1]))
+            return "I processed that but don't have a clear answer yet."
+
+        return f"[Agent loop ended: {result.exit_reason.value}]"
+
+    def _build_system_prompt(self) -> str:
+        """Build the chat system prompt with Hax identity and profile context."""
+        profile_blurb = ""
+        try:
+            store = self._store
+            rows = store._conn.execute("SELECT * FROM persons LIMIT 1").fetchall()
+            if rows:
+                p = rows[0]
+                profile_blurb = (
+                    f"You are talking to {p['name']}, a {p['location']}-based "
+                    f"software engineer looking for backend/AI roles. "
+                    f"Salary target: {p['salary_range']}. "
+                    f"Work authorization: {p['work_authorization']}."
+                )
+        except Exception:
+            pass
+
+        return (
+            "You are Hax, a career agent. You help people find jobs, evaluate fit, "
+            "prepare applications, and navigate their career.\n\n"
+            "Your style: sharp, direct, like a smart friend. No corporate speak. "
+            "No em dashes. Short sentences. Concrete details.\n\n"
+            f"{profile_blurb}\n\n"
+            "You have access to tools but only use them when asked. "
+            "Respond naturally to conversation. If someone asks about their profile, "
+            "tell them to try /profile."
+        )
 
 
 def run_tui(db_path: str | None = None) -> None:
     """Entry point for the TUI."""
-    app = HaxJobsTUI(db_path)
+    app = HaxJobsChat()
     app.run()

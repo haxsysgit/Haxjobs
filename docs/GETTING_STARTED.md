@@ -36,12 +36,12 @@ Or explicitly:
 haxjobs tui
 ```
 
-**Navigation:**
-- `↑↓` — move between tracks
-- `Enter` — drill into a track (see skills, evidence, gaps)
-- `Tab` — switch between panels (skills / gaps / constraints / preferences)
-- `Esc` — go back
-- `q` — quit
+You're dropped into a chat with Hax, your career agent. Type messages and Hax responds. Slash commands:
+
+- `/help` — show commands
+- `/profile` — view your career graph
+- `/clear` — clear chat
+- `/quit` — exit
 
 ## CLI commands
 
