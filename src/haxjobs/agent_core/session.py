@@ -49,6 +49,7 @@ class AgentSession:
         self._cancel_event = asyncio.Event()
         self._busy = False
         self._turn_count = 0
+        self._session_started_emitted = False
         self._pending_message: str | None = None
 
     def subscribe(self, listener: LiveEventEmitter) -> Callable[[], None]:
@@ -108,6 +109,17 @@ class AgentSession:
         self._cancel_event.clear()
         turn_id = _tid()
         self._turn_count += 1
+
+        # Emit SESSION_STARTED exactly once, on the first turn
+        if not self._session_started_emitted:
+            self._session_started_emitted = True
+            self._emit(
+                LiveEvent(
+                    session_id=self.session_id,
+                    turn_id=turn_id,
+                    event_type=LiveEventType.SESSION_STARTED,
+                )
+            )
 
         try:
             # Persist user message before any provider call
@@ -178,7 +190,11 @@ class AgentSession:
             if pending is not None:
                 # Run the pending message asynchronously
                 # but don't await it (to avoid re-entrancy issues)
-                asyncio.create_task(self._run_turn(pending))
+                task = asyncio.create_task(self._run_turn(pending))
+                task.add_done_callback(
+                    lambda t: logger.error("pending turn failed: %s", t.exception())
+                    if t.exception() else None
+                )
 
     @classmethod
     async def resume(

@@ -201,3 +201,25 @@ async def test_unsubscribe_works(store: SessionStore):
     # Second turn — subscriber should not receive events
     await session.prompt("second")
     assert len(events) == 0
+
+
+# ── Regression: SESSION_STARTED emitted exactly once (M3) ──
+
+@pytest.mark.asyncio
+async def test_session_started_emitted_once(store: SessionStore):
+    session = _make_session(store, model_count=2)
+    events: list[LiveEvent] = []
+    session.subscribe(lambda e: events.append(e))
+
+    await session.prompt("first turn")
+
+    started_events = [e for e in events if e.event_type == LiveEventType.SESSION_STARTED]
+    assert len(started_events) == 1, (
+        f"Expected exactly 1 SESSION_STARTED, got {len(started_events)}"
+    )
+    assert started_events[0].session_id == "s1"
+
+    # Second turn — no additional SESSION_STARTED
+    await session.prompt("second turn")
+    started_events_2 = [e for e in events if e.event_type == LiveEventType.SESSION_STARTED]
+    assert len(started_events_2) == 1, "SESSION_STARTED emitted more than once"

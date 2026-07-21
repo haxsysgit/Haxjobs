@@ -677,3 +677,196 @@ async def test_history_includes_prior_turns():
     roles = [m.role for m in request_messages]
     assert "user" in roles
     assert "assistant" in roles
+
+
+# ── Regression: unsafe tool calls rejected (F1) ──
+
+@pytest.mark.asyncio
+async def test_unsafe_tool_calls_rejected():
+    """COMPLETE_TOOL_CALL with tool_calls_unsafe=True is not dispatched."""
+    events: list[LiveEvent] = []
+    registry = ToolRegistry()
+
+    from pydantic import BaseModel
+
+    class _DummyInput(BaseModel):
+        value: str
+
+    class _DummyOutput(BaseModel):
+        ok: bool
+
+    async def dummy_handler(input_obj):
+        return {"ok": True, "data": input_obj.value}
+
+    registry.register(
+        ToolDefinition(
+            name="dummy",
+            description="a dummy tool",
+            input_model=_DummyInput,
+            output_model=_DummyOutput,
+            handler=dummy_handler,
+        )
+    )
+
+    fake = FakeModelClient(
+        responses=[],
+        stream_events=[
+            [
+                ModelStreamEvent(
+                    event_type=ModelStreamEventType.COMPLETE_TOOL_CALL,
+                    call_id="unsafe_1",
+                    tool_name="dummy",
+                    arguments='{"value": "should not execute"}',
+                    tool_calls_unsafe=True,
+                ),
+                ModelStreamEvent(
+                    event_type=ModelStreamEventType.RESPONSE_COMPLETED,
+                    finish_reason="length",
+                ),
+            ],
+        ],
+    )
+    cancel = asyncio.Event()
+
+    result = await run_turn(
+        session_id="s1",
+        turn_id="t1",
+        model=fake,
+        system_prompt="sys",
+        context_messages=[],
+        history=[],
+        tool_registry=registry,
+        active_tools=("dummy",),
+        cancel_event=cancel,
+        emit=_fake_emit(events),
+    )
+
+    assert result.exit_reason == TurnExitReason.COMPLETED
+    # No tool calls were dispatched — only assistant message
+    tool_msgs = [m for m in result.new_messages if m.kind in ("tool_call", "tool_result")]
+    assert len(tool_msgs) == 0
+
+    # TOOL_FAILED with tool_calls_unsafe should have been emitted
+    tool_failed_events = [e for e in events if e.event_type == LiveEventType.TOOL_FAILED]
+    assert len(tool_failed_events) >= 1
+    assert tool_failed_events[0].error_code == "tool_calls_unsafe"
+
+
+# ── Regression: single TURN_FAILED emission (F2) ──
+
+@pytest.mark.asyncio
+async def test_single_turn_failed_emission():
+    """RESPONSE_FAILED path emits TURN_FAILED exactly once."""
+    events: list[LiveEvent] = []
+
+    fake = FakeModelClient(
+        responses=[],
+        stream_events=[
+            [
+                ModelStreamEvent(
+                    event_type=ModelStreamEventType.RESPONSE_FAILED,
+                    error="provider error",
+                    category="provider_error",
+                ),
+            ],
+        ],
+    )
+    cancel = asyncio.Event()
+
+    result = await run_turn(
+        session_id="s1",
+        turn_id="t1",
+        model=fake,
+        system_prompt="sys",
+        context_messages=[],
+        history=[],
+        tool_registry=ToolRegistry(),
+        active_tools=(),
+        cancel_event=cancel,
+        emit=_fake_emit(events),
+    )
+
+    assert result.exit_reason == TurnExitReason.MODEL_FAILED
+    turn_failed_events = [e for e in events if e.event_type == LiveEventType.TURN_FAILED]
+    assert len(turn_failed_events) == 1, (
+        f"Expected exactly 1 TURN_FAILED, got {len(turn_failed_events)}"
+    )
+
+
+# ── Regression: responsive tool cancellation (F3) ──
+
+@pytest.mark.asyncio
+async def test_responsive_tool_cancellation():
+    """Tool dispatch is cancelled promptly when cancel_event is set mid-execution."""
+    import time as time_mod
+    from pydantic import BaseModel
+
+    events: list[LiveEvent] = []
+    registry = ToolRegistry()
+
+    class _SlowInput(BaseModel):
+        value: str
+
+    class _SlowOutput(BaseModel):
+        ok: bool
+
+    async def slow_handler(input_obj):
+        await asyncio.sleep(5)  # long enough to be interrupted
+        return {"ok": True}
+
+    registry.register(
+        ToolDefinition(
+            name="slow",
+            description="slow",
+            input_model=_SlowInput,
+            output_model=_SlowOutput,
+            handler=slow_handler,
+        )
+    )
+
+    fake = FakeModelClient(
+        responses=[],
+        stream_events=[
+            [
+                ModelStreamEvent(
+                    event_type=ModelStreamEventType.COMPLETE_TOOL_CALL,
+                    call_id="c1",
+                    tool_name="slow",
+                    arguments='{"value": "test"}',
+                ),
+                ModelStreamEvent(
+                    event_type=ModelStreamEventType.RESPONSE_COMPLETED,
+                    finish_reason="tool_calls",
+                ),
+            ],
+        ],
+    )
+    cancel = asyncio.Event()
+
+    start = time_mod.monotonic()
+
+    async def _run_with_cancel():
+        task = asyncio.create_task(
+            run_turn(
+                session_id="s1",
+                turn_id="t1",
+                model=fake,
+                system_prompt="sys",
+                context_messages=[],
+                history=[],
+                tool_registry=registry,
+                active_tools=("slow",),
+                cancel_event=cancel,
+                emit=_fake_emit(events),
+            )
+        )
+        await asyncio.sleep(0.05)
+        cancel.set()
+        return await task
+
+    result = await _run_with_cancel()
+    elapsed = time_mod.monotonic() - start
+
+    assert result.exit_reason == TurnExitReason.INTERRUPTED
+    # Must complete within 2 seconds — proves cancellation didn't wait for 5s tool
+    assert elapsed < 2.0, f"Cancellation took {elapsed:.2f}s, expected < 2s"

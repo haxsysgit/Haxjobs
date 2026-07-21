@@ -225,3 +225,103 @@ def test_terminal_does_not_import_provider():
     assert "FakeModelClient" not in str(tmod.__dict__)
     assert not hasattr(tmod, "OpenAIModelClient")
     assert not hasattr(tmod, "FakeModelClient")
+
+
+# ── Regression: Tool events rendered from LiveEvents (Finding 6) ──
+
+def test_tool_started_event_rendered():
+    """TOOL_STARTED events produce visible output."""
+    from io import StringIO
+    client = TerminalClient(mock.MagicMock(), show_session_info=False)
+    output = StringIO()
+
+    with mock.patch("sys.stdout", output):
+        client._on_event(
+            LiveEvent(
+                session_id="s1",
+                turn_id="t1",
+                event_type=LiveEventType.TOOL_STARTED,
+                tool_name="inspect_job_source",
+                call_id="c1",
+            )
+        )
+
+    result = output.getvalue()
+    assert "inspect_job_source" in result
+    # Should have the "..." indicator
+    assert "..." in result
+
+
+def test_tool_completed_event_rendered():
+    """TOOL_COMPLETED events produce visible output with duration."""
+    from io import StringIO
+    client = TerminalClient(mock.MagicMock(), show_session_info=False)
+    output = StringIO()
+
+    with mock.patch("sys.stdout", output):
+        client._on_event(
+            LiveEvent(
+                session_id="s1",
+                turn_id="t1",
+                event_type=LiveEventType.TOOL_COMPLETED,
+                tool_name="inspect_job_source",
+                tool_status="ok",
+                tool_duration_ms=150.0,
+            )
+        )
+
+    result = output.getvalue()
+    assert "ok" in result
+    assert "150ms" in result
+
+
+def test_tool_failed_event_rendered():
+    """TOOL_FAILED events produce visible error output."""
+    from io import StringIO
+    client = TerminalClient(mock.MagicMock(), show_session_info=False)
+    output = StringIO()
+
+    with mock.patch("sys.stdout", output):
+        client._on_event(
+            LiveEvent(
+                session_id="s1",
+                turn_id="t1",
+                event_type=LiveEventType.TOOL_FAILED,
+                tool_name="inspect_job_source",
+                error_code="unknown_job_ref",
+                error="Job ref not recognized",
+            )
+        )
+
+    result = output.getvalue()
+    assert "FAILED" in result
+    assert "unknown_job_ref" in result
+
+
+def test_tool_progress_event_rendered():
+    """TOOL_PROGRESS events produce visible dots or text."""
+    from io import StringIO
+    client = TerminalClient(mock.MagicMock(), show_session_info=False)
+    output = StringIO()
+
+    with mock.patch("sys.stdout", output):
+        client._on_event(
+            LiveEvent(
+                session_id="s1",
+                turn_id="t1",
+                event_type=LiveEventType.TOOL_PROGRESS,
+                text="loading...",
+            )
+        )
+
+    result = output.getvalue()
+    assert "loading..." in result
+
+
+# ── Regression: TerminalClient tracks prompt tasks (Finding 5) ──
+
+def test_terminal_client_has_prompt_task_tracking():
+    """TerminalClient initializes with _prompt_tasks set."""
+    client = TerminalClient(mock.MagicMock(), show_session_info=False)
+    assert hasattr(client, "_prompt_tasks")
+    assert isinstance(client._prompt_tasks, set)

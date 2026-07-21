@@ -40,6 +40,7 @@ class TerminalClient:
     def __init__(self, session, *, show_session_info: bool = True):
         self._session = session
         self._show_session_info = show_session_info
+        self._prompt_tasks: set[asyncio.Task] = set()
 
     async def run(self) -> None:
         """Run the interactive terminal loop."""
@@ -55,6 +56,16 @@ class TerminalClient:
         try:
             await self._input_loop()
         finally:
+            # Abort any ongoing turn and settle prompt tasks before exit
+            self._session.abort()
+            for task in list(self._prompt_tasks):
+                if not task.done():
+                    task.cancel()
+                    try:
+                        await task
+                    except (asyncio.CancelledError, Exception):
+                        pass
+            self._prompt_tasks.clear()
             unsub()
 
     def _on_event(self, event: LiveEvent) -> None:
@@ -79,19 +90,27 @@ class TerminalClient:
                 sys.stdout.flush()
 
             elif event.event_type == LiveEventType.TOOL_REQUESTED:
-                pass  # Tool lifecycle below
+                pass  # Implicit — tool lifecycle below
 
             elif event.event_type == LiveEventType.TOOL_STARTED:
-                pass
+                sys.stdout.write(f"\n  [{event.tool_name}] ...")
+                sys.stdout.flush()
 
             elif event.event_type == LiveEventType.TOOL_PROGRESS:
-                pass
+                if event.text:
+                    sys.stdout.write(f" {event.text}")
+                else:
+                    sys.stdout.write(".")
+                sys.stdout.flush()
 
             elif event.event_type == LiveEventType.TOOL_COMPLETED:
-                pass
+                dur = f" ({event.tool_duration_ms:.0f}ms)" if event.tool_duration_ms else ""
+                sys.stdout.write(f" ok{dur}\n")
+                sys.stdout.flush()
 
             elif event.event_type == LiveEventType.TOOL_FAILED:
-                pass
+                sys.stdout.write(f" FAILED: {event.error_code or event.error or 'error'}\n")
+                sys.stdout.flush()
 
             elif event.event_type == LiveEventType.TURN_INTERRUPTED:
                 sys.stdout.write("\n[interrupted]\n")
@@ -161,8 +180,16 @@ class TerminalClient:
                     if not text:
                         continue
 
-                    # Submit to session
-                    result = await self._session.prompt(text)
+                    # Fire session.prompt as a task — do NOT await it inline.
+                    # This keeps the input loop active so Escape can call abort
+                    # and Enter can use the one-slot busy policy.
+                    task = asyncio.ensure_future(self._session.prompt(text))
+                    self._prompt_tasks.add(task)
+                    task.add_done_callback(lambda t: self._prompt_tasks.discard(t))
+                    task.add_done_callback(
+                        lambda t: logger.error("prompt task failed: %s", t.exception())
+                        if t.exception() else None
+                    )
 
                 except EOFError:
                     break

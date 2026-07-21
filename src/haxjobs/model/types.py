@@ -89,6 +89,7 @@ class ModelStreamEvent(BaseModel):
     call_id: str = ""
     tool_name: str = ""
     arguments: str = ""  # accumulated raw JSON
+    tool_calls_unsafe: bool = False  # true when finish_reason was "length"
     finish_reason: str = ""
     usage: ModelUsage | None = None
     model: str = ""

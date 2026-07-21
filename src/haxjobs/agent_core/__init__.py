@@ -16,7 +16,6 @@ from haxjobs.agent_core.runtime import run_stage0
 from haxjobs.agent_core.tools import ToolDefinition, ToolRegistry
 
 __all__ = [
-
     "ArtifactWriter",
     "RunEvent",
     "RunEventType",

@@ -115,13 +115,31 @@ def main(argv: list[str] | None = None):
 
     args = parser.parse_args(argv)
     if not hasattr(args, "func"):
-        # Default: open chat if no subcommand given
+        # Default: open or resume latest session (same as `haxjobs chat`)
         from haxjobs.interfaces.terminal import run_terminal
         from haxjobs.employment.composition import compose_session
         from haxjobs.employment.host import EmploymentSetupError
+        from haxjobs.agent_core.session_store import SessionStore
+        from haxjobs.config import SESSION_DB_PATH
 
         try:
-            session = compose_session(fake=False)
+            session_id = None
+            # Try to resume latest session first
+            store = SessionStore(str(SESSION_DB_PATH))
+            try:
+                latest = store.latest_session_id()
+                if latest:
+                    session_id = latest
+            finally:
+                store.close()
+
+            if session_id:
+                print(f"Resuming session: {session_id}")
+
+            session = compose_session(
+                session_id=session_id,
+                fake=False,
+            )
         except EmploymentSetupError as exc:
             print(f"Error: {exc}", file=sys.stderr)
             print("Run 'haxjobs migrate' first.", file=sys.stderr)

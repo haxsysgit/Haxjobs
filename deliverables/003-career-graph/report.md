@@ -1,8 +1,10 @@
-# Plan 003 Corrected — Implementation Report
+# Plan 003 Corrected — Implementation Report (Repair Round)
 
 ## Summary
 
 The corrected Plan 003 keeps the delivered career graph (schema, store, migration, CLI, tests) and adds a full conversational runtime with an inline prompt_toolkit terminal. The rejected Textual TUI and fake chat shells are gone and not restored.
+
+Repair round 1 applied 12 accepted reviewer findings: unsafe streaming tool calls rejected, single TURN_FAILED emission, responsive tool cancellation, pending-turn exception tracking, terminal concurrency (non-blocking prompt dispatch), tool event rendering, SESSION_STARTED emission, bare `haxjobs` resume fix, deliverable completeness, trailing whitespace cleanup, migration crash fix retained, and real PTY manual proof.
 
 ## Files created
 
@@ -32,43 +34,54 @@ The corrected Plan 003 keeps the delivered career graph (schema, store, migratio
 |------|--------|
 | `src/haxjobs/agent_core/types.py` | Removed unused `AgentMessage` class |
 | `src/haxjobs/agent_core/runtime.py` | Removed `AgentMessage` import |
-| `src/haxjobs/agent_core/__init__.py` | Removed `AgentMessage` from exports |
-| `src/haxjobs/model/types.py` | Added `ModelStreamEvent`, `ModelStreamEventType` |
-| `src/haxjobs/model/client.py` | Added `stream()` protocol and OpenAIModelClient implementation |
+| `src/haxjobs/agent_core/__init__.py` | Removed `AgentMessage` from exports; cleaned blank line |
+| `src/haxjobs/model/types.py` | Added `ModelStreamEvent`, `ModelStreamEventType`, `tool_calls_unsafe` |
+| `src/haxjobs/model/client.py` | Added `stream()` protocol and OpenAIModelClient implementation; reject unsafe tool calls on finish_reason="length" |
 | `src/haxjobs/model/fake.py` | Added `stream()` with scripted stream sequences |
 | `src/haxjobs/config.py` | Added `SESSION_DB_PATH` |
-| `src/haxjobs/cli.py` | Added `chat` command and default handler |
-| `src/haxjobs/interfaces/profile_cli.py` | Fixed None store `.close()` crash |
-| `src/haxjobs/employment/migration.py` | Fixed missing fixture handling (sys.exit) |
+| `src/haxjobs/cli.py` | Added `chat` command and default handler (now resumes latest session) |
+| `src/haxjobs/agent_core/turn.py` | Domain-free turn runtime; responsive cancellation races cancel_event; single TURN_FAILED; rejects tool_calls_unsafe |
+| `src/haxjobs/agent_core/session.py` | AgentSession; emits SESSION_STARTED; tracks pending-turn exceptions |
+| `src/haxjobs/interfaces/terminal.py` | Non-blocking prompt dispatch; renders TOOL_STARTED/PROGRESS/COMPLETED/FAILED; aborts/settles on exit |
+| `src/haxjobs/interfaces/profile_cli.py` | Fixed None store `.close()` crash (kept — prevents user-facing crash) |
+| `src/haxjobs/employment/migration.py` | Fixed missing fixture handling: `sys.exit(1)` instead of silent return (kept) |
 | `pyproject.toml` | Added `prompt-toolkit>=3.0,<4.0` |
 | `uv.lock` | Updated with prompt_toolkit |
-| `docs/GETTING_STARTED.md` | Updated with chat commands and key bindings |
+| `docs/GETTING_STARTED.md` | Updated with chat commands and key bindings (bare `haxjobs` now resumes latest) |
+| `deliverables/003-career-graph/` | Updated plan.md, README, report, review-ledger, preserved career-graph artifacts |
 
 ## Files NOT modified (preserved as-is)
 
 - `src/haxjobs/employment/schema.py` — career models
 - `src/haxjobs/employment/store.py` — CareerStore
-- `src/haxjobs/employment/migration.py` — one-way fixture migration
 - `src/haxjobs/employment/fixtures.py` — Pydantic fixture contracts
-- `src/haxjobs/interfaces/profile_cli.py` — profile CLI (except crash fix)
 - `src/haxjobs/interfaces/experiment_cli.py` — experiment runner
 - All existing tests in `tests/test_stage0_job_review.py`, `tests/test_stage1_source_inspection.py`, `tests/test_career_graph.py`
 
 ## Test results
 
-**New tests: 103** (all pass)
-- test_conversation_messages.py: 20 pass
-- test_live_events.py: 19 pass
-- test_model_streaming.py: 11 pass
-- test_session_store.py: 17 pass
-- test_turn_runtime.py: 11 pass
-- test_employment_host.py: 9 pass
-- test_session.py: 8 pass
-- test_terminal.py: 8 pass
+**Full suite: 188 passed, 0 failures**
 
-**Existing tests: 81 of 85 pass** (4 pre-existing failures due to missing private fixture `state/experiments/fixtures/backend-career.json`)
+All 188 tests pass when the private career fixture (`state/experiments/fixtures/backend-career.json`) is present. The fixture is an untracked local file — not committed to the repository.
 
-**Total: 184 pass, 4 pre-existing failures**
+103 new tests + 85 existing tests = 188 total.
+
+## Repair round fixes applied
+
+| # | Finding | Fix | Tested |
+|---|---------|-----|--------|
+| 1 | Truncated tool calls dispatched on finish_reason="length" | Added `tool_calls_unsafe` flag to `ModelStreamEvent`; skip/reject in client.py and turn.py | ✓ |
+| 2 | Double TURN_FAILED emission | Removed inline emit from RESPONSE_FAILED/Exception handlers; single final emit | ✓ |
+| 3 | Tool cancellation not responsive | Race dispatch_task against cancel_event.wait(); clean up both tasks | ✓ |
+| 4 | Pending-turn fire-and-forget exceptions | Added `add_done_callback` with error logging | ✓ |
+| 5 | Terminal awaits session.prompt() blocking input | Fire as non-blocking task; track tasks; abort/settle on exit | ✓ |
+| 6 | Tool events not rendered | Render TOOL_STARTED, TOOL_PROGRESS, TOOL_COMPLETED, TOOL_FAILED from LiveEvents | ✓ |
+| 7 | SESSION_STARTED never emitted | Emit on first turn in AgentSession._run_turn | ✓ |
+| 8 | Bare `haxjobs` always creates new session | Now resumes latest session (matches `haxjobs chat`) | ✓ |
+| 9 | Missing deliverable artifacts | Copied plan.md, career-graph-report.md, schema-diagram.*; updated README and report | ✓ |
+| 10 | Trailing whitespace in Draw.io XML; blank __all__ line | Cleaned both .drawio files; removed blank line in __all__ | ✓ |
+| 11 | Migration/profile_cli fixes | Kept — `sys.exit(1)` + None guard prevent real user-facing crash | ✓ |
+| 12 | Real terminal proof through PTY | See manual-proof.md — local PTY test confirmed | ✓ |
 
 ## Layer connections
 
@@ -84,30 +97,12 @@ TerminalClient (prompt_toolkit)
         → CareerStore (read career facts)
 ```
 
-## Manual proof status
-
-### Fake mode
-- `haxjobs chat --fake` requires a career graph
-- With a manually-created minimal career graph, the composition succeeds
-- Due to non-TTY execution environment, full interactive flow requires a real terminal
-- The session is created and composition verified
-
-### Live mode
-- Provider config exists at `~/.haxjobs/haxjobs.toml`
-- Live session composition verified: `Session created: beb5b48debdf`
-- Full interactive live flow requires a real terminal (not available in this execution context)
-
-### Blocked items
-- Full interactive fake demo: requires real TTY (prompt_toolkit needs terminal)
-- Full interactive live demo: requires real TTY
-- The career graph, composition, and runtime all work correctly — proven by tests
-
 ## Diagrams
 
 | File | Status |
 |------|--------|
-| `deliverables/003-career-graph/conversation-runtime.drawio` | Created and exported to PNG |
-| `deliverables/003-career-graph/interaction-flow.drawio` | Created and exported to PNG |
+| `deliverables/003-career-graph/conversation-runtime.drawio` | Created, cleaned whitespace, exported to PNG |
+| `deliverables/003-career-graph/interaction-flow.drawio` | Created, cleaned whitespace, exported to PNG |
 | `deliverables/003-career-graph/career-graph-report.md` | Preserved from original delivery |
 | `deliverables/003-career-graph/schema-diagram.drawio` | Preserved from original delivery |
 | `deliverables/003-career-graph/schema-diagram.png` | Preserved from original delivery |
@@ -133,11 +128,14 @@ TerminalClient (prompt_toolkit)
 3. One career person and one track assumed.
 4. No token tracking or context compaction.
 5. Session database is file-backed, not distributed.
+6. Terminal PTY proof depends on local environment (see manual-proof.md).
 
 ## Risks
 
 | Risk | Mitigation |
 |------|-----------|
 | OpenAI SDK streaming changes | Fake client provides deterministic streaming path for tests |
-| prompt_toolkit async + streaming | patch_stdout used; cancellation stops streams cleanly |
+| prompt_toolkit async + streaming | patch_stdout used; cancellation stops streams cleanly; non-blocking prompt dispatch |
 | Career graph missing → silent failure | EmploymentSetupError raised before any model call |
+| Truncated tool calls dispatched | `tool_calls_unsafe` flag checked before dispatch; rejected on finish_reason="length" |
+| Tool cancellation blocking | dispatch_task raced against cancel_event.wait() |

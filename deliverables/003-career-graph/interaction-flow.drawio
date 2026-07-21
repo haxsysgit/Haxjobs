@@ -5,7 +5,7 @@
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
-        
+
         <!-- Participants as swimlanes -->
         <mxCell id="lane-user" value="User" style="swimlane;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" vertex="1" parent="1">
           <mxGeometry x="40" y="40" width="160" height="700" as="geometry"/>
@@ -25,7 +25,7 @@
         <mxCell id="lane-host" value="Host / Store" style="swimlane;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" vertex="1" parent="1">
           <mxGeometry x="890" y="40" width="160" height="700" as="geometry"/>
         </mxCell>
-        
+
         <!-- Step 1: Submit -->
         <mxCell id="step1-label" value="1. Submit" style="text;html=1;fontSize=11;fontStyle=1;align=left;" vertex="1" parent="1">
           <mxGeometry x="40" y="100" width="100" height="20" as="geometry"/>
@@ -36,7 +36,7 @@
             <mxPoint x="210" y="130" as="targetPoint"/>
           </mxGeometry>
         </mxCell>
-        
+
         <!-- Step 2: Persist user msg -->
         <mxCell id="step2-label" value="2. Persist" style="text;html=1;fontSize=11;fontStyle=1;align=left;" vertex="1" parent="1">
           <mxGeometry x="210" y="140" width="100" height="20" as="geometry"/>
@@ -47,7 +47,7 @@
             <mxPoint x="380" y="170" as="targetPoint"/>
           </mxGeometry>
         </mxCell>
-        
+
         <!-- Step 3: Assemble context -->
         <mxCell id="step3-label" value="3. Assemble context" style="text;html=1;fontSize=11;fontStyle=1;align=left;" vertex="1" parent="1">
           <mxGeometry x="380" y="190" width="140" height="20" as="geometry"/>
@@ -71,7 +71,7 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        
+
         <!-- Step 4: Stream -->
         <mxCell id="step4-label" value="4. Stream to model" style="text;html=1;fontSize=11;fontStyle=1;align=left;" vertex="1" parent="1">
           <mxGeometry x="550" y="270" width="140" height="20" as="geometry"/>
@@ -94,7 +94,7 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        
+
         <!-- Step 5: Tool call -->
         <mxCell id="step5-label" value="5. Tool call" style="text;html=1;fontSize=11;fontStyle=1;align=left;" vertex="1" parent="1">
           <mxGeometry x="550" y="340" width="140" height="20" as="geometry"/>
@@ -111,7 +111,7 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        
+
         <!-- Step 6: Dispatch tool -->
         <mxCell id="step6-label" value="6. Dispatch" style="text;html=1;fontSize=11;fontStyle=1;align=left;" vertex="1" parent="1">
           <mxGeometry x="550" y="400" width="140" height="20" as="geometry"/>
@@ -137,7 +137,7 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        
+
         <!-- Step 7: Settle -->
         <mxCell id="step7-label" value="7. Settle / persist" style="text;html=1;fontSize=11;fontStyle=1;align=left;" vertex="1" parent="1">
           <mxGeometry x="380" y="490" width="140" height="20" as="geometry"/>
@@ -148,7 +148,7 @@
             <mxPoint x="890" y="520" as="targetPoint"/>
           </mxGeometry>
         </mxCell>
-        
+
         <!-- Step 8: Resume -->
         <mxCell id="step8-label" value="8. Resume (later)" style="text;html=1;fontSize=11;fontStyle=1;align=left;" vertex="1" parent="1">
           <mxGeometry x="380" y="560" width="140" height="20" as="geometry"/>
@@ -165,7 +165,7 @@
             <mxPoint x="890" y="610" as="targetPoint"/>
           </mxGeometry>
         </mxCell>
-        
+
         <!-- Step 9: Escape -->
         <mxCell id="step9-label" value="9. Interrupt" style="text;html=1;fontSize=11;fontStyle=1;align=left;" vertex="1" parent="1">
           <mxGeometry x="210" y="630" width="100" height="20" as="geometry"/>
@@ -182,7 +182,7 @@
             <mxPoint x="550" y="680" as="targetPoint"/>
           </mxGeometry>
         </mxCell>
-        
+
       </root>
     </mxGraphModel>
   </diagram>

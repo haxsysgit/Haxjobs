@@ -251,7 +251,10 @@ class OpenAIModelClient:
                 )
                 return
 
-            # Emit any remaining tool calls that have arguments
+            # Emit any remaining tool calls that have arguments.
+            # Skip tool calls when the response was truncated (finish_reason == "length")
+            # because the model may not have finished writing the arguments.
+            unsafe = finish_reason == "length"
             for idx, builder in tool_call_builders.items():
                 if (
                     builder["call_id"]
@@ -265,6 +268,7 @@ class OpenAIModelClient:
                         call_id=builder["call_id"],
                         tool_name=builder["name"],
                         arguments=builder["arguments"],
+                        tool_calls_unsafe=unsafe,
                         model=self._model,
                         provider=self._provider,
                     )

@@ -5,7 +5,7 @@
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
-        
+
         <!-- Group: TerminalClient -->
         <mxCell id="g-terminal" value="TerminalClient" style="swimlane;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=14;" vertex="1" parent="1">
           <mxGeometry x="40" y="40" width="200" height="160" as="geometry"/>
@@ -19,7 +19,7 @@
         <mxCell id="terminal-display" value="Inline scrollback display" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="g-terminal">
           <mxGeometry x="10" y="120" width="180" height="30" as="geometry"/>
         </mxCell>
-        
+
         <!-- Group: AgentSession -->
         <mxCell id="g-session" value="AgentSession" style="swimlane;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=14;" vertex="1" parent="1">
           <mxGeometry x="300" y="40" width="240" height="260" as="geometry"/>
@@ -42,7 +42,7 @@
         <mxCell id="session-settled" value="session_settled emit" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="g-session">
           <mxGeometry x="10" y="230" width="220" height="24" as="geometry"/>
         </mxCell>
-        
+
         <!-- Group: Turn Runtime -->
         <mxCell id="g-turn" value="Turn Runtime (domain-free)" style="swimlane;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontSize=14;" vertex="1" parent="1">
           <mxGeometry x="600" y="40" width="250" height="260" as="geometry"/>
@@ -65,7 +65,7 @@
         <mxCell id="turn-limit" value="max 5 model steps" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="g-turn">
           <mxGeometry x="10" y="230" width="230" height="24" as="geometry"/>
         </mxCell>
-        
+
         <!-- Group: Model / Tools -->
         <mxCell id="g-model" value="Model &amp; Tool Boundary" style="swimlane;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;fontSize=14;" vertex="1" parent="1">
           <mxGeometry x="910" y="40" width="250" height="200" as="geometry"/>
@@ -82,7 +82,7 @@
         <mxCell id="model-fake" value="FakeModelClient (tests)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="g-model">
           <mxGeometry x="10" y="160" width="230" height="30" as="geometry"/>
         </mxCell>
-        
+
         <!-- Group: Employment Host -->
         <mxCell id="g-host" value="EmploymentHost" style="swimlane;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontSize=14;" vertex="1" parent="1">
           <mxGeometry x="40" y="340" width="240" height="200" as="geometry"/>
@@ -99,7 +99,7 @@
         <mxCell id="host-active" value="active_tool_names()" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="g-host">
           <mxGeometry x="10" y="160" width="220" height="30" as="geometry"/>
         </mxCell>
-        
+
         <!-- Group: CareerStore -->
         <mxCell id="g-career" value="CareerStore (SQLite)" style="swimlane;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=14;" vertex="1" parent="1">
           <mxGeometry x="340" y="340" width="240" height="200" as="geometry"/>
@@ -116,7 +116,7 @@
         <mxCell id="career-gaps" value="Skill gaps &amp; constraints" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="g-career">
           <mxGeometry x="10" y="160" width="220" height="30" as="geometry"/>
         </mxCell>
-        
+
         <!-- Group: SessionStore -->
         <mxCell id="g-sstore" value="SessionStore (SQLite)" style="swimlane;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=14;" vertex="1" parent="1">
           <mxGeometry x="640" y="340" width="240" height="200" as="geometry"/>
@@ -133,7 +133,7 @@
         <mxCell id="sstore-resume" value="Session resume support" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="g-sstore">
           <mxGeometry x="10" y="160" width="220" height="30" as="geometry"/>
         </mxCell>
-        
+
         <!-- Arrows between groups (thick orthogonal) -->
         <mxCell id="arrow-t2s" value="" style="endArrow=block;html=1;strokeWidth=4;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#6c8ebf;" edge="1" parent="1" source="g-terminal" target="g-session">
           <mxGeometry width="50" height="50" relative="1" as="geometry">
@@ -174,12 +174,12 @@
             <mxPoint x="760" y="340" as="targetPoint"/>
           </mxGeometry>
         </mxCell>
-        
+
         <!-- Label: Events flow back -->
         <mxCell id="label-events" value="LiveEvent stream" style="text;html=1;align=center;verticalAlign=middle;fontStyle=1;fontSize=11;" vertex="1" parent="1">
           <mxGeometry x="900" y="255" width="150" height="30" as="geometry"/>
         </mxCell>
-        
+
       </root>
     </mxGraphModel>
   </diagram>

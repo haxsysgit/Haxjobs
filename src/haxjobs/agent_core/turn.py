@@ -188,16 +188,36 @@ async def run_turn(
                     )
 
                 elif stream_event.event_type == ModelStreamEventType.COMPLETE_TOOL_CALL:
-                    tool_call_events.append(stream_event)
-                    emit(
-                        LiveEvent(
-                            session_id=session_id,
-                            turn_id=turn_id,
-                            event_type=LiveEventType.TOOL_REQUESTED,
-                            call_id=stream_event.call_id,
-                            tool_name=stream_event.tool_name,
+                    if stream_event.tool_calls_unsafe:
+                        # Reject tool calls when model response was truncated.
+                        # The model may not have finished writing arguments.
+                        logger.warning(
+                            "Rejecting unsafe tool call %s (finish_reason=length)",
+                            stream_event.tool_name,
                         )
-                    )
+                        emit(
+                            LiveEvent(
+                                session_id=session_id,
+                                turn_id=turn_id,
+                                event_type=LiveEventType.TOOL_FAILED,
+                                call_id=stream_event.call_id or "",
+                                tool_name=stream_event.tool_name,
+                                tool_status="unsafe",
+                                error_code="tool_calls_unsafe",
+                                error="Tool call rejected: response was truncated",
+                            )
+                        )
+                    else:
+                        tool_call_events.append(stream_event)
+                        emit(
+                            LiveEvent(
+                                session_id=session_id,
+                                turn_id=turn_id,
+                                event_type=LiveEventType.TOOL_REQUESTED,
+                                call_id=stream_event.call_id,
+                                tool_name=stream_event.tool_name,
+                            )
+                        )
 
                 elif stream_event.event_type == ModelStreamEventType.RESPONSE_COMPLETED:
                     finish_reason = stream_event.finish_reason
@@ -226,27 +246,13 @@ async def run_turn(
                                 status="failed",
                             )
                         )
-                    emit(
-                        LiveEvent(
-                            session_id=session_id,
-                            turn_id=turn_id,
-                            event_type=LiveEventType.TURN_FAILED,
-                            error=safe_failure,
-                        )
-                    )
+                    # TURN_FAILED emitted exactly once in final block below
                     break
         except Exception as exc:
             model_failed = True
             safe_failure = str(exc)
             exit_reason = TurnExitReason.MODEL_FAILED
-            emit(
-                LiveEvent(
-                    session_id=session_id,
-                    turn_id=turn_id,
-                    event_type=LiveEventType.TURN_FAILED,
-                    error=safe_failure,
-                )
-            )
+            # TURN_FAILED emitted exactly once in final block below
             break
 
         if model_failed:
@@ -355,21 +361,30 @@ async def run_turn(
                     active_names=active_tools,
                 )
             )
+            cancel_task = asyncio.ensure_future(cancel_event.wait())
 
-            # Wait for dispatch or cancellation
+            # Race dispatch against cancellation
             done, pending = await asyncio.wait(
-                [dispatch_task],
+                [dispatch_task, cancel_task],
                 timeout=None,
                 return_when=asyncio.FIRST_COMPLETED,
             )
 
-            if cancel_event.is_set() or dispatch_task not in [d for d in done]:
-                # Cancel the dispatch task
+            if cancel_task in done or dispatch_task not in [d for d in done]:
+                # Cancel the dispatch task and the cancel waiter
                 dispatch_task.cancel()
+                if cancel_task in pending:
+                    cancel_task.cancel()
                 try:
                     await dispatch_task
                 except (asyncio.CancelledError, Exception):
                     pass
+                # Clean up cancel_task if it's still pending
+                if cancel_task in pending:
+                    try:
+                        await cancel_task
+                    except (asyncio.CancelledError, Exception):
+                        pass
 
                 t_duration_ms = (time.monotonic() - t_start) * 1000
                 emit(
@@ -426,6 +441,13 @@ async def run_turn(
                     new_messages=new_messages,
                     safe_failure=safe_failure,
                 )
+
+            # Cancel the cancel waiter — dispatch completed normally
+            cancel_task.cancel()
+            try:
+                await cancel_task
+            except (asyncio.CancelledError, Exception):
+                pass
 
             result = await dispatch_task
             t_duration_ms = (time.monotonic() - t_start) * 1000
