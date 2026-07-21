@@ -2,7 +2,7 @@
 
 ## Status
 
-**COMPLETE** — All 216 automated tests pass in an isolated fresh worktree with no private fixture. Live provider verification deferred (controller-owned).
+**COMPLETE** — All 216 automated tests pass in an isolated fresh worktree with no private fixture. Three independent Flash reviews completed (architecture APPROVED, correctness/privacy APPROVED with nonblocking observation, deliverables blockers repaired). Fresh final review is controller-owned and pending. Live provider verification deferred (controller-owned).
 
 ## Files created
 
@@ -65,8 +65,10 @@
 ## Test results
 
 ```
-216 passed
+216 passed in 44.87s
 ```
+
+Verified: `uv lock --check` ok, `py_compile` all src/ and tests/ ok, `git diff --check` ok.
 
 Breakdown:
 - `tests/test_career_graph.py`: 28 passed (23 original + 5 new Phase A)
@@ -104,10 +106,10 @@ The `_fake_registry()` helper in `tests/test_turn_runtime.py` had two identical 
 
 ## Diagram deliverables
 
-Three draw.io source files and three exported PNGs:
-- `employment-models.drawio` / `.png` (758×524, 72 KB) — Person, CareerTrack, Skill, Evidence, Job, ConstraintCheck, JobAssessment relationships
-- `tool-effects.drawio` / `.png` (744×404, 53 KB) — Durable tool execution boundary, persist failures, dangling call detection
-- `conversation-trajectory.drawio` / `.png` (464×474, 52 KB) — Full job review trajectory: user → get_job → inspect → assess → resume
+Three draw.io source files and three exported PNGs, all under 35 cells:
+- `employment-models.drawio` (34 cells, 32 non-root) / `.png` (640×524) — Person, CareerTrack, Skill, Evidence, Job, JobAssessment relationships; ConstraintCheck noted as embedded field
+- `tool-effects.drawio` (22 cells) / `.png` (744×404) — Durable tool execution boundary, persist failures, dangling call detection
+- `conversation-trajectory.drawio` (21 cells) / `.png` (464×474) — Full job review trajectory: user → get_job → inspect → assess → resume
 
 All PNGs exported via `/opt/drawio/drawio -x -f png`. Each has a valid PNG signature and nonzero IHDR dimensions.
 
@@ -130,9 +132,19 @@ All PNGs exported via `/opt/drawio/drawio -x -f png`. Each has a valid PNG signa
 3. **Content-free measurement:** Tokens may be NULL when provider omits usage data.
 4. **Fetched text is untrusted evidence:** Returned to model as tool result only, never becomes system instructions.
 
-## Reviewer findings
+## Deliverables review (Plan 004 repair)
 
-Controller verification round identified three blocking findings, all repaired:
+Three independent Flash reviews identified three deliverable blockers against candidate `0766d56`, all repaired in this commit:
+
+1. **Missing review-ledger.md and manual-proof.md.** Created with factual review record and controller-owned proof procedure + verified `--help` output.
+2. **Oversized employment-models.drawio (36 non-root cells).** Simplified to 32 non-root cells. PNG re-exported at 640×524.
+3. **Stale doc references.** Test counts updated to 216; `--ignore=tests/test_terminal_pty.py` removed; deleted module/CLI descriptions corrected; `state/experiments/` path removed from user-facing docs.
+
+Architecture and correctness reviews were approved on the initial repair candidate with one nonblocking close observation (test-career-store exercises synthetic fixture only; real private DB migration is controller-owned).
+
+## Controller verification findings (0766d56)
+
+Initial controller verification round identified three blocking findings against `0cbff2b`, all repaired at `0766d56`:
 
 1. **PTY test isolation (tests/test_terminal_pty.py):** Both `test_terminal_pty_enter_submits_and_escape_interrupts` and `test_terminal_pty_escape_during_streaming_interrupts` defaulted `HAXJOBS_CAREER_DB` to `state/career_graph.db`, violating Plan 004 Phase A's isolated synthetic-test rule. Fixed by adding `_isolated_career_db()` helper that creates a temp career DB migrated from `tests/fixtures/job_review/career.json` and cleaning up after each test.
 2. **Missing PNG exports:** Three `.drawio` files had no PNG exports. All three exported via local `/opt/drawio/drawio -x -f png`. Each PNG verified with valid signature and nonzero IHDR dimensions.
@@ -140,4 +152,4 @@ Controller verification round identified three blocking findings, all repaired:
 
 ## Commit
 
-Repair commit applied at this worktree. Report intentionally omits its containing commit SHA per Plan 004 conventions; controller records final SHA on acceptance.
+Plan 004 repair commit applied at this worktree. Report intentionally omits its containing commit SHA per Plan 004 conventions; controller records final SHA on acceptance.

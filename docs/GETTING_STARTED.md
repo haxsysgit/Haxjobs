@@ -35,9 +35,6 @@ Migrate a career fixture into the local graph:
 ```bash
 # Using synthetic test fixture (no private data)
 uv run -- haxjobs profile migrate --fixture tests/fixtures/job_review/career.json
-
-# Or using the ignored private fixture
-uv run -- haxjobs migrate --fixture state/experiments/fixtures/backend-career.json
 ```
 
 This writes the local database to `state/career_graph.db`.
@@ -137,7 +134,7 @@ HAXJOBS_SESSION_DB=/tmp/haxjobs-dev.db haxjobs chat --fake
 ## Verify the current code
 
 ```bash
-PYTHONPATH=src:. uv run python3 -m pytest -q tests/ --ignore=tests/test_terminal_pty.py
+PYTHONPATH=src:. uv run python3 -m pytest -q tests/
 PYTHONPATH=src:. uv run python3 -m py_compile $(find src tests -name '*.py')
 uv lock --check
 ```

@@ -9,7 +9,7 @@ The legacy agent, web app, product tools, database layer, scrapers, and cron pip
 ```
 interfaces (CLI, future web app, future worker)
   → employment layer (Hax identity, career context, fixtures)
-  → agent core (model loop, dispatch, events, lifecycle)
+  → agent core (messages, tools, turn, session, durable boundaries)
   → model boundary (provider adapter, fake)
 ```
 
@@ -24,7 +24,7 @@ The model boundary knows nothing about careers. The agent core knows nothing abo
 - `src/haxjobs/config.py` — paths from `haxjobs.toml`
 - `src/haxjobs/cv_variants/` — user CV variant templates, registry, renderer (data, not code to rebuild)
 
-214 tests pass (excluding terminal PTY environment tests). Stage 0/1 experiment runtime deleted after conversational runtime trajectories passed.
+216 tests pass (all tests, including PTY terminal tests with isolated temp career DB). Stage 0/1 experiment runtime deleted after conversational runtime trajectories passed.
 
 ### What was deleted
 
@@ -88,7 +88,7 @@ All of these rebuild from scratch on the greenfield runtime, one stage at a time
 ## Verification
 
 ```bash
-PYTHONPATH=src:. uv run python3 -m pytest -q tests/ --ignore=tests/test_terminal_pty.py
+PYTHONPATH=src:. uv run python3 -m pytest -q tests/
 PYTHONPATH=src:. uv run python3 -m py_compile $(find src tests -name '*.py')
 PYTHONPATH=src:. uv run -- haxjobs chat --help
 ```

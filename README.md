@@ -2,7 +2,7 @@
 
 A career agent platform. One job: get the user interviews and make them more employable.
 
-Plan 004 is built. The greenfield runtime has four layers (model → agent_core → employment → interfaces), conversational chat with durable tool effects, typed job assessments, and 214 tests.
+Plan 004 is built. The greenfield runtime has four layers (model → agent_core → employment → interfaces), conversational chat with durable tool effects, typed job assessments, and 216 tests.
 
 ## Current state
 
@@ -43,6 +43,6 @@ uv run -- haxjobs chat
 
 ```bash
 uv lock --check
-PYTHONPATH=src:. uv run python3 -m pytest -q tests/ --ignore=tests/test_terminal_pty.py
+PYTHONPATH=src:. uv run python3 -m pytest -q tests/
 PYTHONPATH=src:. uv run python3 -m py_compile $(find src tests -name '*.py')
 ```

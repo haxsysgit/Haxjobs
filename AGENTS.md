@@ -17,17 +17,17 @@ HaxJobs is CLI first. Every interface (CLI, future web app, future cloud worker)
 The legacy agent, web app, product tools, database layer, scrapers, and cron pipeline were deleted. What remains:
 
 - `src/haxjobs/model/` — provider boundary (OpenAI adapter, fake client)
-- `src/haxjobs/agent_core/` — domain-free runtime (events, artifacts, one-call loop)
+- `src/haxjobs/agent_core/` — domain-free runtime (messages, tools, turn, session, session store, live events)
 - `src/haxjobs/employment/` — Hax identity, truth rules, fixtures, context assembly
-- `src/haxjobs/interfaces/` — experiment CLI
+- `src/haxjobs/interfaces/` — chat CLI, profile management CLI
 - `src/haxjobs/config.py` — paths from `haxjobs.toml`
 - `src/haxjobs/cv_variants/` — user CV variant templates (data, not code)
 
 The CLI exposes:
 
-- `haxjobs chat` — live conversation with Hax (resume latest or --new)
+- `haxjobs chat` — live conversation with Hax (resume latest or --new, --fake for no-network dev)
 - `haxjobs profile ...` — career profile management (migrate, show, track, skill, evidence, gap, constraint)
-- `haxjobs migrate` — quick career fixture migration
+- `haxjobs migrate` — quick career fixture migration (shortcut)
 
 All other capabilities (discovery, evaluation, packs, decisions, web app) rebuild from scratch on the greenfield runtime.
 
@@ -80,7 +80,7 @@ tests/                      pytest suite
 ## Verification
 
 ```bash
-PYTHONPATH=src:. uv run python3 -m pytest -q tests/ --ignore=tests/test_terminal_pty.py
+PYTHONPATH=src:. uv run python3 -m pytest -q tests/
 PYTHONPATH=src:. uv run python3 -m py_compile $(find src tests -name '*.py')
 PYTHONPATH=src:. uv run -- haxjobs chat --help
 PYTHONPATH=src:. uv run -- haxjobs migrate --help
