@@ -157,3 +157,23 @@ class JobAssessment(BaseModel):
     def replayed(self) -> bool:
         """Whether this result came from an idempotent existing write."""
         return self._replayed
+
+
+class JobDecision(BaseModel):
+    """A user's append-only decision about a saved job."""
+
+    decision_id: str = ""  # stable ID derived from tool_call_id; store-populated
+    _replayed: bool = PrivateAttr(default=False)
+    job_id: str
+    track_id: str
+    tool_call_id: str
+    source_user_message_id: str
+    label: Literal["apply", "maybe", "save", "skip", "reject"]
+    reason: str = ""
+    sequence: int | None = None  # store-populated output-only
+    created_at: str = Field(default_factory=_utcnow)
+
+    @property
+    def replayed(self) -> bool:
+        """Whether this result came from an idempotent existing write."""
+        return self._replayed

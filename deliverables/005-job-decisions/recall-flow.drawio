@@ -1,0 +1,27 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="recall-flow">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="900">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="g-current" value="Current conversation" style="swimlane;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="40" y="100" width="220" height="150" as="geometry"/></mxCell>
+        <mxCell id="current-fields" value="User states a decision&#xa;message is persisted&#xa;message ID becomes audit provenance" style="text;whiteSpace=wrap;fontSize=12;" vertex="1" parent="g-current"><mxGeometry x="15" y="35" width="190" height="95" as="geometry"/></mxCell>
+        <mxCell id="g-record" value="Decision tool" style="swimlane;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="330" y="100" width="240" height="150" as="geometry"/></mxCell>
+        <mxCell id="record-fields" value="record_job_decision&#xa;call ID = idempotency key&#xa;track comes from host" style="text;whiteSpace=wrap;fontSize=12;" vertex="1" parent="g-record"><mxGeometry x="15" y="35" width="210" height="95" as="geometry"/></mxCell>
+        <mxCell id="g-store" value="Employment store" style="swimlane;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="640" y="100" width="260" height="150" as="geometry"/></mxCell>
+        <mxCell id="store-fields" value="jobs + job_decisions&#xa;append-only sequence&#xa;latest projection by sequence" style="text;whiteSpace=wrap;fontSize=12;" vertex="1" parent="g-store"><mxGeometry x="15" y="35" width="230" height="95" as="geometry"/></mxCell>
+        <mxCell id="g-new" value="Later session" style="swimlane;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="40" y="380" width="220" height="150" as="geometry"/></mxCell>
+        <mxCell id="new-fields" value="same person + track&#xa;transcript may be empty&#xa;asks about a saved job" style="text;whiteSpace=wrap;fontSize=12;" vertex="1" parent="g-new"><mxGeometry x="15" y="35" width="190" height="95" as="geometry"/></mxCell>
+        <mxCell id="g-get" value="Recall read" style="swimlane;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="330" y="380" width="240" height="150" as="geometry"/></mxCell>
+        <mxCell id="get-fields" value="get_job(job_id)&#xa;track is bound by host&#xa;no decision dump in prompt" style="text;whiteSpace=wrap;fontSize=12;" vertex="1" parent="g-get"><mxGeometry x="15" y="35" width="210" height="95" as="geometry"/></mxCell>
+        <mxCell id="g-response" value="Recall response" style="swimlane;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="640" y="380" width="300" height="170" as="geometry"/></mxCell>
+        <mxCell id="response-fields" value="job fields&#xa;latest_assessment (nullable)&#xa;latest_decision (nullable)&#xa;history remains on demand" style="text;whiteSpace=wrap;fontSize=12;" vertex="1" parent="g-response"><mxGeometry x="15" y="35" width="270" height="115" as="geometry"/></mxCell>
+        <mxCell id="e-current-record" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;exitY=1;entryY=1;" edge="1" parent="1" source="g-current" target="g-record"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e-record-store" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;exitY=1;entryY=1;" edge="1" parent="1" source="g-record" target="g-store"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e-store-new" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="g-store" target="g-new"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e-new-get" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="g-new" target="g-get"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e-get-response" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="g-get" target="g-response"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

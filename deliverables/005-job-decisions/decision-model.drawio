@@ -1,0 +1,27 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="decision-model">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="900">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="g-job" value="Saved job" style="swimlane;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="40" y="60" width="220" height="130" as="geometry"/></mxCell>
+        <mxCell id="job-fields" value="job_id&#xa;title, employer&#xa;description snapshot" style="text;whiteSpace=wrap;fontSize=12;" vertex="1" parent="g-job"><mxGeometry x="15" y="35" width="190" height="80" as="geometry"/></mxCell>
+        <mxCell id="g-assessment" value="Hax analysis" style="swimlane;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="330" y="60" width="240" height="150" as="geometry"/></mxCell>
+        <mxCell id="assessment-fields" value="JobAssessment&#xa;recommendation + evidence&#xa;separate from user choice" style="text;whiteSpace=wrap;fontSize=12;" vertex="1" parent="g-assessment"><mxGeometry x="15" y="35" width="210" height="95" as="geometry"/></mxCell>
+        <mxCell id="g-tool" value="Conversation tool" style="swimlane;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="640" y="60" width="240" height="150" as="geometry"/></mxCell>
+        <mxCell id="tool-fields" value="record_job_decision&#xa;job_id, label, reason&#xa;track bound by host" style="text;whiteSpace=wrap;fontSize=12;" vertex="1" parent="g-tool"><mxGeometry x="15" y="35" width="210" height="95" as="geometry"/></mxCell>
+        <mxCell id="g-decision" value="User choice" style="swimlane;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="330" y="300" width="280" height="190" as="geometry"/></mxCell>
+        <mxCell id="decision-fields" value="JobDecision&#xa;label: apply | maybe | save | skip | reject&#xa;reason (user stated only)&#xa;source_user_message_id (audit)" style="text;whiteSpace=wrap;fontSize=12;" vertex="1" parent="g-decision"><mxGeometry x="15" y="35" width="250" height="135" as="geometry"/></mxCell>
+        <mxCell id="g-history" value="Append-only history" style="swimlane;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="680" y="300" width="300" height="190" as="geometry"/></mxCell>
+        <mxCell id="history-fields" value="job_decisions&#xa;sequence ASC history / DESC latest&#xa;tool_call_id UNIQUE&#xa;correction appends a new row" style="text;whiteSpace=wrap;fontSize=12;" vertex="1" parent="g-history"><mxGeometry x="15" y="35" width="270" height="135" as="geometry"/></mxCell>
+        <mxCell id="g-intent" value="Apply boundary" style="swimlane;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="1030" y="300" width="220" height="150" as="geometry"/></mxCell>
+        <mxCell id="intent-fields" value="apply = intent only&#xa;no submit, send, queue,&#xa;pack, or outreach" style="text;whiteSpace=wrap;fontSize=12;" vertex="1" parent="g-intent"><mxGeometry x="15" y="35" width="190" height="95" as="geometry"/></mxCell>
+        <mxCell id="e-job-assessment" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;exitY=1;entryY=1;" edge="1" parent="1" source="g-job" target="g-assessment"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e-assessment-tool" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;exitY=1;entryY=1;" edge="1" parent="1" source="g-assessment" target="g-tool"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e-tool-decision" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="g-tool" target="g-decision"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e-decision-history" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="g-decision" target="g-history"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e-history-intent" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="g-history" target="g-intent"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

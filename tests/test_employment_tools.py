@@ -14,6 +14,7 @@ from haxjobs.employment.tools import (
     GetJobInput,
     InspectJobSourceInput,
     RecordJobAssessmentInput,
+    RecordJobDecisionInput,
     build_employment_tool_registry,
 )
 
@@ -242,12 +243,13 @@ async def test_record_job_assessment_uses_bound_track_and_context_call_id(store:
 
 
 def test_tool_effect_kinds_are_correct(store: CareerStore):
-    """get_job=READ, inspect=INTERNAL_WRITE, record_assessment=INTERNAL_WRITE."""
+    """Employment writes have the expected internal-write policy metadata."""
     registry, active = build_employment_tool_registry(store, track_id="t1")
 
     get_job_def = registry._tools.get("get_job")
     inspect_def = registry._tools.get("inspect_job_source")
     record_def = registry._tools.get("record_job_assessment")
+    decision_def = registry._tools.get("record_job_decision")
 
     assert get_job_def is not None
     assert get_job_def.effect_kind == EffectKind.READ
@@ -260,3 +262,101 @@ def test_tool_effect_kinds_are_correct(store: CareerStore):
     assert record_def is not None
     assert record_def.effect_kind == EffectKind.INTERNAL_WRITE
     assert record_def.retry_safe is False
+
+    assert decision_def is not None
+    assert decision_def.effect_kind == EffectKind.INTERNAL_WRITE
+    assert decision_def.retry_safe is False
+
+
+@pytest.mark.asyncio
+async def test_record_decision_writes_and_retrieves(store: CareerStore):
+    registry, active = build_employment_tool_registry(store, track_id="t1")
+    result = await registry.dispatch(
+        "record_job_decision",
+        json.dumps({"job_id": "job-49", "label": "skip", "reason": "role mismatch"}),
+        active,
+        _test_ctx("decision-tool-1"),
+    )
+    assert result["ok"] is True
+    assert result["data"]["label"] == "skip"
+    assert store.get_latest_decision("job-49", "t1")["reason"] == "role mismatch"
+
+
+@pytest.mark.asyncio
+async def test_record_decision_requires_valid_label(store: CareerStore):
+    registry, active = build_employment_tool_registry(store, track_id="t1")
+    result = await registry.dispatch(
+        "record_job_decision",
+        json.dumps({"job_id": "job-49", "label": "recommendation"}),
+        active,
+        _test_ctx("decision-invalid-label"),
+    )
+    assert result["ok"] is False
+    assert result["code"] == "invalid_arguments"
+
+
+@pytest.mark.asyncio
+async def test_record_decision_requires_existing_job(store: CareerStore):
+    registry, active = build_employment_tool_registry(store, track_id="t1")
+    result = await registry.dispatch(
+        "record_job_decision",
+        json.dumps({"job_id": "job-missing", "label": "skip"}),
+        active,
+        _test_ctx("decision-missing-job"),
+    )
+    assert result["ok"] is False
+    assert result["code"] == "tool_failed"
+    assert store.list_decisions("job-missing", "t1") == []
+
+
+@pytest.mark.asyncio
+async def test_get_job_includes_latest_assessment_and_decision(store: CareerStore):
+    registry, active = build_employment_tool_registry(store, track_id="t1")
+    await registry.dispatch(
+        "record_job_assessment",
+        json.dumps({"job_id": "job-49", "recommendation": "skip", "summary": "mismatch"}),
+        active,
+        _test_ctx("assessment-for-recall"),
+    )
+    await registry.dispatch(
+        "record_job_decision",
+        json.dumps({"job_id": "job-49", "label": "skip"}),
+        active,
+        _test_ctx("decision-for-recall"),
+    )
+    result = await registry.dispatch(
+        "get_job",
+        json.dumps({"job_id": "job-49"}),
+        active,
+        _test_ctx("get-recall"),
+    )
+    assert result["ok"] is True
+    assert result["data"]["latest_assessment"]["recommendation"] == "skip"
+    assert result["data"]["latest_decision"]["label"] == "skip"
+
+
+@pytest.mark.asyncio
+async def test_record_decision_idempotency_conflict(store: CareerStore):
+    registry, active = build_employment_tool_registry(store, track_id="t1")
+    context = _test_ctx("decision-conflict-tool")
+    first = await registry.dispatch(
+        "record_job_decision",
+        json.dumps({"job_id": "job-49", "label": "skip"}),
+        active,
+        context,
+    )
+    second = await registry.dispatch(
+        "record_job_decision",
+        json.dumps({"job_id": "job-49", "label": "apply"}),
+        active,
+        context,
+    )
+    assert first["ok"] is True
+    assert second["ok"] is False
+    assert second["code"] == "idempotency_conflict"
+    assert len(store.list_decisions("job-49", "t1")) == 1
+
+
+def test_decision_input_has_no_scope_or_audit_fields():
+    properties = RecordJobDecisionInput.model_json_schema()["properties"]
+    assert set(properties) == {"job_id", "label", "reason"}

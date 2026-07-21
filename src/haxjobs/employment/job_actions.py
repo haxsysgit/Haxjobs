@@ -9,21 +9,15 @@ import hashlib
 import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import Any
 
+from haxjobs.employment.errors import IdempotencyConflict
 from haxjobs.employment.identifiers import make_stable_id
-from haxjobs.employment.schema import Job, JobAssessment
+from haxjobs.employment.schema import Job, JobAssessment, JobDecision
 
 
 def _utcnow() -> str:
     return datetime.now(timezone.utc).isoformat()
-
-
-@dataclass
-class IdempotencyConflict:
-    """Typed conflict: same tool_call_id, different payload."""
-    existing_assessment_id: str
-    existing_recommendation: str
-    conflict_detail: str
 
 
 @dataclass
@@ -69,12 +63,26 @@ def import_job_from_fixture(store, fixture_path: str) -> Job:
     return job
 
 
-def get_job(store, job_id: str) -> Job | None:
-    """Retrieve a Job by ID."""
+def get_job(store, job_id: str, track_id: str | None = None) -> Job | dict[str, Any] | None:
+    """Retrieve a saved job, optionally projected with track-scoped state.
+
+    The no-track form preserves Plan 004's Job action contract for source
+    inspection and existing callers. A track-scoped call returns the job
+    fields plus the latest assessment and decision projections.
+    """
     row = store.get_job(job_id)
     if row is None:
         return None
-    return _job_from_row(row)
+    job = _job_from_row(row)
+    if track_id is None:
+        return job
+
+    result = job.model_dump()
+    assessment = get_latest_assessment(store, job_id, track_id)
+    decision = get_latest_decision(store, job_id, track_id)
+    result["latest_assessment"] = assessment.model_dump() if assessment else None
+    result["latest_decision"] = decision.model_dump() if decision else None
+    return result
 
 
 def record_assessment(store, assessment: JobAssessment) -> JobAssessment | IdempotencyConflict:
@@ -145,6 +153,30 @@ def list_assessments(store, job_id: str, track_id: str) -> list[JobAssessment]:
     """All assessments for a job/track pair, ordered by sequence ASC."""
     rows = store.list_assessments(job_id, track_id)
     return [_assessment_from_row(r) for r in rows]
+
+
+def record_decision(
+    store,
+    decision: JobDecision,
+) -> JobDecision | IdempotencyConflict:
+    """Append a user decision, replaying or conflicting by tool call ID."""
+    if store.get_job(decision.job_id) is None:
+        raise ValueError(f"Job {decision.job_id} not found")
+    decision = decision.model_copy()
+    decision.decision_id = make_stable_id("dec", decision.tool_call_id)
+    decision.sequence = None
+    return store.upsert_decision(decision)
+
+
+def get_latest_decision(store, job_id: str, track_id: str) -> JobDecision | None:
+    """Return the latest decision for a job and track."""
+    row = store.get_latest_decision(job_id, track_id)
+    return _decision_from_row(row) if row else None
+
+
+def list_decisions(store, job_id: str, track_id: str) -> list[JobDecision]:
+    """Return all decisions for a job and track, oldest first."""
+    return [_decision_from_row(row) for row in store.list_decisions(job_id, track_id)]
 
 
 async def inspect_job_source(
@@ -228,6 +260,10 @@ def _assessment_from_row(row: dict) -> JobAssessment:
             except (json.JSONDecodeError, TypeError):
                 row[col] = []
     return JobAssessment.model_validate(row)
+
+
+def _decision_from_row(row: dict) -> JobDecision:
+    return JobDecision.model_validate(dict(row))
 
 
 def _assessments_equal(a: JobAssessment, b: JobAssessment) -> bool:

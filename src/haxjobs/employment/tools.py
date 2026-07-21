@@ -34,7 +34,11 @@ class GetJobOutput(BaseModel):
     description: str = ""
     description_complete: bool = False
     source_status: str = ""
+    # Kept as a compact Plan 004 projection; the full typed projections below
+    # are the Plan 005 recall contract.
     latest_recommendation: str = ""
+    latest_assessment: dict[str, Any] | None = None
+    latest_decision: dict[str, Any] | None = None
     error: str = ""
 
 
@@ -84,12 +88,40 @@ class RecordJobAssessmentOutput(BaseModel):
     error: str = ""
 
 
+class RecordJobDecisionInput(BaseModel):
+    job_id: str = Field(description="The stable job ID, e.g. 'job-49'")
+    label: Literal["apply", "maybe", "save", "skip", "reject"] = Field(
+        description="The user's decision label"
+    )
+    reason: str = Field(
+        default="",
+        description=(
+            "Optional concise user stated reason; leave empty if the user did "
+            "not state one"
+        ),
+    )
+
+
+class RecordJobDecisionOutput(BaseModel):
+    ok: bool
+    code: str = ""
+    decision_id: str = ""
+    job_id: str = ""
+    label: str = ""
+    reason: str = ""
+    sequence: int | None = None
+    replay: bool = False
+    error: str = ""
+
+
 # ── Descriptions ──
 
 _GET_JOB_DESC = """Retrieve a saved job from the employment store by job ID.
 
-Use this tool when the user asks about a specific job. Returns the job's title,
-employer, location, description, and the latest assessment for the active career track.
+Use this tool when the user asks about a specific job or what they decided about
+one. Returns the job's title, employer, location, description, latest assessment,
+and latest user decision for the active career track. If latest_decision is null,
+there is no recorded decision for that job and track.
 
 Arguments:
   job_id: The job ID, e.g. 'job-49' or 'job-328'
@@ -123,6 +155,35 @@ Arguments:
   evidence_ids: Evidence items that support this assessment
 """
 
+_RECORD_DECISION_DESC = """Record the user's append-only decision about a saved job.
+
+Use this tool ONLY when the user has directly stated their decision about a job
+in natural language.
+
+Valid triggers include:
+- "yeah, skip it"
+- "save this one"
+- "I want to apply"
+- "maybe, I'll think about it"
+- "actually no, I'll apply after all" (correction: appends a new decision)
+
+DO NOT call this tool:
+- To record your own recommendation as if the user decided it
+- When the user has not yet expressed a decision
+- When it is unclear which job the user is referring to: ask first
+
+Allowed labels are apply, maybe, save, skip, and reject. The apply label records
+intent only: it does not submit, contact, send, queue, create a pack, or imply
+that an application happened. Leave reason empty unless the user stated a
+concise reason; never invent one. The active track and source user message are
+provided by the runtime, not by the model.
+
+Arguments:
+  job_id: The saved job ID
+  label: The user's directly stated decision
+  reason: A concise reason stated by the user, or an empty string
+"""
+
 
 # ── Tool registry builder ──
 
@@ -151,6 +212,7 @@ def build_employment_tool_registry(
             }
 
         latest = job_actions.get_latest_assessment(store, job.job_id, track_id)
+        latest_decision = job_actions.get_latest_decision(store, job.job_id, track_id)
 
         return GetJobOutput(
             ok=True,
@@ -162,6 +224,8 @@ def build_employment_tool_registry(
             description_complete=job.description_complete,
             source_status=job.source_status,
             latest_recommendation=latest.recommendation if latest else "",
+            latest_assessment=latest.model_dump() if latest else None,
+            latest_decision=latest_decision.model_dump() if latest_decision else None,
         ).model_dump()
 
     registry.register(ToolDefinition(
@@ -268,5 +332,68 @@ def build_employment_tool_registry(
         retry_safe=False,
     ))
 
-    active = ("get_job", "inspect_job_source", "record_job_assessment")
+    # ── record_job_decision ──
+    async def decision_handler(
+        input_obj: RecordJobDecisionInput,
+        ctx: ToolExecutionContext,
+    ) -> dict[str, Any]:
+        from haxjobs.employment.schema import JobDecision
+
+        if job_actions.get_job(store, input_obj.job_id) is None:
+            return {
+                "ok": False,
+                "code": "tool_failed",
+                "error": "decision could not be recorded",
+            }
+
+        decision = JobDecision(
+            job_id=input_obj.job_id,
+            track_id=track_id,
+            tool_call_id=ctx.call_id,
+            source_user_message_id=ctx.user_message_id,
+            label=input_obj.label,
+            reason=input_obj.reason,
+        )
+        try:
+            result = job_actions.record_decision(store, decision)
+        except ValueError:
+            return {
+                "ok": False,
+                "code": "tool_failed",
+                "error": "decision could not be recorded",
+            }
+
+        if isinstance(result, job_actions.IdempotencyConflict):
+            return {
+                "ok": False,
+                "code": "idempotency_conflict",
+                "error": "idempotency conflict",
+            }
+
+        return RecordJobDecisionOutput(
+            ok=True,
+            decision_id=result.decision_id,
+            job_id=result.job_id,
+            label=result.label,
+            reason=result.reason,
+            sequence=result.sequence,
+            replay=result.replayed,
+        ).model_dump()
+
+    registry.register(ToolDefinition(
+        name="record_job_decision",
+        description=_RECORD_DECISION_DESC,
+        input_model=RecordJobDecisionInput,
+        output_model=RecordJobDecisionOutput,
+        handler=decision_handler,
+        effect_kind=EffectKind.INTERNAL_WRITE,
+        retry_safe=False,
+    ))
+
+    active = (
+        "get_job",
+        "inspect_job_source",
+        "record_job_assessment",
+        "record_job_decision",
+    )
     return registry, active

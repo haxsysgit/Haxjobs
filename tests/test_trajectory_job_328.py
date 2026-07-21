@@ -342,3 +342,76 @@ async def test_job_328_assessment_survives_resume():
 
     finally:
         store.close()
+
+
+@pytest.mark.asyncio
+async def test_model_recommendation_not_saved_as_decision():
+    """A model assessment/reply alone does not create a user decision."""
+    store = _setup_career_store()
+    session_store = SessionStore(":memory:")
+    try:
+        host = EmploymentHost(store=store, person_id="p1", track_id="t1", job_source_fetcher=_no_network_fetcher())
+        sid = "no-decision-session"
+        session_store.create_session(sid, configuration_json=json.dumps({"person_id": "p1", "track_id": "t1"}))
+        fake = FakeModelClient(stream_events=[[
+            ModelStreamEvent(event_type=ModelStreamEventType.TEXT_DELTA, delta="The role looks like a mismatch."),
+            ModelStreamEvent(event_type=ModelStreamEventType.RESPONSE_COMPLETED, finish_reason="stop"),
+        ]])
+        session = AgentSession(
+            session_id=sid,
+            session_store=session_store,
+            model=fake,
+            system_prompt=host.system_prompt,
+            context_messages=host.context_messages,
+            tool_registry_fn=host.registered_tools,
+            active_tool_names_fn=host.active_tool_names,
+        )
+        await session.prompt("What do you think of job 328?")
+        assert store.list_decisions("job-328", "t1") == []
+        assert not any(
+            row["payload_json"].get("tool_name") == "record_job_decision"
+            for row in session_store.load_messages(sid)
+            if row["payload_json"].get("kind") == "tool_call"
+        )
+    finally:
+        store.close()
+        session_store.close()
+
+
+@pytest.mark.asyncio
+async def test_ambiguous_reference_no_tool_call():
+    """A clarification response creates no decision tool call or row."""
+    store = _setup_career_store()
+    session_store = SessionStore(":memory:")
+    try:
+        host = EmploymentHost(store=store, person_id="p1", track_id="t1", job_source_fetcher=_no_network_fetcher())
+        sid = "ambiguous-decision-session"
+        session_store.create_session(sid, configuration_json=json.dumps({"person_id": "p1", "track_id": "t1"}))
+        fake = FakeModelClient(stream_events=[[
+            ModelStreamEvent(
+                event_type=ModelStreamEventType.TEXT_DELTA,
+                delta="Which job did you mean? We discussed job 49 and job 328.",
+            ),
+            ModelStreamEvent(event_type=ModelStreamEventType.RESPONSE_COMPLETED, finish_reason="stop"),
+        ]])
+        session = AgentSession(
+            session_id=sid,
+            session_store=session_store,
+            model=fake,
+            system_prompt=host.system_prompt,
+            context_messages=host.context_messages,
+            tool_registry_fn=host.registered_tools,
+            active_tool_names_fn=host.active_tool_names,
+        )
+        await session.prompt("skip it")
+        stored = session_store.load_messages(sid)
+        assert not any(
+            row["payload_json"].get("tool_name") == "record_job_decision"
+            for row in stored
+            if row["payload_json"].get("kind") == "tool_call"
+        )
+        assert store.list_decisions("job-49", "t1") == []
+        assert store.list_decisions("job-328", "t1") == []
+    finally:
+        store.close()
+        session_store.close()

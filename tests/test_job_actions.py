@@ -14,10 +14,12 @@ from haxjobs.employment.job_actions import (
     get_latest_assessment,
     import_job_from_fixture,
     list_assessments,
+    list_decisions,
     normalise_description,
     record_assessment,
+    record_decision,
 )
-from haxjobs.employment.schema import ConstraintCheck, Job, JobAssessment
+from haxjobs.employment.schema import ConstraintCheck, Job, JobAssessment, JobDecision
 from haxjobs.employment.store import CareerStore
 
 
@@ -311,3 +313,25 @@ def test_assessment_hash_loads_from_saved_job(store: CareerStore):
     result = record_assessment(store, assessment)
     assert isinstance(result, JobAssessment)
     assert result.source_content_hash == job.source_content_hash
+
+
+def test_record_decision_action_appends_and_reads_latest(store: CareerStore):
+    """The decision action writes typed state without changing an assessment."""
+    from haxjobs.employment.schema import CareerTrack, Person
+
+    import_job_from_fixture(store, "discussion/fixtures/harness/job-49.json")
+    now = "2026-07-21T00:00:00+00:00"
+    store.upsert_person(Person(person_id="p-decision", name="Test", location="L", created_at=now, updated_at=now))
+    store.upsert_track(CareerTrack(track_id="t-decision", person_id="p-decision", name="Backend", created_at=now, updated_at=now))
+    result = record_decision(
+        store,
+        JobDecision(
+            job_id="job-49",
+            track_id="t-decision",
+            tool_call_id="action-decision-1",
+            source_user_message_id="message-1",
+            label="save",
+        ),
+    )
+    assert isinstance(result, JobDecision)
+    assert list_decisions(store, "job-49", "t-decision")[0].label == "save"

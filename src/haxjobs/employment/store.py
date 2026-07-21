@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from haxjobs.employment.errors import IdempotencyConflict
 from haxjobs.employment.schema import (
     CareerTrack,
     EvidenceItem,
@@ -16,6 +17,9 @@ from haxjobs.employment.schema import (
     Skill,
     SkillEvidence,
     SkillGap,
+    Job,
+    JobAssessment,
+    JobDecision,
 )
 
 _DDL = """
@@ -127,6 +131,18 @@ CREATE TABLE IF NOT EXISTS job_assessments (
     unknowns TEXT NOT NULL DEFAULT '[]',
     evidence_ids TEXT NOT NULL DEFAULT '[]',
     source_content_hash TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS job_decisions (
+    sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+    decision_id TEXT NOT NULL UNIQUE,
+    job_id TEXT NOT NULL REFERENCES jobs(job_id) ON DELETE CASCADE,
+    track_id TEXT NOT NULL REFERENCES career_tracks(track_id) ON DELETE CASCADE,
+    tool_call_id TEXT NOT NULL UNIQUE,
+    source_user_message_id TEXT NOT NULL,
+    label TEXT NOT NULL,
+    reason TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL
 );
 """
@@ -396,10 +412,9 @@ class CareerStore:
 
     # ── Plan 004: Jobs ──
 
-    def upsert_job(self, job) -> None:
+    def upsert_job(self, job: Job) -> None:
         """Upsert a saved Job row."""
         import json
-        from haxjobs.employment.schema import Job
         job.updated_at = _now()
         d = job.model_dump()
         d["allowed_source_hosts"] = json.dumps(job.allowed_source_hosts)
@@ -444,14 +459,13 @@ class CareerStore:
 
     # ── Plan 004: Job assessments ──
 
-    def upsert_assessment(self, assessment) -> int | None:
+    def upsert_assessment(self, assessment: JobAssessment) -> int | None:
         """Insert a new assessment. Returns the auto-assigned sequence.
 
         Raises IntegrityError if tool_call_id already exists.
         Uses a transaction for atomic check+insert.
         """
         import json
-        from haxjobs.employment.schema import JobAssessment
         d = assessment.model_dump()
         d["constraint_checks"] = json.dumps(
             [c.model_dump() if hasattr(c, 'model_dump') else c
@@ -505,3 +519,69 @@ class CareerStore:
             (tool_call_id,),
         ).fetchone()
         return dict(row) if row else None
+
+    # ── Plan 005: Job decisions ──
+
+    def upsert_decision(self, decision: JobDecision) -> JobDecision | IdempotencyConflict:
+        """Insert a decision, replay an identical call, or return a typed conflict."""
+        semantic = decision.model_dump(
+            exclude={"decision_id", "sequence", "created_at"}
+        )
+        with self._conn:
+            row = self._conn.execute(
+                "SELECT * FROM job_decisions WHERE tool_call_id = ?",
+                (decision.tool_call_id,),
+            ).fetchone()
+            if row is not None:
+                existing = JobDecision.model_validate(dict(row))
+                existing_semantic = existing.model_dump(
+                    exclude={"decision_id", "sequence", "created_at"}
+                )
+                if existing_semantic == semantic:
+                    existing._replayed = True
+                    return existing
+                return IdempotencyConflict(
+                    existing_decision_id=existing.decision_id,
+                    existing_label=existing.label,
+                    conflict_detail=(
+                        f"Same tool_call_id ({decision.tool_call_id}) "
+                        "with different payload"
+                    ),
+                )
+
+            cursor = self._conn.execute(
+                """INSERT INTO job_decisions (
+                    decision_id, job_id, track_id, tool_call_id,
+                    source_user_message_id, label, reason, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    decision.decision_id,
+                    decision.job_id,
+                    decision.track_id,
+                    decision.tool_call_id,
+                    decision.source_user_message_id,
+                    decision.label,
+                    decision.reason,
+                    decision.created_at,
+                ),
+            )
+            decision.sequence = cursor.lastrowid
+            return decision
+
+    def get_latest_decision(self, job_id: str, track_id: str) -> dict | None:
+        """Return the latest decision for a job and track by monotonic sequence."""
+        row = self._conn.execute(
+            "SELECT * FROM job_decisions WHERE job_id = ? AND track_id = "
+            "? ORDER BY sequence DESC LIMIT 1",
+            (job_id, track_id),
+        ).fetchone()
+        return dict(row) if row else None
+
+    def list_decisions(self, job_id: str, track_id: str) -> list[dict]:
+        """Return decision history oldest first by monotonic sequence."""
+        rows = self._conn.execute(
+            "SELECT * FROM job_decisions WHERE job_id = ? AND track_id = "
+            "? ORDER BY sequence ASC",
+            (job_id, track_id),
+        ).fetchall()
+        return [dict(row) for row in rows]
