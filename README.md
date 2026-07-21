@@ -2,7 +2,7 @@
 
 A career agent platform. One job: get the user interviews and make them more employable.
 
-Plan 004 is built. The greenfield runtime has four layers (model → agent_core → employment → interfaces), conversational chat with durable tool effects, typed job assessments, and 244 tests.
+Plan 004 is built. The greenfield runtime has four layers (model → agent_core → employment → interfaces), conversational chat with durable tool effects, typed job assessments, and 248 tests.
 
 ## Current state
 
