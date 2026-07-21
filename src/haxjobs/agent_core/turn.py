@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable
 
-from haxjobs.agent_core.errors import safe_error, safe_tool_error
+from haxjobs.agent_core.errors import normalize_tool_code, safe_error, safe_tool_error
 from haxjobs.agent_core.live_events import LiveEvent, LiveEventEmitter, LiveEventType
 from haxjobs.agent_core.messages import (
     AssistantMessage,
@@ -191,14 +191,7 @@ async def run_turn(
                 if cancel_event.is_set():
                     exit_reason = TurnExitReason.INTERRUPTED
                     safe_failure = safe_error("interrupted")
-                    emit(
-                        LiveEvent(
-                            session_id=session_id,
-                            turn_id=turn_id,
-                            event_type=LiveEventType.TURN_INTERRUPTED,
-                        )
-                    )
-                    # Persist partial assistant text
+                    # Persist partial assistant text before publishing interruption.
                     if accumulated_text:
                         assistant_msg = AssistantMessage(
                             message_id=_mid(),
@@ -207,10 +200,33 @@ async def run_turn(
                             status="interrupted",
                         )
                         new_messages.append(assistant_msg)
-                        try:
-                            persist_message(assistant_msg)
-                        except Exception:
-                            pass  # best-effort on interrupt
+                        if not _persist_partial_assistant(assistant_msg, persist_message):
+                            safe_failure = safe_error("assistant_persistence")
+                            emit(LiveEvent(
+                                session_id=session_id,
+                                turn_id=turn_id,
+                                event_type=LiveEventType.TURN_FAILED,
+                                error=safe_failure,
+                            ))
+                            return TurnResult(
+                                turn_id=turn_id,
+                                exit_reason=TurnExitReason.PERSISTENCE_FAILED,
+                                final_text=accumulated_text,
+                                model_steps=model_steps,
+                                tool_starts=tool_starts,
+                                new_messages=new_messages,
+                                safe_failure=safe_failure,
+                                user_message_id=user_message_id,
+                                model_name=captured_model_name,
+                                provider_name=captured_provider_name,
+                                usage=captured_usage,
+                                input_characters=input_characters,
+                            )
+                    emit(LiveEvent(
+                        session_id=session_id,
+                        turn_id=turn_id,
+                        event_type=LiveEventType.TURN_INTERRUPTED,
+                    ))
                     return TurnResult(
                         turn_id=turn_id,
                         exit_reason=exit_reason,
@@ -304,11 +320,27 @@ async def run_turn(
                                 status="interrupted",
                             )
                             new_messages.append(assistant_msg)
-                            try:
-                                persist_message(assistant_msg)
-                            except Exception as exc:
-                                logger.warning(
-                                    "partial assistant persistence failed: %s", exc
+                            if not _persist_partial_assistant(assistant_msg, persist_message):
+                                safe_failure = safe_error("assistant_persistence")
+                                emit(LiveEvent(
+                                    session_id=session_id,
+                                    turn_id=turn_id,
+                                    event_type=LiveEventType.TURN_FAILED,
+                                    error=safe_failure,
+                                ))
+                                return TurnResult(
+                                    turn_id=turn_id,
+                                    exit_reason=TurnExitReason.PERSISTENCE_FAILED,
+                                    final_text=final_text,
+                                    model_steps=model_steps,
+                                    tool_starts=tool_starts,
+                                    new_messages=new_messages,
+                                    safe_failure=safe_failure,
+                                    user_message_id=user_message_id,
+                                    model_name=captured_model_name,
+                                    provider_name=captured_provider_name,
+                                    usage=captured_usage,
+                                    input_characters=input_characters,
                                 )
                         emit(
                             LiveEvent(
@@ -335,7 +367,8 @@ async def run_turn(
                     model_failed = True
                     safe_failure = safe_error("model")
                     exit_reason = TurnExitReason.MODEL_FAILED
-                    # Persist partial assistant text
+                    # Persist partial assistant text. A failed write changes the
+                    # turn outcome; it is not an interrupted/model-only failure.
                     if accumulated_text:
                         assistant_msg = AssistantMessage(
                             message_id=_mid(),
@@ -344,10 +377,28 @@ async def run_turn(
                             status="failed",
                         )
                         new_messages.append(assistant_msg)
-                        try:
-                            persist_message(assistant_msg)
-                        except Exception:
-                            pass
+                        if not _persist_partial_assistant(assistant_msg, persist_message):
+                            safe_failure = safe_error("assistant_persistence")
+                            emit(LiveEvent(
+                                session_id=session_id,
+                                turn_id=turn_id,
+                                event_type=LiveEventType.TURN_FAILED,
+                                error=safe_failure,
+                            ))
+                            return TurnResult(
+                                turn_id=turn_id,
+                                exit_reason=TurnExitReason.PERSISTENCE_FAILED,
+                                final_text=accumulated_text,
+                                model_steps=model_steps,
+                                tool_starts=tool_starts,
+                                new_messages=new_messages,
+                                safe_failure=safe_failure,
+                                user_message_id=user_message_id,
+                                model_name=captured_model_name,
+                                provider_name=captured_provider_name,
+                                usage=captured_usage,
+                                input_characters=input_characters,
+                            )
                     break
         except asyncio.CancelledError:
             # External task cancellation can interrupt the provider iterator
@@ -362,10 +413,28 @@ async def run_turn(
                     status="interrupted",
                 )
                 new_messages.append(assistant_msg)
-                try:
-                    persist_message(assistant_msg)
-                except Exception as exc:
-                    logger.warning("partial assistant persistence failed: %s", exc)
+                if not _persist_partial_assistant(assistant_msg, persist_message):
+                    safe_failure = safe_error("assistant_persistence")
+                    emit(LiveEvent(
+                        session_id=session_id,
+                        turn_id=turn_id,
+                        event_type=LiveEventType.TURN_FAILED,
+                        error=safe_failure,
+                    ))
+                    return TurnResult(
+                        turn_id=turn_id,
+                        exit_reason=TurnExitReason.PERSISTENCE_FAILED,
+                        final_text=accumulated_text,
+                        model_steps=model_steps,
+                        tool_starts=tool_starts,
+                        new_messages=new_messages,
+                        safe_failure=safe_failure,
+                        user_message_id=user_message_id,
+                        model_name=captured_model_name,
+                        provider_name=captured_provider_name,
+                        usage=captured_usage,
+                        input_characters=input_characters,
+                    )
             safe_failure = safe_error("interrupted")
             emit(
                 LiveEvent(
@@ -407,10 +476,28 @@ async def run_turn(
                     status="interrupted",
                 )
                 new_messages.append(assistant_msg)
-                try:
-                    persist_message(assistant_msg)
-                except Exception as exc:
-                    logger.warning("partial assistant persistence failed: %s", exc)
+                if not _persist_partial_assistant(assistant_msg, persist_message):
+                    safe_failure = safe_error("assistant_persistence")
+                    emit(LiveEvent(
+                        session_id=session_id,
+                        turn_id=turn_id,
+                        event_type=LiveEventType.TURN_FAILED,
+                        error=safe_failure,
+                    ))
+                    return TurnResult(
+                        turn_id=turn_id,
+                        exit_reason=TurnExitReason.PERSISTENCE_FAILED,
+                        final_text=accumulated_text,
+                        model_steps=model_steps,
+                        tool_starts=tool_starts,
+                        new_messages=new_messages,
+                        safe_failure=safe_failure,
+                        user_message_id=user_message_id,
+                        model_name=captured_model_name,
+                        provider_name=captured_provider_name,
+                        usage=captured_usage,
+                        input_characters=input_characters,
+                    )
             emit(LiveEvent(
                 session_id=session_id,
                 turn_id=turn_id,
@@ -845,7 +932,7 @@ async def run_turn(
             # Cancel the cancel waiter — dispatch completed normally
             await _cancel_and_join(cancel_task)
 
-            result = await dispatch_task
+            result = _normalize_tool_result(await dispatch_task)
             t_duration_ms = (time.monotonic() - t_start) * 1000
 
             # Persist the canonical result before publishing lifecycle state.
@@ -966,8 +1053,9 @@ def _persist_and_emit_tool_result(
     emit: LiveEventEmitter,
 ) -> tuple[ToolResultMessage | None, str]:
     """Persist a tool outcome, then publish its truthful lifecycle event."""
+    result = _normalize_tool_result(result)
     ok = result.get("ok", False)
-    code = result.get("code", "handler_error")
+    code = result.get("code", "tool_failed")
     tr_msg = ToolResultMessage(
         message_id=_mid(),
         turn_id=turn_id,
@@ -1011,7 +1099,7 @@ def _persist_and_emit_tool_result(
             )
         )
     else:
-        code = result.get("code", "handler_error")
+        code = result.get("code", "tool_failed")
         emit(
             LiveEvent(
                 session_id=session_id,
@@ -1026,6 +1114,36 @@ def _persist_and_emit_tool_result(
             )
         )
     return tr_msg, ""
+
+
+def _normalize_tool_result(result: Any) -> dict[str, Any]:
+    """Keep handler-controlled result metadata inside the safe vocabulary."""
+    if not isinstance(result, dict):
+        return {
+            "ok": False,
+            "code": "tool_failed",
+            "error": safe_tool_error("tool_failed"),
+        }
+    if result.get("ok") is True:
+        return {"ok": True, "data": result.get("data")}
+    code = normalize_tool_code(result.get("code"))
+    return {
+        "ok": False,
+        "code": code,
+        "error": safe_tool_error(code),
+    }
+
+
+def _persist_partial_assistant(
+    message: AssistantMessage, persist_message: PersistCallback
+) -> bool:
+    """Persist partial text and report failure without exposing exception text."""
+    try:
+        persist_message(message)
+    except Exception as exc:
+        logger.warning("partial assistant persistence failed: %s", exc)
+        return False
+    return True
 
 
 async def _cancel_and_collect(task: asyncio.Task) -> tuple[bool, Any]:

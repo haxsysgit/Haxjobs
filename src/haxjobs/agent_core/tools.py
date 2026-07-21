@@ -11,7 +11,7 @@ from typing import Any, Callable, Coroutine
 
 from pydantic import BaseModel
 
-from haxjobs.agent_core.errors import safe_tool_error
+from haxjobs.agent_core.errors import normalize_tool_code, safe_tool_error
 from haxjobs.model.types import ToolSchema
 
 logger = logging.getLogger(__name__)
@@ -104,8 +104,8 @@ class ToolRegistry:
         if name not in active_names:
             return {
                 "ok": False,
-                "code": "tool_inactive",
-                "error": safe_tool_error("tool_inactive"),
+                "code": "tool_unavailable",
+                "error": safe_tool_error("tool_unavailable"),
             }
 
         tool = self._tools[name]
@@ -117,8 +117,8 @@ class ToolRegistry:
             logger.warning("malformed arguments for %s: %s", name, exc, exc_info=True)
             return {
                 "ok": False,
-                "code": "malformed_arguments",
-                "error": safe_tool_error("malformed_arguments"),
+                "code": "invalid_arguments",
+                "error": safe_tool_error("invalid_arguments"),
             }
 
         # Pydantic validation
@@ -139,8 +139,8 @@ class ToolRegistry:
             logger.warning("tool handler error for %s: %s", name, exc, exc_info=True)
             return {
                 "ok": False,
-                "code": "handler_error",
-                "error": safe_tool_error("handler_error"),
+                "code": "tool_failed",
+                "error": safe_tool_error("tool_failed"),
             }
 
         # Validate output against the declared output model
@@ -157,11 +157,12 @@ class ToolRegistry:
         # A handler may return the standard failure envelope directly. This
         # keeps domain failures (notably idempotency conflicts) out of a
         # successful ``data`` object.
-        if result.get("ok") is False and result.get("code"):
+        if result.get("ok") is False:
+            code = normalize_tool_code(result.get("code"))
             return {
                 "ok": False,
-                "code": result["code"],
-                "error": safe_tool_error(result["code"]),
+                "code": code,
+                "error": safe_tool_error(code),
             }
 
         # Truncate if needed

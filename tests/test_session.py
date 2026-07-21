@@ -164,7 +164,11 @@ async def test_settlement_failure_is_pending_not_contradictory(store: SessionSto
     store.mark_turn_settled = original_mark  # type: ignore[method-assign]
     recovered = await session.prompt("follow up")
     assert recovered.exit_reason == TurnExitReason.COMPLETED
-    assert store.get_session("s1")["turn_count"] == 1
+    assert store.get_session("s1")["turn_count"] == 2
+    measurements = store._conn.execute(
+        "SELECT turn_number FROM turn_measurements WHERE session_id = 's1' ORDER BY measurement_id"
+    ).fetchall()
+    assert [row["turn_number"] for row in measurements] == [1, 2]
 
 
 @pytest.mark.asyncio
@@ -191,7 +195,11 @@ async def test_measurement_persistence_failure_is_not_settled(store: SessionStor
     store.record_measurement = original_record  # type: ignore[method-assign]
     recovered = await session.prompt("measurement retry")
     assert recovered.exit_reason == TurnExitReason.COMPLETED
-    assert store.get_session("s1")["turn_count"] == 1
+    assert store.get_session("s1")["turn_count"] == 2
+    measurements = store._conn.execute(
+        "SELECT turn_number FROM turn_measurements WHERE session_id = 's1' ORDER BY measurement_id"
+    ).fetchall()
+    assert [row["turn_number"] for row in measurements] == [2]
 
 
 @pytest.mark.asyncio
@@ -1137,3 +1145,40 @@ async def test_measurement_duplicate_turn_id_prevented(store: SessionStore):
             (existing["session_id"], existing["turn_id"], existing["turn_number"],
              _now(), _now(), "test", "", "", 0, 0, 0, 0),
         )
+
+
+@pytest.mark.asyncio
+async def test_partial_assistant_persistence_failure_is_not_settled(store: SessionStore):
+    """Canonical partial-write failure emits no SESSION_SETTLED marker."""
+    store.create_session("s-partial-fail", configuration_json='{"scope":"test"}')
+    secret = "SECRET /private/assistant-store"
+    model = FakeModelClient(stream_events=[[
+        ModelStreamEvent(
+            event_type=ModelStreamEventType.TEXT_DELTA, delta="partial",
+        ),
+        ModelStreamEvent(
+            event_type=ModelStreamEventType.RESPONSE_FAILED,
+            category="cancelled",
+        ),
+    ]])
+    session = AgentSession(
+        session_id="s-partial-fail", session_store=store, model=model,
+        system_prompt=lambda: "sys", context_messages=lambda: [],
+        tool_registry_fn=lambda: ToolRegistry(), active_tool_names_fn=lambda: (),
+    )
+    events: list[LiveEvent] = []
+    session.subscribe(events.append)
+    original_append = store.append_message
+
+    def fail_assistant(session_id, message):
+        if message.kind == "assistant":
+            raise OSError(secret)
+        original_append(session_id, message)
+
+    store.append_message = fail_assistant  # type: ignore[method-assign]
+    result = await session.prompt("partial")
+
+    assert result.exit_reason == TurnExitReason.PERSISTENCE_FAILED
+    assert not any(e.event_type == LiveEventType.SESSION_SETTLED for e in events)
+    assert sum(e.event_type == LiveEventType.TURN_FAILED for e in events) == 1
+    assert all(secret not in e.model_dump_json() for e in events)

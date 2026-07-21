@@ -2,7 +2,7 @@
 
 ## Status
 
-**IMPLEMENTED — FINAL REVIEW PENDING** — All 244 automated tests pass in this worktree with no private fixture. This focused Plan 004 repair starts at exact `de5f14e` and adds transactional measurement settlement, cancellation-safe tool persistence/model completion, safe employment failure envelopes, and the final JobAssessment diagram essentials. Final review remains pending and is not approved. Live provider verification is deferred (controller-owned).
+**IMPLEMENTED — FINAL REVIEW PENDING** — All 248 automated tests pass in this worktree with no private fixture. This focused Plan 004 repair starts at exact `01d2161` and adds canonical persistence-failure truthfulness, safe tool-code normalization, monotonic failed-settlement sequencing, total source-fetch deadlines, migration-fixture documentation, and the final JobAssessment idempotency fields. Final review remains pending and is not approved. Live provider verification is deferred (controller-owned).
 
 ## Files created
 
@@ -14,7 +14,7 @@
 | `tests/test_job_actions.py` | Job import, source snapshot, migration, assessment, idempotency tests |
 | `tests/test_employment_tools.py` | Tool dispatch tests, including top-level failure and source/action secret regressions (8 tests) |
 | `tests/test_trajectory_job_328.py` | Full no-network fake trajectory + resume test (2 tests) |
-| `tests/test_job_source.py` | Blocking DNS/transport event-loop heartbeat, DNS timeout, string external-reference, and non-global-address regressions |
+| `tests/test_job_source.py` | Blocking DNS/transport event-loop heartbeat, total transport deadline, DNS timeout, string external-reference, and non-global-address regressions |
 | `tests/test_durable_tool_effects.py` | Persistence order, dangling calls, cancellation persistence, idempotency, scope, cleanup (10 tests) |
 | `tests/test_cli.py` | Deterministic rejection of conflicting chat modes/scope flags and implicit migration fixtures (4 tests) |
 
@@ -41,8 +41,8 @@
 | `src/haxjobs/employment/__init__.py` | Removed `review_job` exports |
 | `src/haxjobs/interfaces/__init__.py` | Removed `experiment_cli` export |
 | `tests/test_career_graph.py` | Uses synthetic fixture; added migration integrity tests (deterministic IDs, person name, contradictory gaps, idempotent links, required fields) |
-| `tests/test_turn_runtime.py` | Removed duplicate `_TestOutput`; added ToolExecutionContext, persistence failure, provider-cancelled failure, and external-task-cancellation regressions; updated all handler signatures to `(input, ctx)` |
-| `tests/test_session.py` | Added unconfigured session, history-read failure settlement, measurement failure, interrupted partial-history, dangling call, no duplicate, no auto-retry, idempotent resume, provider-cancelled settlement, safe-error, and settlement-recovery tests (37 tests) |
+| `tests/test_turn_runtime.py` | Removed duplicate `_TestOutput`; added ToolExecutionContext, persistence failure, provider-cancelled failure, external-task-cancellation, partial-persistence, and secret-code regressions; updated all handler signatures to `(input, ctx)` (32 tests) |
+| `tests/test_session.py` | Added unconfigured session, history-read failure settlement, measurement failure, interrupted partial-history, dangling call, no duplicate, no auto-retry, idempotent resume, provider-cancelled settlement, partial-persistence no-settlement, safe-error, and settlement-recovery tests (38 tests) |
 | `tests/test_employment_host.py` | Added scope selection tests (single/multi/zero person/track), evidence content tests |
 | `tests/test_session_store.py` | Added opaque string/list/arbitrary-text configuration, blank validation, round-trip, transaction, duplicate tests |
 | `tests/test_live_events.py` | Updated test that referenced deleted events module |
@@ -69,12 +69,12 @@
 ## Test results
 
 ```
-244 passed (full suite; runtime varies by environment)
+248 passed (full suite; runtime varies by environment)
 ```
 
 Verified: `uv lock --check` ok, `py_compile` all src/ and tests/ ok, `git diff --check` ok.
 
-Exact collected/tested per-file count (from `pytest --collect-only -q tests/`, 244 collected and 244 passed):
+Exact collected/tested per-file count (from `pytest --collect-only -q tests/`, 248 collected and 248 passed):
 - `tests/test_career_graph.py`: 28
 - `tests/test_conversation_messages.py`: 20
 - `tests/test_durable_tool_effects.py`: 10
@@ -82,15 +82,15 @@ Exact collected/tested per-file count (from `pytest --collect-only -q tests/`, 2
 - `tests/test_employment_tools.py`: 8
 - `tests/test_job_actions.py`: 13
 - `tests/test_cli.py`: 4
-- `tests/test_job_source.py`: 4
+- `tests/test_job_source.py`: 5
 - `tests/test_live_events.py`: 19
 - `tests/test_model_streaming.py`: 11
-- `tests/test_session.py`: 37
+- `tests/test_session.py`: 38
 - `tests/test_session_store.py`: 22
 - `tests/test_terminal.py`: 14
 - `tests/test_terminal_pty.py`: 2
 - `tests/test_trajectory_job_328.py`: 2
-- `tests/test_turn_runtime.py`: 30
+- `tests/test_turn_runtime.py`: 32
 
 ## Architecture invariants confirmed
 
@@ -113,7 +113,7 @@ The `_fake_registry()` helper in `tests/test_turn_runtime.py` had two identical 
 ## Diagram deliverables
 
 Three draw.io source files and three exported PNGs, all under 35 non-root cells:
-- `employment-models.drawio` (36 cells, 34 non-root) / `.png` (784×524) — seven groups: Person, CareerTrack, Skill, EvidenceItem, Job, JobAssessment, and separate ConstraintCheck with `constraint_id, constraint_text` plus `result (pass | fail | unknown)`; orthogonal edges remain under the 35 non-root-cell limit
+- `employment-models.drawio` (36 cells, 34 non-root) / `.png` (784×554) — seven groups: Person, CareerTrack, Skill, EvidenceItem, Job, JobAssessment, and separate ConstraintCheck; JobAssessment shows `assessment_id`, `job_id`, `track_id`, `tool_call_id` idempotency key, `recommendation`, and `summary`; orthogonal edges remain under the 35 non-root-cell limit
 - `tool-effects.drawio` (22 cells) / `.png` (744×404) — Durable tool execution boundary, persist failures, dangling call detection
 - `conversation-trajectory.drawio` (21 cells) / `.png` (464×474) — Full job review trajectory: user → get_job → inspect → assess → resume; resume reads current Job + latest assessment through get_job and never records a new assessment
 
@@ -179,4 +179,15 @@ Based on exact `285f424`, this pass repairs: `ipaddress.is_global` source valida
 
 ## Focused repair and review boundary
 
-This repair starts at exact `de5f14e`. It does not modify the Plan, terminal interface, terminal tests, state, private fixtures, credentials, or provider configuration. Controller-owned real-provider manual proof remains deferred and honestly blank. Final review is pending, not approved; the final commit SHA is reported by the writer after commit.
+This repair starts at exact `01d2161`. It does not modify the Plan, terminal interface, terminal tests, state, private fixtures, credentials, or provider configuration. Controller-owned real-provider manual proof remains deferred and honestly blank. Final review is pending, not approved; the final commit SHA is reported by the writer after commit.
+
+## Final correctness/artifact repair (`01d2161`)
+
+- Partial assistant persistence failures now return `PERSISTENCE_FAILED`, emit no interruption or settlement marker, and retain only stable public failure text.
+- Tool result metadata is normalized to the static agent-core vocabulary before canonical messages, live events, provider projection, and interface-visible output; arbitrary handler codes are `tool_failed`.
+- Failed measurement/settlement attempts consume their sequence once durable records exist. Retries advance monotonically without duplicate measurements; resume restores the highest consumed measurement number.
+- The entire off-loop source fetch is bounded by `asyncio.wait_for`; timeout returns typed `fetch_timeout` and documents that a running `to_thread` worker may finish later.
+- `docs/GETTING_STARTED.md` shows the tracked fixture on every profile migration command.
+- `employment-models.drawio` and PNG now show all six JobAssessment identity/idempotency fields while retaining seven groups and 34 non-root cells.
+
+Verification for this repair: 248 passed; `py_compile`, `uv lock --check`, `git diff --check`, XML cell count, and PNG signature/dimensions passed.

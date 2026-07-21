@@ -13,6 +13,7 @@ import asyncio
 import logging
 import time
 import uuid
+from dataclasses import replace
 from datetime import datetime, timezone
 from typing import Callable
 
@@ -209,7 +210,6 @@ class AgentSession:
         try:
             self._store.append_message(self.session_id, user_msg)
         except Exception as exc:
-            self._turn_count -= 1
             logger.warning("user message persistence failed: %s", exc, exc_info=True)
             safe_failure = safe_error("user_message_persistence")
             return self._settle_failed_turn(
@@ -219,6 +219,7 @@ class AgentSession:
                 safe_failure=safe_failure,
                 measurement_reason="user_message_persistence_failed",
                 result_reason=TurnExitReason.PERSISTENCE_FAILED,
+                turn_has_durable_message=False,
             )
 
         # Emit SESSION_STARTED exactly once, after the first user message is
@@ -328,6 +329,35 @@ class AgentSession:
                 user_message_id=user_msg.message_id,
             )
 
+        # Canonical message persistence is a separate boundary. A failed
+        # assistant/tool message write leaves recovery work pending: record a
+        # measurement when possible, but never mark or announce settlement.
+        if result.exit_reason == TurnExitReason.PERSISTENCE_FAILED:
+            measurement_ok = self._record_measurement(
+                turn_id=turn_id,
+                started_at=started_at,
+                started_mono=started_mono,
+                exit_reason=result.exit_reason.value,
+                model_name=result.model_name,
+                provider_name=result.provider_name,
+                model_steps=result.model_steps,
+                tool_starts=result.tool_starts,
+                input_characters=result.input_characters,
+                usage=result.usage,
+            )
+            if not measurement_ok:
+                result = replace(
+                    result,
+                    safe_failure=safe_error("measurement"),
+                )
+            self._emit(LiveEvent(
+                session_id=self.session_id,
+                turn_id=turn_id,
+                event_type=LiveEventType.TURN_FAILED,
+                error=result.safe_failure,
+            ))
+            return result
+
         # Measurement is part of settlement. Do not mark the turn durable or
         # publish a terminal lifecycle event when this write is unavailable.
         measurement_ok = self._record_measurement(
@@ -343,7 +373,6 @@ class AgentSession:
             usage=result.usage,
         )
         if not measurement_ok:
-            self._turn_count -= 1
             measurement_failure = safe_error("measurement")
             self._emit(LiveEvent(
                 session_id=self.session_id,
@@ -351,7 +380,6 @@ class AgentSession:
                 event_type=LiveEventType.TURN_FAILED,
                 error=measurement_failure,
             ))
-            from dataclasses import replace
             return replace(
                 result,
                 exit_reason=TurnExitReason.PERSISTENCE_FAILED,
@@ -367,16 +395,14 @@ class AgentSession:
         except Exception as exc:
             logger.warning("turn settlement persistence failed: %s", exc, exc_info=True)
             settlement_failure = safe_error("settlement")
-            # Keep the in-memory counter aligned with the durable counter so
-            # the next explicit recovery prompt can reuse the pending number.
-            self._turn_count -= 1
+            # Canonical messages and the measurement already exist. Keep the
+            # in-memory sequence consumed so a retry cannot reuse its number.
             self._emit(LiveEvent(
                 session_id=self.session_id,
                 turn_id=turn_id,
                 event_type=LiveEventType.TURN_FAILED,
                 error=settlement_failure,
             ))
-            from dataclasses import replace
             return replace(
                 result,
                 exit_reason=TurnExitReason.PERSISTENCE_FAILED,
@@ -413,6 +439,7 @@ class AgentSession:
         safe_failure: str,
         measurement_reason: str,
         result_reason: TurnExitReason = TurnExitReason.MODEL_FAILED,
+        turn_has_durable_message: bool = True,
     ) -> TurnResult:
         """Persist and publish one truthful failed-turn settlement when possible."""
         # Buffer TURN_FAILED until measurement and the settlement marker both
@@ -424,7 +451,8 @@ class AgentSession:
             started_mono=started_mono,
             exit_reason=measurement_reason,
         ):
-            self._turn_count -= 1
+            if not turn_has_durable_message:
+                self._turn_count -= 1
             measurement_failure = safe_error("measurement")
             self._emit(LiveEvent(
                 session_id=self.session_id,
@@ -442,7 +470,6 @@ class AgentSession:
             self._store.mark_turn_settled(self.session_id, self._turn_count)
         except Exception as exc:
             logger.warning("failed-turn settlement write failed: %s", exc, exc_info=True)
-            self._turn_count -= 1
             settlement_failure = safe_error("settlement")
             self._emit(LiveEvent(
                 session_id=self.session_id,
@@ -552,8 +579,13 @@ class AgentSession:
             tool_registry_fn=tool_registry_fn,
             active_tool_names_fn=active_tool_names_fn,
         )
-        # Restore turn count
-        session._turn_count = existing.get("turn_count", 0)
+        # Restore the highest consumed sequence, not only settled turns. A
+        # prior settlement failure may have durable measurements beyond the
+        # session marker; reusing those numbers would duplicate measurements.
+        session._turn_count = max(
+            existing.get("turn_count", 0),
+            session_store.max_measurement_turn_number(session_id),
+        )
 
         # Detect and resolve dangling calls
         dangling = _detect_dangling_calls(session_store, session_id)

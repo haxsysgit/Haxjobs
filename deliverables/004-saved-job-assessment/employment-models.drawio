@@ -13,9 +13,6 @@
         <mxCell id="person-name" value="name" style="text;fontSize=11;" vertex="1" parent="group-person">
           <mxGeometry x="10" y="55" width="180" height="20" as="geometry"/>
         </mxCell>
-        <mxCell id="person-loc" value="location, work_authorization" style="text;fontSize=11;" vertex="1" parent="group-person">
-          <mxGeometry x="10" y="80" width="180" height="20" as="geometry"/>
-        </mxCell>
         <mxCell id="group-track" value="CareerTrack" style="swimlane;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
           <mxGeometry x="320" y="40" width="200" height="120" as="geometry"/>
         </mxCell>
@@ -24,9 +21,6 @@
         </mxCell>
         <mxCell id="track-pid" value="person_id (FK → Person)" style="text;fontSize=11;" vertex="1" parent="group-track">
           <mxGeometry x="10" y="55" width="180" height="20" as="geometry"/>
-        </mxCell>
-        <mxCell id="track-name" value="name, role families" style="text;fontSize=11;" vertex="1" parent="group-track">
-          <mxGeometry x="10" y="80" width="180" height="20" as="geometry"/>
         </mxCell>
         <mxCell id="group-skill" value="Skill" style="swimlane;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
           <mxGeometry x="40" y="220" width="200" height="120" as="geometry"/>
@@ -49,9 +43,6 @@
         <mxCell id="ev-label" value="label, source, content" style="text;fontSize=11;" vertex="1" parent="group-evidence">
           <mxGeometry x="10" y="55" width="180" height="20" as="geometry"/>
         </mxCell>
-        <mxCell id="ev-priv" value="privacy_level, verified_at" style="text;fontSize=11;" vertex="1" parent="group-evidence">
-          <mxGeometry x="10" y="80" width="180" height="20" as="geometry"/>
-        </mxCell>
         <mxCell id="group-job" value="Job" style="swimlane;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
           <mxGeometry x="40" y="400" width="200" height="140" as="geometry"/>
         </mxCell>
@@ -68,16 +59,25 @@
           <mxGeometry x="10" y="105" width="180" height="20" as="geometry"/>
         </mxCell>
         <mxCell id="group-assessment" value="JobAssessment" style="swimlane;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
-          <mxGeometry x="320" y="400" width="220" height="160" as="geometry"/>
+          <mxGeometry x="320" y="400" width="220" height="190" as="geometry"/>
         </mxCell>
         <mxCell id="asmt-id" value="assessment_id (stable ID)" style="text;fontSize=11;" vertex="1" parent="group-assessment">
           <mxGeometry x="10" y="30" width="200" height="20" as="geometry"/>
         </mxCell>
-        <mxCell id="asmt-recommendation" value="recommendation" style="text;fontSize=11;" vertex="1" parent="group-assessment">
+        <mxCell id="asmt-job" value="job_id (FK → Job)" style="text;fontSize=11;" vertex="1" parent="group-assessment">
+          <mxGeometry x="10" y="55" width="200" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="asmt-track" value="track_id (FK → CareerTrack)" style="text;fontSize=11;" vertex="1" parent="group-assessment">
           <mxGeometry x="10" y="80" width="200" height="20" as="geometry"/>
         </mxCell>
-        <mxCell id="asmt-summary" value="summary" style="text;fontSize=11;" vertex="1" parent="group-assessment">
+        <mxCell id="asmt-tool-call" value="tool_call_id (idempotency key)" style="text;fontSize=11;" vertex="1" parent="group-assessment">
           <mxGeometry x="10" y="105" width="200" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="asmt-recommendation" value="recommendation" style="text;fontSize=11;" vertex="1" parent="group-assessment">
+          <mxGeometry x="10" y="130" width="200" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="asmt-summary" value="summary" style="text;fontSize=11;" vertex="1" parent="group-assessment">
+          <mxGeometry x="10" y="155" width="200" height="20" as="geometry"/>
         </mxCell>
         <mxCell id="group-constraint" value="ConstraintCheck" style="swimlane;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
           <mxGeometry x="600" y="400" width="220" height="120" as="geometry"/>

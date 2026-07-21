@@ -105,7 +105,7 @@ Ask about jobs naturally: "What do you think of job 49?" or "Should I pursue job
 
 ```bash
 haxjobs profile show              # View career graph
-haxjobs profile migrate           # Rebuild career graph
+haxjobs profile migrate --fixture tests/fixtures/job_review/career.json  # Rebuild career graph (fixture required)
 haxjobs profile track add ...     # Add a career track
 haxjobs profile skill add ...     # Add a skill
 haxjobs profile evidence add ...  # Add evidence

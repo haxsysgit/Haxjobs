@@ -115,6 +115,34 @@ async def test_nonnumeric_job_external_ref_source_inspection_succeeds():
 
 
 @pytest.mark.asyncio
+async def test_transport_deadline_bounds_ignoring_transport():
+    """The total source-fetch await times out even if transport ignores timeout."""
+    started = threading.Event()
+    release = threading.Event()
+
+    fetcher = JobSourceFetcher(
+        resolver=lambda hostname: [(2, "93.184.216.34")],
+        transport_factory=lambda url, timeout: _BlockingResponse(started, release),
+        fetch_timeout=0.05,
+    )
+    job = {
+        "external_ref": "transport-timeout",
+        "source_url": "https://example.com/jobs/timeout",
+        "allowed_source_hosts": ["example.com"],
+    }
+
+    task = asyncio.create_task(fetcher.fetch_from_job(job))
+    await asyncio.to_thread(started.wait)
+    result = await task
+
+    assert result.ok is False
+    assert result.status == "unavailable"
+    assert result.code == "fetch_timeout"
+    assert result.error == "source fetch timed out"
+    release.set()  # to_thread worker may finish after the safe timeout result
+
+
+@pytest.mark.asyncio
 async def test_blocking_transport_does_not_stop_event_loop():
     """Injected blocking transport runs in a thread while heartbeat ticks."""
     started = threading.Event()

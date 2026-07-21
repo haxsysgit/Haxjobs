@@ -38,7 +38,7 @@ def safe_error(category: str) -> str:
 
 def safe_tool_error(code: str) -> str:
     """Map a tool result code to text safe for events and provider projection."""
-    if code in {"unknown_tool", "tool_inactive"}:
+    if code in {"unknown_tool", "tool_unavailable"}:
         return safe_error("tool_unavailable")
     if code in {"malformed_arguments", "invalid_arguments"}:
         return safe_error("tool_invalid_arguments")
@@ -51,3 +51,20 @@ def safe_tool_error(code: str) -> str:
 
 SAFE_ERROR_TEXT = frozenset(_MESSAGES.values())
 """The complete allowlist of runtime-generated public error strings."""
+
+
+SAFE_TOOL_CODES = frozenset({
+    "unknown_tool",
+    "tool_unavailable",
+    "invalid_arguments",
+    "invalid_output",
+    "tool_failed",
+    "idempotency_conflict",
+    "cancelled",
+})
+"""Small allowlist for tool-result metadata exposed to users and providers."""
+
+
+def normalize_tool_code(code: object) -> str:
+    """Return only stable, non-sensitive tool metadata."""
+    return code if isinstance(code, str) and code in SAFE_TOOL_CODES else "tool_failed"

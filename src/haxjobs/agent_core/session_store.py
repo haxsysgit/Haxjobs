@@ -189,6 +189,15 @@ class SessionStore:
             result.append(d)
         return result
 
+    def max_measurement_turn_number(self, session_id: str) -> int:
+        """Return the highest consumed turn number, including pending turns."""
+        row = self._conn.execute(
+            "SELECT COALESCE(MAX(turn_number), 0) AS max_turn "
+            "FROM turn_measurements WHERE session_id = ?",
+            (session_id,),
+        ).fetchone()
+        return int(row["max_turn"] if row else 0)
+
     def mark_turn_settled(self, session_id: str, turn_count: int) -> None:
         now = _now()
         self._conn.execute(

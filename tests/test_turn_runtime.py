@@ -374,7 +374,7 @@ async def test_malformed_arguments_recover():
     tool_results = [m for m in result.new_messages if m.kind == "tool_result"]
     assert len(tool_results) == 1
     assert tool_results[0].ok is False
-    assert tool_results[0].error_code == "malformed_arguments"
+    assert tool_results[0].error_code == "invalid_arguments"
 
 
 # ── Handler error recovers ──
@@ -432,7 +432,7 @@ async def test_handler_error_recovers():
     tool_results = [m for m in result.new_messages if m.kind == "tool_result"]
     assert len(tool_results) == 1
     assert tool_results[0].ok is False
-    assert tool_results[0].error_code == "handler_error"
+    assert tool_results[0].error_code == "tool_failed"
 
 
 # ── Model-step limit ──
@@ -1707,3 +1707,92 @@ async def test_tool_turn_assistant_persistence_failure_emits_turn_failed():
     assert result.exit_reason == TurnExitReason.PERSISTENCE_FAILED
     assert sum(e.event_type == LiveEventType.TURN_FAILED for e in events) == 1
     assert not any(e.event_type == LiveEventType.TOOL_STARTED for e in events)
+
+
+@pytest.mark.asyncio
+async def test_partial_assistant_persistence_failure_is_not_interrupted():
+    """A failed partial write is a persistence failure, never a settled interrupt."""
+    secret = "SECRET_HANDLER_CODE"
+    events: list[LiveEvent] = []
+    fake = FakeModelClient(stream_events=[[
+        ModelStreamEvent(
+            event_type=ModelStreamEventType.TEXT_DELTA, delta="partial",
+        ),
+        ModelStreamEvent(
+            event_type=ModelStreamEventType.RESPONSE_FAILED,
+            category="cancelled",
+        ),
+    ]])
+
+    def failing_persist(msg: ConversationMessage) -> None:
+        if msg.kind == "assistant":
+            raise RuntimeError(secret)
+
+    result = await run_turn(
+        session_id="s1", turn_id="t1", model=fake, system_prompt="sys",
+        context_messages=[], history=[], tool_registry=ToolRegistry(), active_tools=(),
+        cancel_event=asyncio.Event(), emit=_fake_emit(events),
+        persist_message=failing_persist, user_message_id=_uid(),
+    )
+
+    assert result.exit_reason == TurnExitReason.PERSISTENCE_FAILED
+    assert result.safe_failure == "Assistant message persistence failed."
+    assert not any(e.event_type == LiveEventType.TURN_INTERRUPTED for e in events)
+    assert all(secret not in e.model_dump_json() for e in events)
+
+
+@pytest.mark.asyncio
+async def test_handler_code_is_normalized_before_envelope_and_events():
+    """Arbitrary handler metadata cannot reach canonical or live output."""
+    from pydantic import BaseModel
+    from haxjobs.agent_core.tools import ToolExecutionContext
+
+    secret = "SECRET_HANDLER_CODE"
+    class Input(BaseModel):
+        value: str
+    class Output(BaseModel):
+        ok: bool
+
+    registry = ToolRegistry()
+
+    async def handler(input_obj, ctx):
+        return {"ok": False, "code": secret, "error": secret}
+
+    registry.register(ToolDefinition(
+        name="secret-code", description="test", input_model=Input,
+        output_model=Output, handler=handler,
+    ))
+    context = ToolExecutionContext(
+        session_id="s1", turn_id="t1", call_id="c1",
+        user_message_id="u1", cancel_event=asyncio.Event(),
+    )
+    envelope = await registry.dispatch(
+        name="secret-code", arguments='{"value":"x"}',
+        active_names=("secret-code",), context=context,
+    )
+    assert envelope["code"] == "tool_failed"
+    assert secret not in str(envelope)
+
+    events: list[LiveEvent] = []
+    fake = FakeModelClient(stream_events=_fake_stream_with_tool(
+        "c1", "secret-code", '{"value":"x"}', "done",
+    ))
+    result = await run_turn(
+        session_id="s1", turn_id="t1", model=fake, system_prompt="sys",
+        context_messages=[], history=[], tool_registry=registry,
+        active_tools=("secret-code",), cancel_event=asyncio.Event(),
+        emit=_fake_emit(events), persist_message=_persist, user_message_id="u1",
+    )
+    tool_result = next(m for m in result.new_messages if m.kind == "tool_result")
+    assert tool_result.error_code == "tool_failed"
+    assert secret not in str(tool_result.model_dump())
+    assert all(secret not in event.model_dump_json() for event in events)
+
+    from contextlib import redirect_stdout
+    from io import StringIO
+    from haxjobs.interfaces.terminal import TerminalClient
+    rendered = StringIO()
+    failed_event = next(e for e in events if e.event_type == LiveEventType.TOOL_FAILED)
+    with redirect_stdout(rendered):
+        TerminalClient(None, show_session_info=False)._on_event(failed_event)
+    assert secret not in rendered.getvalue()

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import html.parser
 import ipaddress
@@ -194,17 +195,21 @@ class JobSourceFetcher:
         resolver: Callable | None = None,
         transport_factory: Callable | None = None,
         resolver_timeout: float = _TIMEOUT,
+        fetch_timeout: float = _TIMEOUT,
     ) -> None:
         """Resolver and transport_factory are for test injection only.
 
         resolver(hostname) -> [(family, address), ...]
         transport_factory(url, timeout) -> file-like response object
         resolver_timeout bounds the await of the off-loop resolver. Cancelling
-        that await cannot stop an already-running resolver thread.
+        that await cannot stop an already-running resolver thread. fetch_timeout
+        bounds the complete off-loop transport call; its worker may finish later
+        because asyncio cannot kill a running to_thread worker.
         """
         self._resolver = resolver
         self._transport_factory = transport_factory
         self._resolver_timeout = resolver_timeout
+        self._fetch_timeout = fetch_timeout
 
     async def _resolve_public_addresses(self, hostname: str) -> tuple[bool, str]:
         """Run resolver work off-loop with a bounded await."""
@@ -286,6 +291,16 @@ class JobSourceFetcher:
         try:
             observation = await self._do_fetch_async(source_url, job_ref, hostname)
             return observation
+        except asyncio.TimeoutError:
+            return SourceObservation(
+                ok=False,
+                job_ref=job_ref,
+                source_url=source_url,
+                host=hostname,
+                status="unavailable",
+                code="fetch_timeout",
+                error="source fetch timed out",
+            )
         except Exception as exc:
             logger.warning("source fetch failed for %s: %s", source_url, exc)
             return SourceObservation(
@@ -299,10 +314,17 @@ class JobSourceFetcher:
             )
 
     async def _do_fetch_async(self, url: str, job_ref: str, hostname: str) -> SourceObservation:
-        """Offload all blocking transport work, including injected fakes."""
+        """Bound the complete off-loop transport await.
+
+        Cancelling the await returns a safe timeout, but cannot stop a worker
+        thread already running in ``asyncio.to_thread``; it may finish later.
+        """
         import asyncio
 
-        return await asyncio.to_thread(self._do_fetch, url, job_ref, hostname)
+        return await asyncio.wait_for(
+            asyncio.to_thread(self._do_fetch, url, job_ref, hostname),
+            timeout=self._fetch_timeout,
+        )
 
     def _do_fetch(
         self, url: str, job_ref: str, hostname: str

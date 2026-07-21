@@ -76,7 +76,7 @@ async def test_get_job_unknown_returns_safe_top_level_failure(store: CareerStore
     )
 
     assert result["ok"] is False
-    assert result["code"] == "job_not_found"
+    assert result["code"] == "tool_failed"
     assert "not found" not in result["error"].lower()
 
 
@@ -198,7 +198,7 @@ async def test_source_and_action_failures_never_leak_raw_error_text(store: Caree
         context=_test_ctx("source-secret"),
     )
     assert source_result["ok"] is False
-    assert source_result["code"] == "source_observation_failed"
+    assert source_result["code"] == "tool_failed"
     assert secret not in json.dumps(source_result)
 
     action_result = await registry.dispatch(
@@ -212,7 +212,7 @@ async def test_source_and_action_failures_never_leak_raw_error_text(store: Caree
         context=_test_ctx("action-secret"),
     )
     assert action_result["ok"] is False
-    assert action_result["code"] == "assessment_invalid"
+    assert action_result["code"] == "tool_failed"
     assert secret not in json.dumps(action_result)
 
 

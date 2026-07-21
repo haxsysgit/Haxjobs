@@ -2,7 +2,7 @@
 
 ## Status
 
-Final review is pending and not approved. This focused writer pass starts at exact `de5f14e` and makes one correctness repair commit. No live model, public network, private fixture, provider configuration, credential, plan, or state path was used.
+Final review is pending and not approved. This focused writer pass starts at exact `01d2161` and makes one final correctness/artifact repair commit. No live model, public network, private fixture, provider configuration, credential, plan, or state path was used.
 
 ## Prior review history
 
@@ -36,14 +36,14 @@ Final review is pending and not approved. This focused writer pass starts at exa
 
 ## Diagram attribution
 
-The original PNG exports occurred in earlier repair commit `0766d56`. Diagram cell reductions, orthogonal-edge repairs, and their re-exports occurred in earlier repair commit `0a29152`; the trajectory correction was recorded before this focused pass. This pass does not alter diagrams; all diagrams remain below 35 cells.
+The original PNG exports occurred in earlier repair commit `0766d56`. Diagram cell reductions, orthogonal-edge repairs, and their re-exports occurred in earlier repair commit `0a29152`; the trajectory correction was recorded before this focused pass. The final repair updates `employment-models` with `job_id`, `track_id`, and `tool_call_id` idempotency metadata; all diagrams remain below 35 non-root cells.
 
 ## Writer verification
 
 | Check | Result |
 |---|---|
-| Full pytest suite | 244 passed |
-| Focused runtime/employment regression suite (`test_durable_tool_effects.py`, `test_employment_tools.py`, `test_session.py`, `test_turn_runtime.py`) | 85 passed |
+| Full pytest suite | 248 passed |
+| Focused runtime/employment regression suite (`test_durable_tool_effects.py`, `test_employment_tools.py`, `test_session.py`, `test_turn_runtime.py`) | 88 passed |
 | `py_compile` | passed |
 | `uv lock --check` | passed |
 | `git diff --check` | passed |
@@ -53,11 +53,22 @@ The original PNG exports occurred in earlier repair commit `0766d56`. Diagram ce
 
 | Diagram | Total `mxCell` | PNG dimensions |
 |---|---:|---|
-| `employment-models.drawio` | 36 total / 34 non-root | 784×524 |
+| `employment-models.drawio` | 36 total / 34 non-root | 784×554 |
 | `tool-effects.drawio` | 22 | 744×404 |
 | `conversation-trajectory.drawio` | 21 | 464×474 |
 
 All diagram edges include `edgeStyle=orthogonalEdgeStyle`, `orthogonalLoop=1`, and `jettySize=auto`. All PNGs have valid PNG signatures and nonzero dimensions.
+
+## Final correctness/artifact repair (`01d2161`)
+
+1. Partial assistant persistence failures are `PERSISTENCE_FAILED`; no interruption or `SESSION_SETTLED` event is emitted when canonical persistence fails, and exception text remains local to logs.
+2. Tool codes use the static agent-core vocabulary; arbitrary handler codes normalize to `tool_failed` before envelopes, canonical messages, events, and provider projection. Secret-code regressions cover envelope and live output.
+3. Failed measurement/settlement attempts consume their sequence after durable records exist. Retry and resume paths advance monotonically without duplicate measurement turn numbers.
+4. The complete source transport call is bounded by `asyncio.wait_for` and returns typed `fetch_timeout`; documentation notes that a running `to_thread` worker may finish later.
+5. Getting-started profile migration commands include the tracked career fixture.
+6. Employment-models source and PNG now show all six JobAssessment identity/idempotency fields, seven groups, and 34 non-root cells.
+
+Focused verification: 248 passed; `py_compile`, `uv lock --check`, `git diff --check`, XML cell count, and PNG signature/dimensions passed. Terminal source/tests were not modified. Controller-owned live/manual provider proof remains deferred.
 
 ## Review boundary
 
