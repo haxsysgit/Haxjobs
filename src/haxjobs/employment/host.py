@@ -2,17 +2,19 @@
 
 Plan 003 Phase 6: provides system_prompt, context_messages, registered tools,
 and active tool selection. Uses CareerStore as source.
+
+Plan 004: tools moved to employment/tools.py.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
-from haxjobs.agent_core.tools import ToolDefinition, ToolRegistry
+from haxjobs.agent_core.tools import ToolRegistry
 from haxjobs.employment.context import build_career_context, build_system_prompt
 from haxjobs.employment.job_source import JobSourceFetcher
 from haxjobs.employment.store import CareerStore
+from haxjobs.employment.tools import build_employment_tool_registry
 from haxjobs.model.types import ModelMessage
 
 
@@ -58,68 +60,13 @@ class EmploymentHost:
                 f"Run 'haxjobs migrate' first."
             )
 
-        # Build tool registry with inspect_job_source
-        self._tool_registry = self._build_registry()
-
-    def _build_registry(self) -> ToolRegistry:
-        """Build ToolRegistry with the inspect_job_source tool."""
-        from pydantic import BaseModel, Field
-        from haxjobs.employment.job_source import SourceObservation
-
-        class _InspectInput(BaseModel):
-            job_ref: str = Field(
-                description="The job reference number, e.g. '49' or '328'"
-            )
-
-        class _InspectOutput(BaseModel):
-            ok: bool
-            job_ref: int
-            status: str = ""
-            visible_text: str = ""
-            error: str = ""
-
-        registry = ToolRegistry()
+        # Build tool registry with employment tools
         fetcher = self.job_source_fetcher or JobSourceFetcher()
-
-        async def handler(input_obj: _InspectInput) -> dict[str, Any]:
-            # We need a way to resolve job_ref to a fixture.
-            # For v1, support refs 49 and 328 mapped to known fixture paths.
-            job_ref_str = input_obj.job_ref
-            fixture_path = _resolve_job_fixture_path(job_ref_str)
-
-            if fixture_path is None:
-                return SourceObservation(
-                    ok=False,
-                    job_ref=int(job_ref_str) if job_ref_str.isdigit() else 0,
-                    source_url="",
-                    status="invalid_source",
-                    code="unknown_job_ref",
-                    error=f"Unknown job reference: {job_ref_str}. Valid refs: 49, 328.",
-                ).model_dump()
-
-            from haxjobs.employment.fixtures import JobFixture, load_job_fixture
-
-            job_fixture = load_job_fixture(fixture_path)
-            allowed_hosts = tuple(job_fixture.allowed_source_hosts)
-
-            observation = await fetcher.fetch(
-                job_ref=job_ref_str,
-                job_fixture=job_fixture,
-                allowed_hosts=allowed_hosts,
-            )
-            return observation.model_dump()
-
-        registry.register(
-            ToolDefinition(
-                name="inspect_job_source",
-                description=_INSPECT_SOURCE_DESCRIPTION,
-                input_model=_InspectInput,
-                output_model=_InspectOutput,
-                handler=handler,
-            )
+        self._tool_registry, self._active_tools = build_employment_tool_registry(
+            store=self.store,
+            track_id=self.track_id,
+            fetcher=fetcher,
         )
-
-        return registry
 
     def system_prompt(self) -> str:
         return build_system_prompt()
@@ -163,28 +110,4 @@ class EmploymentHost:
         return self._tool_registry
 
     def active_tool_names(self) -> tuple[str, ...]:
-        return ("inspect_job_source",)
-
-
-_INSPECT_SOURCE_DESCRIPTION = """Retrieve the current page content for a job from its trusted source URL.
-
-Use this tool ONLY when the supplied job evidence is insufficient or may be stale.
-
-Arguments:
-  job_ref: the job reference number (a string like "49" or "328")
-
-Returns:
-  Current source evidence (visible text, status, warnings), NOT a fit judgement.
-  A blocked, unavailable, or missing source is a valid and useful result.
-  Never infer facts beyond what the tool actually returns."""
-
-
-_JOB_FIXTURES: dict[str, str] = {
-    "49": "discussion/fixtures/harness/job-49.json",
-    "328": "discussion/fixtures/harness/job-328.json",
-}
-
-
-def _resolve_job_fixture_path(job_ref: str) -> str | None:
-    """Map a job_ref string to a known fixture path. Returns None for unknown refs."""
-    return _JOB_FIXTURES.get(job_ref)
+        return self._active_tools

@@ -2,6 +2,8 @@
 
 Plan 003 Phase 6: volatile career context projected into the model request,
 never copied into session history.
+
+Plan 004: evidence content, privacy labels, verification flags, deduplication, caps.
 """
 
 from __future__ import annotations
@@ -28,9 +30,12 @@ _TRUTH_RULES = """Follow these rules in every response:
 
 _CONVERSATION_INSTRUCTIONS = """You are having a conversation with the user about their career. You have access to their career profile, skills, evidence, constraints, and preferences.
 
-You can use the inspect_job_source tool to look up job descriptions from trusted sources when the user asks about a specific job reference.
+You can use tools to look up saved jobs and job descriptions from trusted sources.
 
 Stay focused on the user's actual career direction and evidence. Do not fabricate details about jobs or companies."""
+
+_EVIDENCE_CHAR_CAP = 500
+_EVIDENCE_TOTAL_CAP = 8000
 
 
 def build_system_prompt() -> str:
@@ -84,7 +89,7 @@ def build_career_context(
             weight = p.get("weight", "strong")
             blocks.append(f"- {p['key']}: {p['value']} ({weight})")
 
-    # Skills with proficiency and evidence
+    # Skills with proficiency and evidence links
     blocks.append("\n## Skills\n")
     for skill in skills_flat:
         prof = skill.get("proficiency", "working")
@@ -94,9 +99,15 @@ def build_career_context(
         # Evidence linked to this skill
         ev_items = evidence_by_skill.get(skill["skill_id"], [])
         if ev_items:
-            blocks.append("  Evidence:")
+            blocks.append("  Evidence labels:")
             for ev in ev_items:
-                blocks.append(f"    - {ev['label']} (source: {ev['source']}, verified: {ev.get('verified_at', 'never')})")
+                verified = f", verified: {ev['verified_at']}" if ev.get("verified_at") else ""
+                blocks.append(f"    - {ev['label']} (source: {ev['source']}{verified})")
+
+    # Evidence content section (deduplicated, capped)
+    blocks.append("\n## Evidence Content\n")
+    evidence_text = _build_evidence_content(evidence_by_skill)
+    blocks.append(evidence_text)
 
     # Skill gaps
     if gaps:
@@ -107,6 +118,57 @@ def build_career_context(
 
     context_text = "\n".join(blocks)
     return [ModelMessage(role="system", content=context_text)]
+
+
+def _build_evidence_content(
+    evidence_by_skill: dict[str, list[dict[str, Any]]],
+) -> str:
+    """Build deduplicated evidence content section with privacy labels and caps."""
+    # Deduplicate by evidence_id
+    seen: set[str] = set()
+    unique: list[dict] = []
+    for ev_list in evidence_by_skill.values():
+        for ev in ev_list:
+            eid = ev.get("evidence_id", "")
+            if eid and eid not in seen:
+                seen.add(eid)
+                unique.append(ev)
+
+    # Sort by evidence_id for deterministic order
+    unique.sort(key=lambda e: e.get("evidence_id", ""))
+
+    lines: list[str] = []
+    total_chars = 0
+
+    for ev in unique:
+        content = ev.get("content", "")
+        label = ev.get("label", "")
+        source = ev.get("source", "")
+        verified = ev.get("verified_at")
+        privacy = ev.get("privacy_level", "public_ok")
+        prefix = ""
+
+        if privacy == "private":
+            prefix = "[PRIVATE: do not expose in public output, but you may use it for reasoning]\n"
+
+        # Cap individual evidence content
+        if len(content) > _EVIDENCE_CHAR_CAP:
+            content = content[:_EVIDENCE_CHAR_CAP] + " [truncated]"
+
+        verified_str = f" (verified: {verified})" if verified else ""
+        entry = f"**{label}** (source: {source}{verified_str}){prefix}\n{content}"
+
+        if total_chars + len(entry) > _EVIDENCE_TOTAL_CAP:
+            lines.append("[truncated: evidence section character cap reached]")
+            break
+
+        lines.append(entry)
+        total_chars += len(entry)
+
+    if not lines:
+        return "(no evidence)"
+
+    return "\n\n".join(lines)
 
 
 def _parse_json_list(raw: str | list | None) -> list[str]:

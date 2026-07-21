@@ -45,7 +45,8 @@ def _fake_model_response(text: str = "Hello from fake model.", count: int = 1) -
 def _make_session(store: SessionStore, model=None, *, model_count: int = 1) -> AgentSession:
     if model is None:
         model = _fake_model_response(count=model_count)
-    store.create_session("s1")
+    import json
+    store.create_session("s1", configuration_json=json.dumps({"person_id": "test", "track_id": "test"}))
     return AgentSession(
         session_id="s1",
         session_store=store,
@@ -544,3 +545,316 @@ async def test_immediate_enter_then_escape_reaches_active_turn(store: SessionSto
     # Verify the session returns to clean idle state
     assert session._busy is False
     assert session._cancel_event is None
+
+
+# ══════════════════════════════════════════════
+# Plan 004 — Session configuration and measurement tests
+# ══════════════════════════════════════════════
+
+@pytest.mark.asyncio
+async def test_unconfigured_session_fails_on_resume(store: SessionStore):
+    """Resume raises ValueError for session without configuration."""
+    # Create session without config (old-style create_session)
+    store.create_session("old-session")  # no configuration_json
+    store.mark_turn_settled("old-session", 1)
+
+    with pytest.raises(ValueError, match="no configuration"):
+        AgentSession.resume(
+            session_id="old-session",
+            session_store=store,
+            model=_fake_model_response(),
+            system_prompt=lambda: "sys",
+            context_messages=lambda: [],
+            tool_registry_fn=lambda: ToolRegistry(),
+            active_tool_names_fn=lambda: (),
+        )
+
+
+@pytest.mark.asyncio
+async def test_dangling_call_gets_synthetic_result(store: SessionStore):
+    """Unmatched ToolCallMessage on resume gets unknown_outcome result."""
+    import json
+    store.create_session("s-dangle", configuration_json=json.dumps({"person_id": "test", "track_id": "test"}))
+
+    # Insert a ToolCallMessage without a matching ToolResultMessage
+    from haxjobs.agent_core.messages import ToolCallMessage
+    tc = ToolCallMessage(
+        message_id="tc1", turn_id="t1", call_id="dangle_1",
+        tool_name="test_tool", arguments='{"value": "x"}'
+    )
+    store.append_message("s-dangle", tc)
+    store.mark_turn_settled("s-dangle", 1)
+
+    # Resume should detect dangling and append synthetic result
+    session = AgentSession.resume(
+        session_id="s-dangle",
+        session_store=store,
+        model=_fake_model_response(count=2),
+        system_prompt=lambda: "sys",
+        context_messages=lambda: [],
+        tool_registry_fn=lambda: ToolRegistry(),
+        active_tool_names_fn=lambda: (),
+    )
+    assert session.session_id == "s-dangle"
+
+    # Check that synthetic result was appended
+    stored = store.load_messages("s-dangle")
+    tool_results = [
+        m for m in stored
+        if m.get("payload_json", {}).get("kind") == "tool_result"
+        and m.get("payload_json", {}).get("call_id") == "dangle_1"
+    ]
+    assert len(tool_results) == 1
+    tr = tool_results[0]["payload_json"]
+    assert tr["ok"] is False
+    assert tr["error_code"] == "unknown_outcome"
+
+
+@pytest.mark.asyncio
+async def test_no_duplicate_persistence(store: SessionStore):
+    """Messages are not persisted twice."""
+    session = _make_session(store, model_count=2)
+    await session.prompt("hello")
+
+    stored = store.load_messages("s1")
+    kinds = [m["payload_json"]["kind"] for m in stored]
+    # Exactly one user and one assistant
+    assert kinds.count("user") == 1
+    assert kinds.count("assistant") == 1
+
+
+@pytest.mark.asyncio
+async def test_dangling_call_not_auto_retried(store: SessionStore):
+    """Synthetic unknown_outcome result does not trigger handler re-execution."""
+    import json
+    from haxjobs.agent_core.messages import ToolCallMessage
+    store.create_session("s-no-retry", configuration_json=json.dumps({"person_id": "test", "track_id": "test"}))
+
+    tc = ToolCallMessage(
+        message_id="tc2", turn_id="t2", call_id="no_retry_1",
+        tool_name="test_tool", arguments='{"value": "x"}'
+    )
+    store.append_message("s-no-retry", tc)
+    store.mark_turn_settled("s-no-retry", 1)
+
+    # Resume: should append synthetic, not re-execute
+    session = AgentSession.resume(
+        session_id="s-no-retry",
+        session_store=store,
+        model=_fake_model_response(count=2),
+        system_prompt=lambda: "sys",
+        context_messages=lambda: [],
+        tool_registry_fn=lambda: ToolRegistry(),
+        active_tool_names_fn=lambda: (),
+    )
+
+    # Now send a prompt to verify session works normally
+    result = await session.prompt("hello after resume")
+    assert result.exit_reason is not None
+
+    # The synthetic result should be there, and no handler was re-executed
+    stored = store.load_messages("s-no-retry")
+    tool_results = [
+        m for m in stored
+        if m.get("payload_json", {}).get("kind") == "tool_result"
+        and m.get("payload_json", {}).get("call_id") == "no_retry_1"
+    ]
+    assert len(tool_results) == 1
+
+
+@pytest.mark.asyncio
+async def test_dangling_result_idempotent_on_repeated_resume(store: SessionStore):
+    """Second resume in same process does not duplicate synthetic result."""
+    import json
+    from haxjobs.agent_core.messages import ToolCallMessage
+    store.create_session("s-idem", configuration_json=json.dumps({"person_id": "test", "track_id": "test"}))
+
+    tc = ToolCallMessage(
+        message_id="tc3", turn_id="t3", call_id="idem_1",
+        tool_name="test_tool", arguments='{"value": "x"}'
+    )
+    store.append_message("s-idem", tc)
+    store.mark_turn_settled("s-idem", 1)
+
+    # First resume
+    _ = AgentSession.resume(
+        session_id="s-idem",
+        session_store=store,
+        model=_fake_model_response(count=2),
+        system_prompt=lambda: "sys",
+        context_messages=lambda: [],
+        tool_registry_fn=lambda: ToolRegistry(),
+        active_tool_names_fn=lambda: (),
+    )
+
+    first_count = len(store.load_messages("s-idem"))
+
+    # Second resume
+    _ = AgentSession.resume(
+        session_id="s-idem",
+        session_store=store,
+        model=_fake_model_response(count=2),
+        system_prompt=lambda: "sys",
+        context_messages=lambda: [],
+        tool_registry_fn=lambda: ToolRegistry(),
+        active_tool_names_fn=lambda: (),
+    )
+
+    second_count = len(store.load_messages("s-idem"))
+    assert second_count == first_count, f"Expected {first_count} messages, got {second_count}"
+
+
+# ── Measurement tests ──
+
+@pytest.mark.asyncio
+async def test_measurement_recorded_after_turn(store: SessionStore):
+    """A completed turn records a measurement row with correct turn_number."""
+    session = _make_session(store, model_count=1)
+    await session.prompt("hello")
+
+    rows = store._conn.execute(
+        "SELECT * FROM turn_measurements WHERE session_id = ?", ("s1",)
+    ).fetchall()
+    assert len(rows) == 1
+    assert rows[0]["turn_number"] == 1
+    assert rows[0]["exit_reason"] is not None
+
+
+@pytest.mark.asyncio
+async def test_measurement_has_no_content_columns(store: SessionStore):
+    """Schema has no prompt_text, response_text, tool_argument, or tool_result columns."""
+    session = _make_session(store, model_count=1)
+    await session.prompt("hello")
+
+    cols = store._conn.execute("PRAGMA table_info(turn_measurements)").fetchall()
+    col_names = {c["name"] for c in cols}
+    forbidden = {"prompt_text", "response_text", "tool_arguments", "tool_results",
+                  "prompt", "response", "career_context"}
+    assert not col_names.intersection(forbidden), f"Forbidden columns found: {col_names.intersection(forbidden)}"
+
+
+@pytest.mark.asyncio
+async def test_measurement_row_contains_no_content_values(store: SessionStore):
+    """Rows contain no content text in any column."""
+    session = _make_session(store, model_count=1)
+    await session.prompt("hello")
+
+    rows = store._conn.execute(
+        "SELECT * FROM turn_measurements WHERE session_id = ?", ("s1",)
+    ).fetchall()
+    assert len(rows) == 1
+    row = dict(rows[0])
+    # Check that none of the known columns contain large content
+    for key, val in row.items():
+        if isinstance(val, str) and len(val) > 500:
+            pytest.fail(f"Column {key} contains large content: {len(val)} chars")
+
+
+@pytest.mark.asyncio
+async def test_measurement_interrupted_turn(store: SessionStore):
+    """An interrupted turn still records exit_reason=interrupted."""
+    store.create_session("s-int", configuration_json='{"person_id": "test", "track_id": "test"}')
+    model = FakeModelClient(
+        stream_events=[
+            [
+                ModelStreamEvent(
+                    event_type=ModelStreamEventType.TEXT_DELTA, delta="slow",
+                ),
+                ModelStreamEvent(
+                    event_type=ModelStreamEventType.RESPONSE_COMPLETED,
+                    finish_reason="stop",
+                ),
+            ],
+        ],
+        delay_ms=300,
+        repeat=True,
+    )
+    session = AgentSession(
+        session_id="s-int",
+        session_store=store,
+        model=model,
+        system_prompt=lambda: "sys",
+        context_messages=lambda: [],
+        tool_registry_fn=lambda: ToolRegistry(),
+        active_tool_names_fn=lambda: (),
+    )
+
+    task = asyncio.create_task(session.prompt("hello"))
+    await asyncio.sleep(0.05)
+    session.abort()
+    await task
+
+    rows = store._conn.execute(
+        "SELECT * FROM turn_measurements WHERE session_id = ?", ("s-int",)
+    ).fetchall()
+    assert len(rows) == 1
+    assert rows[0]["exit_reason"] == "interrupted"
+
+
+@pytest.mark.asyncio
+async def test_measurement_null_usage_when_provider_omits(store: SessionStore):
+    """When provider returns no usage, measurement stores NULL tokens."""
+    session = _make_session(store, model_count=1)
+    await session.prompt("hello")
+
+    rows = store._conn.execute(
+        "SELECT * FROM turn_measurements WHERE session_id = ?", ("s1",)
+    ).fetchall()
+    assert len(rows) == 1
+    # Fake model doesn't return usage, so tokens should be NULL
+    assert rows[0]["prompt_tokens"] is None
+
+
+@pytest.mark.asyncio
+async def test_measurement_host_setup_failure(store: SessionStore):
+    """Host setup failure records exit_reason=host_setup_failure with null model fields."""
+    store.create_session("s-hostfail", configuration_json='{"person_id": "test", "track_id": "test"}')
+
+    def broken_context():
+        raise RuntimeError("context explosion")
+
+    session = AgentSession(
+        session_id="s-hostfail",
+        session_store=store,
+        model=_fake_model_response(count=1),
+        system_prompt=lambda: "sys",
+        context_messages=broken_context,
+        tool_registry_fn=lambda: ToolRegistry(),
+        active_tool_names_fn=lambda: (),
+    )
+
+    await session.prompt("hello")
+
+    rows = store._conn.execute(
+        "SELECT * FROM turn_measurements WHERE session_id = ?", ("s-hostfail",)
+    ).fetchall()
+    assert len(rows) == 1
+    assert rows[0]["exit_reason"] == "host_setup_failure"
+    assert rows[0]["model_name"] == ""
+
+
+@pytest.mark.asyncio
+async def test_measurement_duplicate_turn_id_prevented(store: SessionStore):
+    """UNIQUE(session_id, turn_id) prevents duplicate measurement rows."""
+    session = _make_session(store, model_count=1)
+    await session.prompt("hello")
+
+    # Try to insert a duplicate measurement
+    import sqlite3
+    rows = store._conn.execute(
+        "SELECT * FROM turn_measurements WHERE session_id = ?", ("s1",)
+    ).fetchall()
+    assert len(rows) == 1
+    existing = dict(rows[0])
+
+    from haxjobs.agent_core.session_store import _now
+    with pytest.raises(sqlite3.IntegrityError):
+        store._conn.execute(
+            """INSERT INTO turn_measurements (
+                session_id, turn_id, turn_number, started_at, finished_at,
+                exit_reason, model_name, provider_name, model_steps, tool_starts,
+                input_characters, duration_ms
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (existing["session_id"], existing["turn_id"], existing["turn_number"],
+             _now(), _now(), "test", "", "", 0, 0, 0, 0),
+        )

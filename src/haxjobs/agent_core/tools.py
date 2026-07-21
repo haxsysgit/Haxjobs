@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Callable, Coroutine
 
 from pydantic import BaseModel
@@ -13,12 +15,28 @@ from haxjobs.model.types import ToolSchema
 
 logger = logging.getLogger(__name__)
 
-HandlerFunc = Callable[..., Coroutine[Any, Any, dict[str, Any]]]
+HandlerFunc = Callable[[Any, "ToolExecutionContext"], Coroutine[Any, Any, dict[str, Any]]]
+
+
+class EffectKind(str, Enum):
+    READ = "read"
+    INTERNAL_WRITE = "internal_write"
+    EXTERNAL_EFFECT = "external_effect"
+
+
+@dataclass
+class ToolExecutionContext:
+    """Domain free context passed to every tool handler."""
+    session_id: str
+    turn_id: str
+    call_id: str
+    user_message_id: str
+    cancel_event: asyncio.Event
 
 
 @dataclass
 class ToolDefinition:
-    """One registered tool — name, schema, handler, and resource limits."""
+    """One registered tool — name, schema, handler, resource limits, and policy metadata."""
 
     name: str
     description: str
@@ -26,13 +44,15 @@ class ToolDefinition:
     output_model: type[BaseModel]
     handler: HandlerFunc
     max_result_chars: int = 12_000
+    effect_kind: EffectKind = EffectKind.READ
+    retry_safe: bool = False
 
 
 class ToolRegistry:
     """Explicit registry — no import-time discovery.
 
     Tools are registered by name. Duplicate registration raises ValueError.
-    Dispatch receives the active set and enforces membership.
+    Dispatch receives the active set, enforces membership, and passes context.
     """
 
     def __init__(self) -> None:
@@ -65,6 +85,7 @@ class ToolRegistry:
         name: str,
         arguments: str,
         active_names: tuple[str, ...],
+        context: ToolExecutionContext,
     ) -> dict[str, Any]:
         """Validate and execute one tool call. Returns structured result envelope.
 
@@ -108,9 +129,9 @@ class ToolRegistry:
                 "error": f"argument validation failed: {exc}",
             }
 
-        # Execute handler
+        # Execute handler with context
         try:
-            result = await tool.handler(input_obj)
+            result = await tool.handler(input_obj, context)
         except Exception as exc:
             logger.warning("tool handler error for %s: %s", name, exc)
             return {

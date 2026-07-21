@@ -203,6 +203,83 @@ class JobSourceFetcher:
         self._resolver = resolver
         self._transport_factory = transport_factory
 
+    async def fetch_from_job(self, job) -> SourceObservation:
+        """Fetch source for a saved Job (Pydantic model or row dict).
+
+        Resolves source_url and allowed_source_hosts from the Job.
+        """
+        # Support both Pydantic models and dict rows
+        if hasattr(job, 'source_url'):
+            source_url = job.source_url
+            job_ref = int(job.external_ref) if job.external_ref else 0
+            allowed_hosts = tuple(job.allowed_source_hosts) if hasattr(job, 'allowed_source_hosts') else ()
+        else:
+            source_url = job.get('source_url', '')
+            job_ref = 0
+            import json
+            raw_hosts = job.get('allowed_source_hosts', '[]')
+            if isinstance(raw_hosts, str):
+                try:
+                    allowed_hosts = tuple(json.loads(raw_hosts))
+                except (json.JSONDecodeError, TypeError):
+                    allowed_hosts = ()
+            else:
+                allowed_hosts = tuple(raw_hosts)
+
+        # Validate URL
+        url_ok, url_error, hostname = _validate_url(source_url)
+        if not url_ok:
+            return SourceObservation(
+                ok=False,
+                job_ref=job_ref,
+                source_url=source_url,
+                status="invalid_source",
+                code="url_validation_failed",
+                error=url_error,
+            )
+
+        # Check allowed hosts
+        allowed_lower = {h.lower() for h in allowed_hosts}
+        if hostname not in allowed_lower:
+            return SourceObservation(
+                ok=False,
+                job_ref=job_ref,
+                source_url=source_url,
+                host=hostname,
+                status="invalid_source",
+                code="host_not_allowed",
+                error=f"host {hostname} not in allowed_source_hosts",
+            )
+
+        # Check DNS addresses are all public
+        ok, addr_error = _check_public_addresses(hostname, resolver=self._resolver)
+        if not ok:
+            return SourceObservation(
+                ok=False,
+                job_ref=job_ref,
+                source_url=source_url,
+                host=hostname,
+                status="invalid_source",
+                code="non_public_address",
+                error=addr_error,
+            )
+
+        # Fetch
+        try:
+            observation = await self._do_fetch_async(source_url, job_ref, hostname)
+            return observation
+        except Exception as exc:
+            logger.warning("source fetch failed for %s: %s", source_url, exc)
+            return SourceObservation(
+                ok=False,
+                job_ref=job_ref,
+                source_url=source_url,
+                host=hostname,
+                status="unavailable",
+                code="fetch_exception",
+                error=f"fetch failed: {exc}",
+            )
+
     async def fetch(
         self,
         job_ref: str,
@@ -263,9 +340,7 @@ class JobSourceFetcher:
 
         # Fetch
         try:
-            observation = await self._do_fetch(
-                source_url, job_fixture.job_ref, hostname
-            )
+            observation = await self._do_fetch_async(source_url, job_fixture.job_ref, hostname)
             return observation
         except Exception as exc:
             logger.warning("source fetch failed for %s: %s", source_url, exc)
@@ -279,7 +354,15 @@ class JobSourceFetcher:
                 error=f"fetch failed: {exc}",
             )
 
-    async def _do_fetch(
+    async def _do_fetch_async(self, url: str, job_ref: int, hostname: str) -> SourceObservation:
+        """Offload blocking network I/O to a thread."""
+        import asyncio
+        if self._transport_factory is not None:
+            # Test transport injection — synchronous fake path
+            return self._do_fetch(url, job_ref, hostname)
+        return await asyncio.to_thread(self._do_fetch, url, job_ref, hostname)
+
+    def _do_fetch(
         self, url: str, job_ref: int, hostname: str
     ) -> SourceObservation:
         """Internal fetch with byte/text limits and content type checks."""

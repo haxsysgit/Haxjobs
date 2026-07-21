@@ -2,6 +2,9 @@
 
 Plan 003 Phase 5: Run one conversational turn through the model with streaming,
 tool dispatch, live events, and cancellation.
+
+Plan 004: Durable tool execution boundary — persist_message callback, ToolExecutionContext,
+user_message_id, TurnResult usage/input_characters.
 """
 
 from __future__ import annotations
@@ -13,7 +16,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, Callable
 
 from haxjobs.agent_core.live_events import LiveEvent, LiveEventEmitter, LiveEventType
 from haxjobs.agent_core.messages import (
@@ -24,19 +27,22 @@ from haxjobs.agent_core.messages import (
     UserMessage,
     project_messages,
 )
-from haxjobs.agent_core.tools import ToolRegistry
+from haxjobs.agent_core.tools import ToolExecutionContext, ToolRegistry
 from haxjobs.model.client import ModelClient
 from haxjobs.model.types import (
     ModelMessage,
     ModelRequest,
     ModelStreamEvent,
     ModelStreamEventType,
+    ModelUsage,
     ToolSchema,
 )
 
 logger = logging.getLogger(__name__)
 
 _MAX_MODEL_STEPS = 5
+
+PersistCallback = Callable[[ConversationMessage], None]
 
 
 class TurnExitReason(str, Enum):
@@ -58,6 +64,11 @@ class TurnResult:
     tool_starts: int = 0
     new_messages: list[ConversationMessage] = field(default_factory=list)
     safe_failure: str = ""
+    user_message_id: str = ""
+    model_name: str = ""
+    provider_name: str = ""
+    usage: ModelUsage | None = None
+    input_characters: int = 0
 
 
 async def run_turn(
@@ -72,11 +83,15 @@ async def run_turn(
     active_tools: tuple[str, ...],
     cancel_event: asyncio.Event,
     emit: LiveEventEmitter,
+    persist_message: PersistCallback,
+    user_message_id: str,
     max_model_steps: int = 5,
 ) -> TurnResult:
     """Execute one conversational turn — streaming model and tool loop.
 
     Returns a TurnResult regardless of outcome.
+    persist_message is called for every ToolCallMessage (before handler),
+    ToolResultMessage (after handler), and AssistantMessage.
     """
     max_steps = min(max(max_model_steps, 1), _MAX_MODEL_STEPS)
     new_messages: list[ConversationMessage] = []
@@ -85,6 +100,17 @@ async def run_turn(
     exit_reason = TurnExitReason.COMPLETED
     model_steps = 0
     tool_starts = 0
+    captured_usage: ModelUsage | None = None
+    captured_model_name = ""
+    captured_provider_name = ""
+
+    # Compute projected input characters
+    provider_messages_initial: list[ModelMessage] = project_messages(
+        system_prompt=system_prompt,
+        context_messages=context_messages,
+        history=history,
+    )
+    input_characters = sum(len(m.content or "") for m in provider_messages_initial)
 
     emit(
         LiveEvent(
@@ -113,14 +139,12 @@ async def run_turn(
                 turn_id=turn_id,
                 exit_reason=TurnExitReason.MODEL_FAILED,
                 safe_failure=safe_failure,
+                user_message_id=user_message_id,
+                input_characters=input_characters,
             )
 
-    # Build initial provider messages: system + context + history projection
-    provider_messages: list[ModelMessage] = project_messages(
-        system_prompt=system_prompt,
-        context_messages=context_messages,
-        history=history,
-    )
+    # Build initial provider messages
+    provider_messages: list[ModelMessage] = provider_messages_initial
 
     # ── Main loop ──
     while model_steps < max_steps:
@@ -136,8 +160,6 @@ async def run_turn(
         finish_reason = ""
 
         # Build model request
-        from haxjobs.model.types import ModelRequest
-
         model_request = ModelRequest(
             messages=list(provider_messages),
             max_tokens=4096,
@@ -167,14 +189,17 @@ async def run_turn(
                     )
                     # Persist partial assistant text
                     if accumulated_text:
-                        new_messages.append(
-                            AssistantMessage(
-                                message_id=_mid(),
-                                turn_id=turn_id,
-                                content=accumulated_text,
-                                status="interrupted",
-                            )
+                        assistant_msg = AssistantMessage(
+                            message_id=_mid(),
+                            turn_id=turn_id,
+                            content=accumulated_text,
+                            status="interrupted",
                         )
+                        new_messages.append(assistant_msg)
+                        try:
+                            persist_message(assistant_msg)
+                        except Exception:
+                            pass  # best-effort on interrupt
                     return TurnResult(
                         turn_id=turn_id,
                         exit_reason=exit_reason,
@@ -183,6 +208,11 @@ async def run_turn(
                         tool_starts=tool_starts,
                         new_messages=new_messages,
                         safe_failure=safe_failure,
+                        user_message_id=user_message_id,
+                        model_name=captured_model_name,
+                        provider_name=captured_provider_name,
+                        usage=captured_usage,
+                        input_characters=input_characters,
                     )
 
                 if stream_event.event_type == ModelStreamEventType.TEXT_DELTA:
@@ -199,7 +229,6 @@ async def run_turn(
                 elif stream_event.event_type == ModelStreamEventType.COMPLETE_TOOL_CALL:
                     if stream_event.tool_calls_unsafe:
                         # Reject tool calls when model response was truncated.
-                        # The model may not have finished writing arguments.
                         logger.warning(
                             "Rejecting unsafe tool call %s (finish_reason=length)",
                             stream_event.tool_name,
@@ -230,6 +259,9 @@ async def run_turn(
 
                 elif stream_event.event_type == ModelStreamEventType.RESPONSE_COMPLETED:
                     finish_reason = stream_event.finish_reason
+                    captured_usage = stream_event.usage
+                    captured_model_name = stream_event.model
+                    captured_provider_name = stream_event.provider
                     emit(
                         LiveEvent(
                             session_id=session_id,
@@ -247,21 +279,22 @@ async def run_turn(
                     final_text = accumulated_text
                     # Persist partial assistant text
                     if accumulated_text:
-                        new_messages.append(
-                            AssistantMessage(
-                                message_id=_mid(),
-                                turn_id=turn_id,
-                                content=accumulated_text,
-                                status="failed",
-                            )
+                        assistant_msg = AssistantMessage(
+                            message_id=_mid(),
+                            turn_id=turn_id,
+                            content=accumulated_text,
+                            status="failed",
                         )
-                    # TURN_FAILED emitted exactly once in final block below
+                        new_messages.append(assistant_msg)
+                        try:
+                            persist_message(assistant_msg)
+                        except Exception:
+                            pass
                     break
         except Exception as exc:
             model_failed = True
             safe_failure = str(exc)
             exit_reason = TurnExitReason.MODEL_FAILED
-            # TURN_FAILED emitted exactly once in final block below
             break
 
         if model_failed:
@@ -273,14 +306,31 @@ async def run_turn(
             exit_reason = TurnExitReason.COMPLETED
 
             # Persist assistant message
-            new_messages.append(
-                AssistantMessage(
-                    message_id=_mid(),
-                    turn_id=turn_id,
-                    content=accumulated_text,
-                    status="complete",
-                )
+            assistant_msg = AssistantMessage(
+                message_id=_mid(),
+                turn_id=turn_id,
+                content=accumulated_text,
+                status="complete",
             )
+            new_messages.append(assistant_msg)
+            try:
+                persist_message(assistant_msg)
+            except Exception:
+                safe_failure = "assistant message persistence failed"
+                return TurnResult(
+                    turn_id=turn_id,
+                    exit_reason=TurnExitReason.MODEL_FAILED,
+                    final_text=accumulated_text,
+                    model_steps=model_steps,
+                    tool_starts=tool_starts,
+                    new_messages=new_messages,
+                    safe_failure=safe_failure,
+                    user_message_id=user_message_id,
+                    model_name=captured_model_name,
+                    provider_name=captured_provider_name,
+                    usage=captured_usage,
+                    input_characters=input_characters,
+                )
 
             # Append to provider messages for potential next step
             provider_messages.append(
@@ -297,6 +347,24 @@ async def run_turn(
             status="complete",
         )
         new_messages.append(assistant_msg)
+        try:
+            persist_message(assistant_msg)
+        except Exception:
+            safe_failure = "assistant message persistence failed"
+            return TurnResult(
+                turn_id=turn_id,
+                exit_reason=TurnExitReason.MODEL_FAILED,
+                final_text=accumulated_text,
+                model_steps=model_steps,
+                tool_starts=tool_starts,
+                new_messages=new_messages,
+                safe_failure=safe_failure,
+                user_message_id=user_message_id,
+                model_name=captured_model_name,
+                provider_name=captured_provider_name,
+                usage=captured_usage,
+                input_characters=input_characters,
+            )
 
         # Build provider assistant message with tool calls
         provider_tool_calls: list[dict[str, Any]] = []
@@ -338,9 +406,14 @@ async def run_turn(
                     tool_starts=tool_starts,
                     new_messages=new_messages,
                     safe_failure=safe_failure,
+                    user_message_id=user_message_id,
+                    model_name=captured_model_name,
+                    provider_name=captured_provider_name,
+                    usage=captured_usage,
+                    input_characters=input_characters,
                 )
 
-            # Persist canonical tool call message
+            # Persist canonical tool call message BEFORE handler execution
             tc_msg = ToolCallMessage(
                 message_id=_mid(),
                 turn_id=turn_id,
@@ -349,6 +422,24 @@ async def run_turn(
                 arguments=tc_event.arguments,
             )
             new_messages.append(tc_msg)
+            try:
+                persist_message(tc_msg)
+            except Exception:
+                safe_failure = "tool call persistence failed"
+                return TurnResult(
+                    turn_id=turn_id,
+                    exit_reason=TurnExitReason.MODEL_FAILED,
+                    final_text=accumulated_text,
+                    model_steps=model_steps,
+                    tool_starts=tool_starts,
+                    new_messages=new_messages,
+                    safe_failure=safe_failure,
+                    user_message_id=user_message_id,
+                    model_name=captured_model_name,
+                    provider_name=captured_provider_name,
+                    usage=captured_usage,
+                    input_characters=input_characters,
+                )
 
             # Emit tool_started
             t_start = time.monotonic()
@@ -362,12 +453,22 @@ async def run_turn(
                 )
             )
 
+            # Build ToolExecutionContext
+            ctx = ToolExecutionContext(
+                session_id=session_id,
+                turn_id=turn_id,
+                call_id=tc_event.call_id,
+                user_message_id=user_message_id,
+                cancel_event=cancel_event,
+            )
+
             # Dispatch tool — with cancellation awareness
             dispatch_task = asyncio.ensure_future(
                 tool_registry.dispatch(
                     name=tc_event.tool_name,
                     arguments=tc_event.arguments,
                     active_names=active_tools,
+                    context=ctx,
                 )
             )
             cancel_task = asyncio.ensure_future(cancel_event.wait())
@@ -420,6 +521,10 @@ async def run_turn(
                     error="tool execution cancelled",
                 )
                 new_messages.append(tr_msg)
+                try:
+                    persist_message(tr_msg)
+                except Exception:
+                    pass
                 provider_messages.append(
                     ModelMessage(
                         role="tool",
@@ -449,6 +554,11 @@ async def run_turn(
                     tool_starts=tool_starts,
                     new_messages=new_messages,
                     safe_failure=safe_failure,
+                    user_message_id=user_message_id,
+                    model_name=captured_model_name,
+                    provider_name=captured_provider_name,
+                    usage=captured_usage,
+                    input_characters=input_characters,
                 )
 
             # Cancel the cancel waiter — dispatch completed normally
@@ -476,8 +586,6 @@ async def run_turn(
                 )
             else:
                 code = result.get("code", "handler_error")
-                # Count as tool start for validation/argument failures too
-                # (they were attempted dispatches)
                 tool_starts += 1
                 emit(
                     LiveEvent(
@@ -493,7 +601,7 @@ async def run_turn(
                     )
                 )
 
-            # Persist tool result message
+            # Persist tool result message IMMEDIATELY after handler completion
             tr_msg = ToolResultMessage(
                 message_id=_mid(),
                 turn_id=turn_id,
@@ -505,6 +613,25 @@ async def run_turn(
                 error=result.get("error") if not result.get("ok") else None,
             )
             new_messages.append(tr_msg)
+            try:
+                persist_message(tr_msg)
+            except Exception:
+                # Handler completed but persistence failed — stop before next model call
+                safe_failure = "tool result persistence failed"
+                return TurnResult(
+                    turn_id=turn_id,
+                    exit_reason=TurnExitReason.MODEL_FAILED,
+                    final_text=accumulated_text,
+                    model_steps=model_steps,
+                    tool_starts=tool_starts,
+                    new_messages=new_messages,
+                    safe_failure=safe_failure,
+                    user_message_id=user_message_id,
+                    model_name=captured_model_name,
+                    provider_name=captured_provider_name,
+                    usage=captured_usage,
+                    input_characters=input_characters,
+                )
 
             # Append to provider messages
             provider_messages.append(
@@ -563,6 +690,11 @@ async def run_turn(
         tool_starts=tool_starts,
         new_messages=new_messages,
         safe_failure=safe_failure,
+        user_message_id=user_message_id,
+        model_name=captured_model_name,
+        provider_name=captured_provider_name,
+        usage=captured_usage,
+        input_characters=input_characters,
     )
 
 

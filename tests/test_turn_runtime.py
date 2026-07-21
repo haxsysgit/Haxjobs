@@ -31,6 +31,17 @@ from haxjobs.model.types import (
 
 # ── Helpers ──
 
+_PERSISTED: list[ConversationMessage] = []
+
+
+def _persist(msg: ConversationMessage) -> None:
+    _PERSISTED.append(msg)
+
+
+def _uid() -> str:
+    import uuid
+    return uuid.uuid4().hex[:12]
+
 def _fake_stream(text: str, finish: str = "stop") -> list[ModelStreamEvent]:
     """Script a simple text-only stream."""
     return [
@@ -74,6 +85,7 @@ def _fake_stream_with_tool(
 def _fake_registry() -> tuple[ToolRegistry, tuple[str, ...]]:
     """Simple tool registry for testing."""
     from pydantic import BaseModel
+    from haxjobs.agent_core.tools import ToolExecutionContext
 
     class _TestInput(BaseModel):
         value: str
@@ -81,12 +93,9 @@ def _fake_registry() -> tuple[ToolRegistry, tuple[str, ...]]:
     class _TestOutput(BaseModel):
         ok: bool
 
-    class _TestOutput(BaseModel):
-        ok: bool
-
     registry = ToolRegistry()
 
-    async def handler(input_obj):
+    async def handler(input_obj: _TestInput, ctx: ToolExecutionContext) -> dict:
         return {"ok": True, "data": f"processed: {input_obj.value}"}
 
     registry.register(
@@ -104,7 +113,7 @@ def _fake_registry() -> tuple[ToolRegistry, tuple[str, ...]]:
             description="A tool that crashes",
             input_model=_TestInput,
             output_model=_TestOutput,
-            handler=lambda x: (_ for _ in ()).throw(RuntimeError("boom")),
+            handler=lambda x, ctx: (_ for _ in ()).throw(RuntimeError("boom")),
         )
     )
     return registry, ("test_tool", "crash_tool")
@@ -142,6 +151,8 @@ async def test_text_only_response():
         active_tools=(),
         cancel_event=cancel,
         emit=_fake_emit(events),
+        persist_message=_persist,
+        user_message_id=_uid(),
     )
 
     assert result.exit_reason == TurnExitReason.COMPLETED
@@ -185,6 +196,8 @@ async def test_model_tool_model_response():
         active_tools=active,
         cancel_event=cancel,
         emit=_fake_emit(events),
+        persist_message=_persist,
+        user_message_id=_uid(),
     )
 
     assert result.exit_reason == TurnExitReason.COMPLETED
@@ -227,6 +240,8 @@ async def test_event_ordering():
         active_tools=active,
         cancel_event=cancel,
         emit=_fake_emit(events),
+        persist_message=_persist,
+        user_message_id=_uid(),
     )
 
     event_types = [e.event_type for e in events]
@@ -285,6 +300,8 @@ async def test_canonical_tool_call_and_result_messages():
         active_tools=active,
         cancel_event=cancel,
         emit=_fake_emit(events),
+        persist_message=_persist,
+        user_message_id=_uid(),
     )
 
     tool_calls = [m for m in result.new_messages if m.kind == "tool_call"]
@@ -348,6 +365,8 @@ async def test_malformed_arguments_recover():
         active_tools=active,
         cancel_event=cancel,
         emit=_fake_emit(events),
+        persist_message=_persist,
+        user_message_id=_uid(),
     )
 
     assert result.exit_reason == TurnExitReason.COMPLETED
@@ -405,6 +424,8 @@ async def test_handler_error_recovers():
         active_tools=active,
         cancel_event=cancel,
         emit=_fake_emit(events),
+        persist_message=_persist,
+        user_message_id=_uid(),
     )
 
     assert result.exit_reason == TurnExitReason.COMPLETED
@@ -465,6 +486,8 @@ async def test_model_step_limit():
         active_tools=active,
         cancel_event=cancel,
         emit=_fake_emit(events),
+        persist_message=_persist,
+        user_message_id=_uid(),
         max_model_steps=2,
     )
 
@@ -519,6 +542,8 @@ async def test_cancellation_during_text_streaming_mid_stream():
         active_tools=(),
         cancel_event=cancel,
         emit=_fake_emit(events),
+        persist_message=_persist,
+        user_message_id=_uid(),
     )
 
     await cancel_task
@@ -544,7 +569,7 @@ async def test_cancellation_while_waiting_for_tool():
     class _SlowOutput(BaseModel):
         ok: bool
 
-    async def slow_handler(input_obj):
+    async def slow_handler(input_obj, ctx):
         await asyncio.sleep(10)  # would take 10 seconds
         return {"ok": True}
 
@@ -594,6 +619,8 @@ async def test_cancellation_while_waiting_for_tool():
                 active_tools=("slow_tool",),
                 cancel_event=cancel,
                 emit=_fake_emit(events),
+        persist_message=_persist,
+        user_message_id=_uid(),
             )
         )
         await asyncio.sleep(0.05)
@@ -640,6 +667,8 @@ async def test_provider_failure_after_partial_text():
         active_tools=(),
         cancel_event=cancel,
         emit=_fake_emit(events),
+        persist_message=_persist,
+        user_message_id=_uid(),
     )
 
     assert result.exit_reason == TurnExitReason.MODEL_FAILED
@@ -680,6 +709,8 @@ async def test_history_includes_prior_turns():
         active_tools=(),
         cancel_event=cancel,
         emit=_fake_emit(events),
+        persist_message=_persist,
+        user_message_id=_uid(),
     )
 
     # The stream request should have contained the prior history
@@ -706,7 +737,7 @@ async def test_unsafe_tool_calls_rejected():
     class _DummyOutput(BaseModel):
         ok: bool
 
-    async def dummy_handler(input_obj):
+    async def dummy_handler(input_obj, ctx):
         return {"ok": True, "data": input_obj.value}
 
     registry.register(
@@ -750,6 +781,8 @@ async def test_unsafe_tool_calls_rejected():
         active_tools=("dummy",),
         cancel_event=cancel,
         emit=_fake_emit(events),
+        persist_message=_persist,
+        user_message_id=_uid(),
     )
 
     assert result.exit_reason == TurnExitReason.COMPLETED
@@ -795,6 +828,8 @@ async def test_single_turn_failed_emission():
         active_tools=(),
         cancel_event=cancel,
         emit=_fake_emit(events),
+        persist_message=_persist,
+        user_message_id=_uid(),
     )
 
     assert result.exit_reason == TurnExitReason.MODEL_FAILED
@@ -821,7 +856,7 @@ async def test_responsive_tool_cancellation():
     class _SlowOutput(BaseModel):
         ok: bool
 
-    async def slow_handler(input_obj):
+    async def slow_handler(input_obj, ctx):
         await asyncio.sleep(5)  # long enough to be interrupted
         return {"ok": True}
 
@@ -869,6 +904,8 @@ async def test_responsive_tool_cancellation():
                 active_tools=("slow",),
                 cancel_event=cancel,
                 emit=_fake_emit(events),
+        persist_message=_persist,
+        user_message_id=_uid(),
             )
         )
         await asyncio.sleep(0.05)
@@ -907,6 +944,8 @@ async def test_pre_model_cancellation_emits_exactly_one_turn_interrupted():
         active_tools=(),
         cancel_event=cancel,
         emit=_fake_emit(events),
+        persist_message=_persist,
+        user_message_id=_uid(),
     )
 
     assert result.exit_reason == TurnExitReason.INTERRUPTED
@@ -940,7 +979,7 @@ async def test_tool_dispatch_wins_over_simultaneous_cancel():
     class _FastOutput(BaseModel):
         ok: bool
 
-    async def fast_handler(input_obj):
+    async def fast_handler(input_obj, ctx):
         # Set cancel_event as a side effect before returning.
         # This causes both dispatch_task and cancel_task to complete
         # in the same event loop tick, hitting the race condition exactly.
@@ -985,6 +1024,8 @@ async def test_tool_dispatch_wins_over_simultaneous_cancel():
         active_tools=("fast_tool",),
         cancel_event=cancel,
         emit=_fake_emit(events),
+        persist_message=_persist,
+        user_message_id=_uid(),
         max_model_steps=2,
     )
 
@@ -1040,6 +1081,8 @@ async def test_active_schemas_failure_returns_model_failed():
         active_tools=("nonexistent_tool",),
         cancel_event=cancel,
         emit=_fake_emit(events),
+        persist_message=_persist,
+        user_message_id=_uid(),
     )
 
     assert result.exit_reason == TurnExitReason.MODEL_FAILED
@@ -1164,3 +1207,288 @@ async def test_pending_turn_no_gap():
             found_true = True
         if found_true and not v:
             pytest.fail(f"_busy was False at snap {i} after it became True — gap detected")
+
+
+# ══════════════════════════════════════════════
+# Phase B: Plan 004 — Durable tool execution boundary tests
+# ══════════════════════════════════════════════
+
+@pytest.mark.asyncio
+async def test_tool_call_persisted_before_handler():
+    """ToolCallMessage is persisted before the handler executes."""
+    events: list[LiveEvent] = []
+    persisted: list[ConversationMessage] = []
+
+    from pydantic import BaseModel
+    from haxjobs.agent_core.tools import ToolExecutionContext
+
+    handler_called = asyncio.Event()
+    persist_called = asyncio.Event()
+
+    class _Input(BaseModel):
+        value: str
+
+    class _Output(BaseModel):
+        ok: bool
+
+    registry = ToolRegistry()
+
+    async def tracking_handler(input_obj: _Input, ctx: ToolExecutionContext) -> dict:
+        # Signal that handler was called
+        handler_called.set()
+        # Wait briefly for the assertion to check persistence
+        await asyncio.sleep(0.05)
+        return {"ok": True}
+
+    registry.register(ToolDefinition(
+        name="track_tool",
+        description="tracking tool",
+        input_model=_Input,
+        output_model=_Output,
+        handler=tracking_handler,
+    ))
+
+    fake = FakeModelClient(
+        stream_events=_fake_stream_with_tool(
+            "call_1", "track_tool", '{"value": "test"}', "Done."
+        ),
+    )
+    cancel = asyncio.Event()
+
+    def my_persist(msg: ConversationMessage) -> None:
+        persisted.append(msg)
+        if msg.kind == "tool_call":
+            persist_called.set()
+
+    result = await run_turn(
+        session_id="s1",
+        turn_id="t1",
+        model=fake,
+        system_prompt="sys",
+        context_messages=[],
+        history=[],
+        tool_registry=registry,
+        active_tools=("track_tool",),
+        cancel_event=cancel,
+        emit=_fake_emit(events),
+        persist_message=my_persist,
+        user_message_id=_uid(),
+    )
+
+    assert result.exit_reason == TurnExitReason.COMPLETED
+    tool_calls = [m for m in persisted if m.kind == "tool_call"]
+    assert len(tool_calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_tool_result_persisted_before_next_model_call():
+    """ToolResultMessage is persisted before the second model stream starts."""
+    events: list[LiveEvent] = []
+    persisted: list[ConversationMessage] = []
+
+    registry, active = _fake_registry()
+    # Override test_tool from _fake_registry
+
+    fake = FakeModelClient(
+        stream_events=_fake_stream_with_tool(
+            "call_1", "test_tool", '{"value": "x"}', "Done."
+        ),
+    )
+    cancel = asyncio.Event()
+
+    def my_persist(msg: ConversationMessage) -> None:
+        persisted.append(msg)
+
+    result = await run_turn(
+        session_id="s1",
+        turn_id="t1",
+        model=fake,
+        system_prompt="sys",
+        context_messages=[],
+        history=[],
+        tool_registry=registry,
+        active_tools=active,
+        cancel_event=cancel,
+        emit=_fake_emit(events),
+        persist_message=my_persist,
+        user_message_id=_uid(),
+    )
+
+    assert result.exit_reason == TurnExitReason.COMPLETED
+    tool_results = [m for m in persisted if m.kind == "tool_result"]
+    assert len(tool_results) == 1
+    assert tool_results[0].ok is True
+
+
+@pytest.mark.asyncio
+async def test_tool_handler_receives_context():
+    """Handler receives ToolExecutionContext with correct fields."""
+    events: list[LiveEvent] = []
+    received_context: list[ToolExecutionContext] = []
+
+    from pydantic import BaseModel
+    from haxjobs.agent_core.tools import ToolExecutionContext
+
+    class _Input(BaseModel):
+        value: str
+
+    class _Output(BaseModel):
+        ok: bool
+
+    registry = ToolRegistry()
+
+    async def ctx_handler(input_obj: _Input, ctx: ToolExecutionContext) -> dict:
+        received_context.append(ctx)
+        return {"ok": True}
+
+    registry.register(ToolDefinition(
+        name="ctx_tool",
+        description="context checker",
+        input_model=_Input,
+        output_model=_Output,
+        handler=ctx_handler,
+    ))
+
+    fake = FakeModelClient(
+        stream_events=_fake_stream_with_tool(
+            "call_xyz", "ctx_tool", '{"value": "test"}', "Done."
+        ),
+    )
+    cancel = asyncio.Event()
+
+    result = await run_turn(
+        session_id="s-test",
+        turn_id="t-test",
+        model=fake,
+        system_prompt="sys",
+        context_messages=[],
+        history=[],
+        tool_registry=registry,
+        active_tools=("ctx_tool",),
+        cancel_event=cancel,
+        emit=_fake_emit(events),
+        persist_message=_persist,
+        user_message_id="msg-uuid",
+    )
+
+    assert len(received_context) == 1
+    ctx = received_context[0]
+    assert ctx.session_id == "s-test"
+    assert ctx.turn_id == "t-test"
+    assert ctx.call_id == "call_xyz"
+    assert ctx.user_message_id == "msg-uuid"
+
+
+@pytest.mark.asyncio
+async def test_cancel_event_passed_to_tool_context():
+    """ToolExecutionContext.cancel_event is the same asyncio.Event."""
+    events: list[LiveEvent] = []
+    received_context: list[ToolExecutionContext] = []
+
+    from pydantic import BaseModel
+    from haxjobs.agent_core.tools import ToolExecutionContext
+
+    class _Input(BaseModel):
+        value: str
+
+    class _Output(BaseModel):
+        ok: bool
+
+    registry = ToolRegistry()
+
+    async def ce_handler(input_obj: _Input, ctx: ToolExecutionContext) -> dict:
+        received_context.append(ctx)
+        return {"ok": True}
+
+    registry.register(ToolDefinition(
+        name="ce_tool",
+        description="cancel event checker",
+        input_model=_Input,
+        output_model=_Output,
+        handler=ce_handler,
+    ))
+
+    fake = FakeModelClient(
+        stream_events=_fake_stream_with_tool(
+            "call_1", "ce_tool", '{"value": "x"}', "Done."
+        ),
+    )
+    cancel = asyncio.Event()
+
+    await run_turn(
+        session_id="s1",
+        turn_id="t1",
+        model=fake,
+        system_prompt="sys",
+        context_messages=[],
+        history=[],
+        tool_registry=registry,
+        active_tools=("ce_tool",),
+        cancel_event=cancel,
+        emit=_fake_emit(events),
+        persist_message=_persist,
+        user_message_id=_uid(),
+    )
+
+    assert len(received_context) == 1
+    # The cancel_event in the context should be the same object
+    assert received_context[0].cancel_event is cancel
+
+
+@pytest.mark.asyncio
+async def test_persist_message_failure_aborts_turn():
+    """If ToolCallMessage persistence fails, handler is not dispatched and turn fails."""
+    events: list[LiveEvent] = []
+    handler_called = False
+
+    from pydantic import BaseModel
+
+    class _Input(BaseModel):
+        value: str
+
+    class _Output(BaseModel):
+        ok: bool
+
+    registry = ToolRegistry()
+
+    async def never_called(input_obj: _Input, ctx) -> dict:
+        nonlocal handler_called
+        handler_called = True
+        return {"ok": True}
+
+    registry.register(ToolDefinition(
+        name="never",
+        description="should not be called",
+        input_model=_Input,
+        output_model=_Output,
+        handler=never_called,
+    ))
+
+    fake = FakeModelClient(
+        stream_events=_fake_stream_with_tool(
+            "call_1", "never", '{"value": "x"}', "Should not reach."
+        ),
+    )
+    cancel = asyncio.Event()
+
+    def failing_persist(msg: ConversationMessage) -> None:
+        if msg.kind == "tool_call":
+            raise RuntimeError("persist failure")
+
+    result = await run_turn(
+        session_id="s1",
+        turn_id="t1",
+        model=fake,
+        system_prompt="sys",
+        context_messages=[],
+        history=[],
+        tool_registry=registry,
+        active_tools=("never",),
+        cancel_event=cancel,
+        emit=_fake_emit(events),
+        persist_message=failing_persist,
+        user_message_id=_uid(),
+    )
+
+    assert not handler_called, "Handler should not have been called after persist failure"
+    assert result.exit_reason == TurnExitReason.MODEL_FAILED

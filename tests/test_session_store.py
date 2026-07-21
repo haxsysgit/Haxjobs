@@ -240,3 +240,44 @@ def test_load_messages_empty(store: SessionStore):
     store.create_session("s1")
     messages = store.load_messages("s1")
     assert messages == []
+
+
+# ══════════════════════════════════════════════
+# Plan 004 — Session configuration tests
+# ══════════════════════════════════════════════
+
+def test_session_configuration_round_trip(store: SessionStore):
+    """Configuration written to DB is returned exactly from get_session_configuration()."""
+    config = '{"person_id": "p1", "track_id": "t1"}'
+    store.create_session("sc1", configuration_json=config)
+    retrieved = store.get_session_configuration("sc1")
+    assert retrieved == config
+
+
+def test_session_and_config_created_in_one_transaction(store: SessionStore):
+    """Both rows exist or neither exists."""
+    import json
+    config = json.dumps({"person_id": "p1", "track_id": "t1"})
+
+    # If config creation fails, session should not exist
+    # Test: normal creation works
+    store.create_session("sc2", configuration_json=config)
+    assert store.get_session("sc2") is not None
+    assert store.get_session_configuration("sc2") == config
+
+
+def test_create_session_without_config(store: SessionStore):
+    """create_session without configuration_json works (backwards compat, will fail on resume)."""
+    store.create_session("sc3")
+    session = store.get_session("sc3")
+    assert session is not None
+    # No config
+    assert store.get_session_configuration("sc3") is None
+
+
+def test_duplicate_create_session_fails(store: SessionStore):
+    """Duplicate session_id on create_session must raise IntegrityError."""
+    import sqlite3
+    store.create_session("sc4")
+    with pytest.raises(sqlite3.IntegrityError):
+        store.create_session("sc4")

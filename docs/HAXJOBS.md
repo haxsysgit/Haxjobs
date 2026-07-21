@@ -18,13 +18,13 @@ The model boundary knows nothing about careers. The agent core knows nothing abo
 ### Built
 
 - `src/haxjobs/model/` — `ModelClient` protocol, `OpenAIModelClient` (max_retries=0), `FakeModelClient`, normalized `ModelRequest`/`ModelResponse`/`ModelFailure` types
-- `src/haxjobs/agent_core/` — domain-free `RunRequest`/`RunResult`, lifecycle events (`RunEvent`, `RunObserver`), `ArtifactWriter` (0700 dirs, 0600 files), stage0 runtime (exactly one model call, no tools)
-- `src/haxjobs/employment/` — Pydantic fixtures (`CareerFixture`, `JobFixture`, `EvidenceItem`), Hax identity and truth rules, job-review context assembler
-- `src/haxjobs/interfaces/` — thin `experiment review-job` CLI with `--fake` and `--live` modes
+- `src/haxjobs/agent_core/` — domain-free messages, tool registry with execution context, bounded turn runtime with durable tool boundaries, session persistence with dangling call detection, content-free measurement
+- `src/haxjobs/employment/` — Pydantic models (Person, CareerTrack, Skill, Evidence, Job, JobAssessment), career graph store, migration, job source fetcher, employment tools (get_job, inspect_job_source, record_job_assessment), career context assembly with evidence content
+- `src/haxjobs/interfaces/` — `haxjobs chat` (interactive terminal), `haxjobs profile` (CLI management)
 - `src/haxjobs/config.py` — paths from `haxjobs.toml`
 - `src/haxjobs/cv_variants/` — user CV variant templates, registry, renderer (data, not code to rebuild)
 
-27 tests pass. Live experiment ran successfully against deepseek-v4-flash. Three independent Flash reviewers found zero issues.
+214 tests pass (excluding terminal PTY environment tests). Stage 0/1 experiment runtime deleted after conversational runtime trajectories passed.
 
 ### What was deleted
 
@@ -61,11 +61,10 @@ All of these rebuild from scratch on the greenfield runtime, one stage at a time
 
 ### Harness gaps
 
-1. **No sessions.** No concept of a durable conversation. Every model call is stateless.
-2. **No context management.** No token tracking, compaction, or context-window awareness.
-3. **No tool loop.** Stage 0 is one call with no tools. inspect_job_source is Plan 002.
-4. **No durable state.** No career memory, evaluation store, decision log, or commitment records.
-5. **No CLI parity.** Only one command exists: `experiment review-job`.
+1. **No context compaction.** No token tracking, compaction triggers, or context-window awareness.
+2. **No cross-process session locking.** Concurrent same-session processes are explicitly deferred.
+3. **No source observation history.** Current snapshot only; assessment hash preserves which snapshot was used.
+4. **No user decisions.** Append-only assessments exist. User decisions are Plan 005.
 
 ### Deferred features
 
@@ -89,7 +88,7 @@ All of these rebuild from scratch on the greenfield runtime, one stage at a time
 ## Verification
 
 ```bash
-PYTHONPATH=src:. uv run python3 -m pytest -q tests/
+PYTHONPATH=src:. uv run python3 -m pytest -q tests/ --ignore=tests/test_terminal_pty.py
 PYTHONPATH=src:. uv run python3 -m py_compile $(find src tests -name '*.py')
-PYTHONPATH=src:. uv run haxjobs experiment review-job --job 49 --fake --career-fixture tests/fixtures/job_review/career.json
+PYTHONPATH=src:. uv run -- haxjobs chat --help
 ```

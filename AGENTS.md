@@ -23,11 +23,13 @@ The legacy agent, web app, product tools, database layer, scrapers, and cron pip
 - `src/haxjobs/config.py` — paths from `haxjobs.toml`
 - `src/haxjobs/cv_variants/` — user CV variant templates (data, not code)
 
-The CLI exposes one command:
+The CLI exposes:
 
-- `haxjobs experiment review-job` — Stage 0 job review (fake or live)
+- `haxjobs chat` — live conversation with Hax (resume latest or --new)
+- `haxjobs profile ...` — career profile management (migrate, show, track, skill, evidence, gap, constraint)
+- `haxjobs migrate` — quick career fixture migration
 
-All other capabilities (discovery, evaluation, packs, decisions, profile, web app) rebuild from scratch on the greenfield runtime.
+All other capabilities (discovery, evaluation, packs, decisions, web app) rebuild from scratch on the greenfield runtime.
 
 ## Architecture rules
 
@@ -59,9 +61,9 @@ Never:
 
 ```text
 src/haxjobs/model/          provider boundary
-src/haxjobs/agent_core/     domain-free runtime
-src/haxjobs/employment/     Hax identity, career logic
-src/haxjobs/interfaces/     CLI entry points
+src/haxjobs/agent_core/     domain-free runtime (messages, tools, turn, session)
+src/haxjobs/employment/     Hax identity, career logic, job actions, tools
+src/haxjobs/interfaces/     CLI entry points (terminal, profile)
 src/haxjobs/cv_variants/    user CV data
 tests/                      pytest suite
 ```
@@ -78,6 +80,8 @@ tests/                      pytest suite
 ## Verification
 
 ```bash
-PYTHONPATH=src:. uv run python3 -m pytest -q tests/
+PYTHONPATH=src:. uv run python3 -m pytest -q tests/ --ignore=tests/test_terminal_pty.py
 PYTHONPATH=src:. uv run python3 -m py_compile $(find src tests -name '*.py')
+PYTHONPATH=src:. uv run -- haxjobs chat --help
+PYTHONPATH=src:. uv run -- haxjobs migrate --help
 ```

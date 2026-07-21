@@ -105,3 +105,49 @@ class Preference(BaseModel):
     value: str
     weight: PreferenceWeight = "strong"
     created_at: str = Field(default_factory=_utcnow)
+
+
+# ── Plan 004: Job and Assessment models ──
+
+class Job(BaseModel):
+    """A normalized saved job."""
+    job_id: str
+    external_ref: str
+    employer_name: str | None = None
+    title: str
+    location: str
+    source_url: str
+    source_type: str
+    description: str
+    source_status: str = ""
+    description_kind: str = ""
+    description_complete: bool = False
+    observed_at: str
+    allowed_source_hosts: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    source_content_hash: str = ""
+    created_at: str = Field(default_factory=_utcnow)
+    updated_at: str = Field(default_factory=_utcnow)
+
+
+class ConstraintCheck(BaseModel):
+    constraint_id: str
+    constraint_text: str
+    result: Literal["pass", "fail", "unknown"]
+
+
+class JobAssessment(BaseModel):
+    assessment_id: str = ""  # stable ID derived from tool_call_id; store-populated
+    job_id: str
+    track_id: str
+    tool_call_id: str
+    recommendation: Literal["pursue", "consider", "skip", "needs_more_information"]
+    summary: str
+    constraint_checks: list[ConstraintCheck] = Field(default_factory=list)
+    strengths: list[str] = Field(default_factory=list)
+    gaps: list[str] = Field(default_factory=list)
+    unknowns: list[str] = Field(default_factory=list)
+    evidence_ids: list[str] = Field(default_factory=list)
+    source_content_hash: str = ""
+    sequence: int | None = None  # store-populated output-only
+    created_at: str = Field(default_factory=_utcnow)

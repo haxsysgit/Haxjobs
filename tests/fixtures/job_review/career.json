@@ -1,6 +1,9 @@
 {
   "fixture_id": "synthetic-test-career",
   "fixture_version": 3,
+  "person_id": "test-person",
+  "person_name": "Test User",
+  "track_name": "Backend Python Engineer",
   "career_direction": "Python backend engineer and AI/ML product developer, targeting mid-level roles in London or remote UK. Building on applied experience with FastAPI, Django, PyTorch, Hugging Face, and agent-based applications.",
   "hard_constraints": [
     "Must be a software-engineering, backend, AI/ML, or data-engineering role",

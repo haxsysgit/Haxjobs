@@ -249,20 +249,14 @@ def test_subscriber_failure_isolated():
     assert "subscriber crashed" in errors[0]
 
 
-# ── Live events and telemetry events remain separate ──
+# ── Live events remain independent type ──
 
-def test_live_event_separate_from_run_event():
-    """LiveEvent and RunEvent are separate types with no shared base class."""
-    from haxjobs.agent_core.events import RunEvent, RunEventType
-
+def test_live_event_has_no_run_event_dependency():
+    """LiveEvent is a standalone type with no dependency on the deleted RunEvent."""
     live = LiveEvent(
         session_id="s1",
         turn_id="t1",
         event_type=LiveEventType.TURN_STARTED,
     )
-    run = RunEvent(run_id="r1", event_type=RunEventType.RUN_STARTED)
-
-    # They are different types
-    assert type(live) is not type(run)
-    assert not isinstance(live, RunEvent)
-    assert not isinstance(run, LiveEvent)
+    assert live.session_id == "s1"
+    assert live.turn_id == "t1"

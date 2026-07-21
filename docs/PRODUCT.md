@@ -143,16 +143,19 @@ person's tracks, constraints, and evidence
 
 ## What is built
 
-Stage 0 and Stage 1 of the greenfield runtime:
+Plan 004 conversational runtime with durable tool effects:
 
 - Provider boundary with OpenAI-compatible adapter and fake client (DeepSeek v4 flash configured)
-- Domain-free agent core with one-call and bounded tool-loop execution
-- Explicit tool registry with active-set enforcement, Pydantic argument validation, output-model validation, and structured error envelopes
-- Employment layer with Hax identity, truth rules, career fixtures, job fixtures, and context assembly
-- One employment tool: `inspect_job_source(job_ref)` — HTTPS-only, no redirects, public-DNS check, bounded bytes/text, untrusted-content labelling
-- `haxjobs experiment review-job` CLI with `--fake`/`--live`/`--inspect-source` modes
-- Redacted local JSONL traces, 0700 run dirs, 0600 artifact files
-- 62 tests across Stage 0 and Stage 1, zero network in pytest
+- Domain-free agent core with bounded tool-loop execution, durable tool execution boundaries (persist before handler, persist after handler), ToolExecutionContext, dangling call detection on resume
+- Explicit tool registry with active-set enforcement, Pydantic argument validation, output-model validation, effect_kind/retry_safe metadata
+- Employment layer with Hax identity, career graph (tracks, skills, evidence, gaps, constraints), normalized Jobs, typed JobAssessments (append-only, idempotent), job source fetcher
+- Three employment tools: `get_job`, `inspect_job_source`, `record_job_assessment`
+- Immutable session configuration (person/track scope pinned at creation)
+- Content-free turn measurements (no prompt/response content in DB)
+- Stable deterministic IDs for career graph migration (idempotent, repeatable)
+- `haxjobs chat` CLI with `--new`/`--resume`/`--fake`/`--person-id`/`--track-id` modes
+- Career profile management CLI: `haxjobs profile migrate/show/track/skill/evidence/gap/constraint`
+- 214 tests, zero network in pytest
 
 Everything from the legacy product (web app, discovery scrapers, evaluation pipeline, pack builder, decisions engine, cron scripts, FastAPI routes, React frontend) was deleted at the greenfield wipe. These rebuild from scratch on the new runtime.
 
@@ -160,19 +163,17 @@ Everything from the legacy product (web app, discovery scrapers, evaluation pipe
 
 In build order:
 
-1. **Agent harness foundations.** Durable sessions, context assembly, token tracking, compaction, tool traces, child runs, and verification hooks. The agent needs a reliable way to carry and retrieve context first.
+1. **User decisions.** Typed append-only user decisions linked to durable messages, retrievable across sessions (Plan 005).
 
-2. **CLI parity.** First-class CLI commands for every product action: profile, discovery, evaluation, decisions, and packs. The CLI must call the same shared actions as the API and agent tools.
+2. **Context compaction.** Token tracking, compaction triggers, summaries, retrieval frameworks.
 
-3. **Career memory.** Replace the flat profile with independent career tracks and evidence-linked records. Every claim carries source, confidence, verification date, privacy level, and evidence links.
+3. **Continuous operation.** Durable scheduled watches, worker leases, idempotent discovery, notifications with approval boundaries, and one cloud deployment path.
 
 4. **Employability loop.** Detect recurring missing skills, build realistic roadmaps, find and rank resources, suggest proof-building projects, track progress, and recommend next moves.
 
-5. **Continuous operation.** Durable scheduled watches, worker leases, idempotent discovery, notifications with approval boundaries, and one cloud deployment path.
+5. **Outreach and communication.** Recruiter research, outreach drafts, approved connector queues (email, LinkedIn, WhatsApp, Telegram), with three-tier safety per connector: draft (safe), queue (safe), send (requires approval every time).
 
-6. **Outreach and communication.** Recruiter research, outreach drafts, approved connector queues (email, LinkedIn, WhatsApp, Telegram), with three-tier safety per connector: draft (safe), queue (safe), send (requires approval every time).
-
-7. **Interview simulation.** Recruiter agent, applicant agent, and evaluator agent in a closed-loop simulation using the user's profile and the real job description.
+6. **Interview simulation.** Recruiter agent, applicant agent, and evaluator agent in a closed-loop simulation using the user's profile and the real job description.
 
 ## What HaxJobs is not
 

@@ -29,6 +29,9 @@ class CareerFixture(BaseModel):
 
     fixture_id: str
     fixture_version: int
+    person_id: str  # required, e.g. from private fixture
+    person_name: str  # required, e.g. from private fixture
+    track_name: str  # required, e.g. "Backend Python Engineer"
     career_direction: str
     hard_constraints: list[str]
     evidence: list[EvidenceItem]
@@ -36,6 +39,27 @@ class CareerFixture(BaseModel):
     target_role_families: list[str] = Field(default_factory=list)
     excluded_role_families: list[str] = Field(default_factory=list)
     work_authorization: str = ""
+
+    @field_validator("person_id")
+    @classmethod
+    def person_id_must_be_non_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("person_id must not be empty")
+        return v
+
+    @field_validator("person_name")
+    @classmethod
+    def person_name_must_be_non_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("person_name must not be empty")
+        return v
+
+    @field_validator("track_name")
+    @classmethod
+    def track_name_must_be_non_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("track_name must not be empty")
+        return v
 
     @field_validator("evidence")
     @classmethod

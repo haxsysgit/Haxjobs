@@ -1,0 +1,118 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="employment-models">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="group-person" value="Person" style="swimlane;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="200" height="120" as="geometry"/>
+        </mxCell>
+        <mxCell id="person-id" value="person_id (PK)" style="text;fontSize=11;" vertex="1" parent="group-person">
+          <mxGeometry x="10" y="30" width="180" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="person-name" value="name" style="text;fontSize=11;" vertex="1" parent="group-person">
+          <mxGeometry x="10" y="55" width="180" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="person-loc" value="location, work_authorization" style="text;fontSize=11;" vertex="1" parent="group-person">
+          <mxGeometry x="10" y="80" width="180" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="group-track" value="CareerTrack" style="swimlane;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="320" y="40" width="200" height="120" as="geometry"/>
+        </mxCell>
+        <mxCell id="track-id" value="track_id (PK)  ◇ make_stable_id" style="text;fontSize=11;" vertex="1" parent="group-track">
+          <mxGeometry x="10" y="30" width="180" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="track-pid" value="person_id (FK → Person)" style="text;fontSize=11;" vertex="1" parent="group-track">
+          <mxGeometry x="10" y="55" width="180" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="track-name" value="name, role families" style="text;fontSize=11;" vertex="1" parent="group-track">
+          <mxGeometry x="10" y="80" width="180" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="group-skill" value="Skill" style="swimlane;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="40" y="220" width="200" height="120" as="geometry"/>
+        </mxCell>
+        <mxCell id="skill-id" value="skill_id (PK)  ◇ make_stable_id" style="text;fontSize=11;" vertex="1" parent="group-skill">
+          <mxGeometry x="10" y="30" width="180" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="skill-tid" value="track_id (FK → CareerTrack)" style="text;fontSize=11;" vertex="1" parent="group-skill">
+          <mxGeometry x="10" y="55" width="180" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="skill-prof" value="name, proficiency" style="text;fontSize=11;" vertex="1" parent="group-skill">
+          <mxGeometry x="10" y="80" width="180" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="group-evidence" value="EvidenceItem" style="swimlane;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="320" y="220" width="200" height="120" as="geometry"/>
+        </mxCell>
+        <mxCell id="ev-id" value="evidence_id (PK)  ◇ make_stable_id" style="text;fontSize=11;" vertex="1" parent="group-evidence">
+          <mxGeometry x="10" y="30" width="180" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="ev-label" value="label, source, content" style="text;fontSize=11;" vertex="1" parent="group-evidence">
+          <mxGeometry x="10" y="55" width="180" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="ev-priv" value="privacy_level, verified_at" style="text;fontSize=11;" vertex="1" parent="group-evidence">
+          <mxGeometry x="10" y="80" width="180" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="group-job" value="Job" style="swimlane;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="40" y="400" width="200" height="140" as="geometry"/>
+        </mxCell>
+        <mxCell id="job-id" value="job_id (PK)  ◇ stable 'job-N'" style="text;fontSize=11;" vertex="1" parent="group-job">
+          <mxGeometry x="10" y="30" width="180" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="job-title" value="title, employer_name, location" style="text;fontSize=11;" vertex="1" parent="group-job">
+          <mxGeometry x="10" y="55" width="180" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="job-src" value="source_url, source_content_hash" style="text;fontSize=11;" vertex="1" parent="group-job">
+          <mxGeometry x="10" y="80" width="180" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="job-desc" value="description, description_complete" style="text;fontSize=11;" vertex="1" parent="group-job">
+          <mxGeometry x="10" y="105" width="180" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="group-assessment" value="JobAssessment" style="swimlane;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="320" y="400" width="220" height="160" as="geometry"/>
+        </mxCell>
+        <mxCell id="asmt-seq" value="sequence (PK AUTOINCREMENT)" style="text;fontSize=11;" vertex="1" parent="group-assessment">
+          <mxGeometry x="10" y="30" width="200" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="asmt-aid" value="assessment_id (UNIQUE)  ◇ make_stable_id('asmt', tool_call_id)" style="text;fontSize=11;" vertex="1" parent="group-assessment">
+          <mxGeometry x="10" y="55" width="200" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="asmt-tcid" value="tool_call_id (UNIQUE — idempotency key)" style="text;fontSize=11;" vertex="1" parent="group-assessment">
+          <mxGeometry x="10" y="80" width="200" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="asmt-fk" value="job_id (FK → Job), track_id (FK → CareerTrack)" style="text;fontSize=11;" vertex="1" parent="group-assessment">
+          <mxGeometry x="10" y="105" width="200" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="asmt-rec" value="recommendation, summary, source_content_hash" style="text;fontSize=11;" vertex="1" parent="group-assessment">
+          <mxGeometry x="10" y="130" width="200" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="group-cc" value="ConstraintCheck (embedded)" style="swimlane;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="580" y="420" width="180" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="cc-id" value="constraint_id" style="text;fontSize=11;" vertex="1" parent="group-cc">
+          <mxGeometry x="10" y="30" width="160" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="cc-res" value="constraint_text, result (pass/fail/unknown)" style="text;fontSize=11;" vertex="1" parent="group-cc">
+          <mxGeometry x="10" y="55" width="160" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-p-t" value="" style="endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-person" target="group-track">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-t-s" value="" style="endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-track" target="group-skill">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-s-e" value="skill_evidence (M:N)" style="endArrow=block;endFill=1;strokeWidth=3;dashed=1;" edge="1" parent="1" source="group-skill" target="group-evidence">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-j-a" value="" style="endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-job" target="group-assessment">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-t-a" value="" style="endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-track" target="group-assessment">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-a-cc" value="contains" style="endArrow=block;endFill=1;strokeWidth=2;dashed=1;" edge="1" parent="1" source="group-assessment" target="group-cc">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

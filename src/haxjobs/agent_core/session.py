@@ -3,25 +3,35 @@
 Plan 003 Phase 7: The session persists canonical messages, manages busy-input policy,
 and orchestrates turns through the turn runtime.
 
-Repair round 3: The original prompt task owns a serial loop; no detached asyncio.create_task
-inside AgentSession. Each turn gets a fresh asyncio.Event so idle abort never poisons
-the next turn. The terminal's owner task includes all queued work.
+Plan 004: persist_message callback, dangling call detection, measurement recording,
+session configuration validation.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import time
 import uuid
+from datetime import datetime, timezone
 from typing import Callable
 
 from haxjobs.agent_core.live_events import LiveEvent, LiveEventEmitter, LiveEventType
-from haxjobs.agent_core.messages import ConversationMessage, UserMessage
+from haxjobs.agent_core.messages import (
+    ConversationMessage,
+    ToolCallMessage,
+    ToolResultMessage,
+    UserMessage,
+)
 from haxjobs.agent_core.session_store import SessionStore
 from haxjobs.agent_core.turn import TurnExitReason, TurnResult, run_turn
 from haxjobs.model.client import ModelClient
 
 logger = logging.getLogger(__name__)
+
+
+def _utcnow() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 class AgentSession:
@@ -153,7 +163,6 @@ class AgentSession:
                 last_result = await self._run_turn(text)
             except Exception:
                 logger.exception("_run_turn unexpected error")
-                # Continue to next pending message on unexpected errors
             finally:
                 self._cancel_event = None
         if last_result is None:
@@ -167,12 +176,13 @@ class AgentSession:
         """Execute one conversational turn.
 
         A fresh cancel_event was already created by _run_serial_loop and is
-        stored in self._cancel_event. No was_aborted / clear() dance is needed
-        — each turn starts with a clean slate.
+        stored in self._cancel_event. No was_aborted / clear() dance is needed.
         """
         self._busy = True  # defensive; already True from serial loop
         turn_id = _tid()
         self._turn_count += 1
+        started_at = _utcnow()
+        started_mono = time.monotonic()
 
         # Emit SESSION_STARTED exactly once, on the first turn
         if not self._session_started_emitted:
@@ -219,6 +229,12 @@ class AgentSession:
                 )
             )
             self._store.mark_turn_settled(self.session_id, self._turn_count)
+            self._record_measurement(
+                turn_id=turn_id,
+                started_at=started_at,
+                started_mono=started_mono,
+                exit_reason="host_setup_failure",
+            )
             self._emit(
                 LiveEvent(
                     session_id=self.session_id,
@@ -247,6 +263,12 @@ class AgentSession:
                 )
             )
             self._store.mark_turn_settled(self.session_id, self._turn_count)
+            self._record_measurement(
+                turn_id=turn_id,
+                started_at=started_at,
+                started_mono=started_mono,
+                exit_reason="corrupt_history",
+            )
             self._emit(
                 LiveEvent(
                     session_id=self.session_id,
@@ -260,7 +282,10 @@ class AgentSession:
                 safe_failure=f"canonical parse: {exc}",
             )
 
-        # Run turn (cancel_event is already self._cancel_event from serial loop)
+        # Run turn — persist_message passes through to session store
+        def _persist_message(msg: ConversationMessage) -> None:
+            self._store.append_message(self.session_id, msg)
+
         result = await run_turn(
             session_id=self.session_id,
             turn_id=turn_id,
@@ -270,13 +295,25 @@ class AgentSession:
             history=history,
             tool_registry=tool_registry,
             active_tools=active_tool_names,
-            cancel_event=self._cancel_event,  # type: ignore[arg-type]  # always set by serial loop
+            cancel_event=self._cancel_event,  # type: ignore[arg-type]
             emit=self._emit,
+            persist_message=_persist_message,
+            user_message_id=user_msg.message_id,
         )
 
-        # Persist new messages
-        for msg in result.new_messages:
-            self._store.append_message(self.session_id, msg)
+        # Record measurement
+        self._record_measurement(
+            turn_id=turn_id,
+            started_at=started_at,
+            started_mono=started_mono,
+            exit_reason=result.exit_reason.value if isinstance(result.exit_reason, TurnExitReason) else str(result.exit_reason),
+            model_name=result.model_name,
+            provider_name=result.provider_name,
+            model_steps=result.model_steps,
+            tool_starts=result.tool_starts,
+            input_characters=result.input_characters,
+            usage=result.usage,
+        )
 
         # Mark turn settled
         self._store.mark_turn_settled(self.session_id, self._turn_count)
@@ -291,6 +328,44 @@ class AgentSession:
         )
 
         return result
+
+    def _record_measurement(
+        self,
+        *,
+        turn_id: str,
+        started_at: str,
+        started_mono: float,
+        exit_reason: str,
+        model_name: str = "",
+        provider_name: str = "",
+        model_steps: int = 0,
+        tool_starts: int = 0,
+        input_characters: int = 0,
+        usage=None,
+    ) -> None:
+        """Record a measurement row. No content columns."""
+        finished_at = _utcnow()
+        duration_ms = (time.monotonic() - started_mono) * 1000
+        try:
+            self._store.record_measurement(
+                session_id=self.session_id,
+                turn_id=turn_id,
+                turn_number=self._turn_count,
+                started_at=started_at,
+                finished_at=finished_at,
+                exit_reason=exit_reason,
+                model_name=model_name,
+                provider_name=provider_name,
+                model_steps=model_steps,
+                tool_starts=tool_starts,
+                input_characters=input_characters,
+                prompt_tokens=usage.prompt_tokens if usage else None,
+                completion_tokens=usage.completion_tokens if usage else None,
+                total_tokens=usage.total_tokens if usage else None,
+                duration_ms=duration_ms,
+            )
+        except Exception as exc:
+            logger.warning("measurement recording failed: %s", exc)
 
     @classmethod
     def resume(
@@ -308,6 +383,14 @@ class AgentSession:
         if existing is None:
             raise ValueError(f"Session not found: {session_id}")
 
+        # Check for session configuration (Plan 004)
+        cfg = session_store.get_session_configuration(session_id)
+        if cfg is None:
+            raise ValueError(
+                f"Session {session_id} has no configuration (created before Plan 004). "
+                f"Create a new session with --new."
+            )
+
         session = cls(
             session_id=session_id,
             session_store=session_store,
@@ -319,6 +402,26 @@ class AgentSession:
         )
         # Restore turn count
         session._turn_count = existing.get("turn_count", 0)
+
+        # Detect and resolve dangling calls
+        dangling = _detect_dangling_calls(session_store, session_id)
+        for tc_msg in dangling:
+            # Append a synthetic unknown_outcome result
+            tr_msg = ToolResultMessage(
+                message_id=_mid(),
+                turn_id=tc_msg.turn_id,
+                call_id=tc_msg.call_id,
+                tool_name=tc_msg.tool_name,
+                ok=False,
+                result=None,
+                error_code="unknown_outcome",
+                error="Process terminated before tool completed. Outcome unknown.",
+            )
+            # Check if result already exists (idempotent)
+            existing_results = _find_tool_results(session_store, session_id, tc_msg.call_id)
+            if not existing_results:
+                session_store.append_message(session_id, tr_msg)
+
         return session
 
 
@@ -372,3 +475,38 @@ def _parse_canonical_history(
                 f"Failed to parse kind={kind} at sequence {row.get('sequence', '?')}: {exc}"
             ) from exc
     return result
+
+
+def _detect_dangling_calls(
+    store: SessionStore, session_id: str
+) -> list[ToolCallMessage]:
+    """Find unmatched ToolCallMessages (no matching ToolResultMessage)."""
+    stored = store.load_messages(session_id)
+    calls: dict[str, ToolCallMessage] = {}
+    results: set[str] = set()
+    for row in stored:
+        payload = row.get("payload_json", {})
+        if payload.get("kind") == "tool_call":
+            call_id = payload.get("call_id", "")
+            if call_id:
+                try:
+                    calls[call_id] = ToolCallMessage.model_validate(payload)
+                except Exception:
+                    pass
+        elif payload.get("kind") == "tool_result":
+            call_id = payload.get("call_id", "")
+            if call_id:
+                results.add(call_id)
+    return [c for cid, c in calls.items() if cid not in results]
+
+
+def _find_tool_results(
+    store: SessionStore, session_id: str, call_id: str
+) -> list[dict]:
+    """Check if a tool result already exists for a given call_id."""
+    stored = store.load_messages(session_id)
+    return [
+        row for row in stored
+        if row.get("payload_json", {}).get("kind") == "tool_result"
+        and row.get("payload_json", {}).get("call_id") == call_id
+    ]

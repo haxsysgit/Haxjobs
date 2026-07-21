@@ -1,0 +1,67 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="conversation-trajectory">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="group-user" value="User" style="swimlane;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="160" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="user-msg" value="What do you think of job 328?" style="text;fontSize=11;" vertex="1" parent="group-user">
+          <mxGeometry x="10" y="30" width="140" height="25" as="geometry"/>
+        </mxCell>
+        <mxCell id="group-get" value="get_job('job-328')" style="swimlane;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="260" y="40" width="180" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="get-detail" value="READ | retry_safe=True&#xa;Returns thin job description" style="text;fontSize=10;" vertex="1" parent="group-get">
+          <mxGeometry x="10" y="30" width="160" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="group-inspect" value="inspect_job_source('job-328')" style="swimlane;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="260" y="150" width="220" height="85" as="geometry"/>
+        </mxCell>
+        <mxCell id="insp-detail" value="INTERNAL_WRITE | retry_safe=True&#xa;Resolves source_url from stored Job&#xa;Updates Job snapshot (hash, description)" style="text;fontSize=10;" vertex="1" parent="group-inspect">
+          <mxGeometry x="10" y="30" width="200" height="45" as="geometry"/>
+        </mxCell>
+        <mxCell id="group-record" value="record_job_assessment(...)" style="swimlane;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="260" y="270" width="240" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="rec-detail" value="INTERNAL_WRITE | retry_safe=False&#xa;recommendation='needs_more_information'&#xa;Idempotency key: context.call_id&#xa;source_content_hash: server-loaded" style="text;fontSize=10;" vertex="1" parent="group-record">
+          <mxGeometry x="10" y="30" width="220" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="group-reply" value="Hax Reply" style="swimlane;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="260" y="410" width="240" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="reply-text" value="Natural reply explaining thin evidence" style="text;fontSize=11;" vertex="1" parent="group-reply">
+          <mxGeometry x="10" y="25" width="220" height="25" as="geometry"/>
+        </mxCell>
+        <mxCell id="group-resume" value="Resume Session" style="swimlane;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="40" y="410" width="160" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="res-q" value="What did you say about job 328?" style="text;fontSize=11;" vertex="1" parent="group-resume">
+          <mxGeometry x="10" y="25" width="140" height="25" as="geometry"/>
+        </mxCell>
+        <mxCell id="res-a" value="Hax retrieves&#xa;saved assessment&#xa;from employment store" style="text;fontSize=10;" vertex="1" parent="group-resume">
+          <mxGeometry x="10" y="55" width="140" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-u-g" value="" style="endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-user" target="group-get">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-g-i" value="thin evidence" style="endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-get" target="group-inspect">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-i-r" value="" style="endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-inspect" target="group-record">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-r-reply" value="" style="endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-record" target="group-reply">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-close" value="close + reopen" style="endArrow=block;endFill=1;strokeWidth=3;dashed=1;" edge="1" parent="1" source="group-reply" target="group-resume">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-res-store" value="" style="endArrow=block;endFill=1;strokeWidth=3;dashed=1;" edge="1" parent="1" source="group-resume" target="group-record">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

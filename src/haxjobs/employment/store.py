@@ -92,6 +92,41 @@ CREATE TABLE IF NOT EXISTS preferences (
     weight TEXT NOT NULL DEFAULT 'strong',
     created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS jobs (
+    job_id TEXT PRIMARY KEY,
+    external_ref TEXT NOT NULL,
+    employer_name TEXT,
+    title TEXT NOT NULL,
+    location TEXT NOT NULL DEFAULT '',
+    source_url TEXT NOT NULL DEFAULT '',
+    source_type TEXT NOT NULL DEFAULT '',
+    description TEXT NOT NULL DEFAULT '',
+    description_complete INTEGER NOT NULL DEFAULT 0,
+    observed_at TEXT NOT NULL,
+    allowed_source_hosts TEXT NOT NULL DEFAULT '[]',
+    warnings TEXT NOT NULL DEFAULT '[]',
+    source_content_hash TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS job_assessments (
+    sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+    assessment_id TEXT NOT NULL UNIQUE,
+    job_id TEXT NOT NULL REFERENCES jobs(job_id) ON DELETE CASCADE,
+    track_id TEXT NOT NULL REFERENCES career_tracks(track_id) ON DELETE CASCADE,
+    tool_call_id TEXT NOT NULL UNIQUE,
+    recommendation TEXT NOT NULL,
+    summary TEXT NOT NULL DEFAULT '',
+    constraint_checks TEXT NOT NULL DEFAULT '[]',
+    strengths TEXT NOT NULL DEFAULT '[]',
+    gaps TEXT NOT NULL DEFAULT '[]',
+    unknowns TEXT NOT NULL DEFAULT '[]',
+    evidence_ids TEXT NOT NULL DEFAULT '[]',
+    source_content_hash TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+);
 """
 
 
@@ -130,6 +165,12 @@ class CareerStore:
             "SELECT * FROM persons WHERE person_id = ?", (person_id,)
         ).fetchone()
         return dict(row) if row else None
+
+    def list_people(self) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT * FROM persons ORDER BY created_at"
+        ).fetchall()
+        return [dict(r) for r in rows]
 
     def upsert_person(self, person: Person) -> None:
         person.updated_at = _now()
@@ -262,7 +303,8 @@ class CareerStore:
 
     def link_skill_evidence(self, link: SkillEvidence) -> None:
         self._conn.execute(
-            "INSERT INTO skill_evidence (skill_id, evidence_id) VALUES (?, ?)",
+            "INSERT INTO skill_evidence (skill_id, evidence_id) VALUES (?, ?) "
+            "ON CONFLICT(skill_id, evidence_id) DO NOTHING",
             (link.skill_id, link.evidence_id),
         )
         self._conn.commit()
@@ -335,3 +377,111 @@ class CareerStore:
             d,
         )
         self._conn.commit()
+
+    # ── Plan 004: Jobs ──
+
+    def upsert_job(self, job) -> None:
+        """Upsert a saved Job row."""
+        import json
+        from haxjobs.employment.schema import Job
+        job.updated_at = _now()
+        d = job.model_dump()
+        d["allowed_source_hosts"] = json.dumps(job.allowed_source_hosts)
+        d["warnings"] = json.dumps(job.warnings)
+        d["description_complete"] = 1 if job.description_complete else 0
+        self._conn.execute(
+            """INSERT INTO jobs (job_id, external_ref, employer_name, title,
+               location, source_url, source_type, description,
+               description_complete, observed_at, allowed_source_hosts,
+               warnings, source_content_hash, created_at, updated_at)
+               VALUES (:job_id, :external_ref, :employer_name, :title,
+               :location, :source_url, :source_type, :description,
+               :description_complete, :observed_at, :allowed_source_hosts,
+               :warnings, :source_content_hash, :created_at, :updated_at)
+               ON CONFLICT(job_id) DO UPDATE SET
+               external_ref=excluded.external_ref,
+               employer_name=excluded.employer_name,
+               title=excluded.title,
+               location=excluded.location,
+               source_url=excluded.source_url,
+               source_type=excluded.source_type,
+               description=excluded.description,
+               description_complete=excluded.description_complete,
+               observed_at=excluded.observed_at,
+               allowed_source_hosts=excluded.allowed_source_hosts,
+               warnings=excluded.warnings,
+               source_content_hash=excluded.source_content_hash,
+               updated_at=excluded.updated_at""",
+            d,
+        )
+        self._conn.commit()
+
+    def get_job(self, job_id: str) -> dict | None:
+        row = self._conn.execute(
+            "SELECT * FROM jobs WHERE job_id = ?", (job_id,)
+        ).fetchone()
+        return dict(row) if row else None
+
+    # ── Plan 004: Job assessments ──
+
+    def upsert_assessment(self, assessment) -> int | None:
+        """Insert a new assessment. Returns the auto-assigned sequence.
+
+        Raises IntegrityError if tool_call_id already exists.
+        Uses a transaction for atomic check+insert.
+        """
+        import json
+        from haxjobs.employment.schema import JobAssessment
+        d = assessment.model_dump()
+        d["constraint_checks"] = json.dumps(
+            [c.model_dump() if hasattr(c, 'model_dump') else c
+             for c in assessment.constraint_checks]
+        )
+        d["strengths"] = json.dumps(assessment.strengths)
+        d["gaps"] = json.dumps(assessment.gaps)
+        d["unknowns"] = json.dumps(assessment.unknowns)
+        d["evidence_ids"] = json.dumps(assessment.evidence_ids)
+
+        with self._conn:
+            self._conn.execute(
+                """INSERT INTO job_assessments (
+                    assessment_id, job_id, track_id, tool_call_id,
+                    recommendation, summary, constraint_checks,
+                    strengths, gaps, unknowns, evidence_ids,
+                    source_content_hash, created_at
+                ) VALUES (
+                    :assessment_id, :job_id, :track_id, :tool_call_id,
+                    :recommendation, :summary, :constraint_checks,
+                    :strengths, :gaps, :unknowns, :evidence_ids,
+                    :source_content_hash, :created_at
+                )""",
+                d,
+            )
+            cursor = self._conn.execute("SELECT last_insert_rowid()")
+            row = cursor.fetchone()
+            if row is not None:
+                # _row_factory returns dict; column name is "last_insert_rowid()"
+                return row["last_insert_rowid()"]
+
+    def get_latest_assessment(self, job_id: str, track_id: str) -> dict | None:
+        row = self._conn.execute(
+            "SELECT * FROM job_assessments WHERE job_id = ? AND track_id = ? "
+            "ORDER BY sequence DESC LIMIT 1",
+            (job_id, track_id),
+        ).fetchone()
+        return dict(row) if row else None
+
+    def list_assessments(self, job_id: str, track_id: str) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT * FROM job_assessments WHERE job_id = ? AND track_id = ? "
+            "ORDER BY sequence ASC",
+            (job_id, track_id),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_assessment_by_call_id(self, tool_call_id: str) -> dict | None:
+        row = self._conn.execute(
+            "SELECT * FROM job_assessments WHERE tool_call_id = ?",
+            (tool_call_id,),
+        ).fetchone()
+        return dict(row) if row else None

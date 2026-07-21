@@ -3,7 +3,6 @@ import argparse
 import asyncio
 import sys
 
-from haxjobs.interfaces.experiment_cli import cmd_experiment_review_job
 from haxjobs.interfaces.profile_cli import (
     cmd_profile_migrate,
     cmd_profile_show,
@@ -20,28 +19,6 @@ def main(argv: list[str] | None = None):
         prog="haxjobs", description="Career agent platform"
     )
     sub = parser.add_subparsers(dest="command")
-
-    # ── experiment sub-group ──
-    experiment = sub.add_parser("experiment", help="Greenfield experiments")
-    exp_sub = experiment.add_subparsers(dest="experiment_command")
-
-    review_job = exp_sub.add_parser("review-job", help="Run the job review experiment (Stage 0/1)")
-    review_job.add_argument("--job", type=int, required=True, choices=[49, 328],
-                            help="Job fixture ref (49 or 328)")
-    mode = review_job.add_mutually_exclusive_group()
-    mode.add_argument("--fake", action="store_true",
-                      help="Use fake model — no network")
-    mode.add_argument("--live", action="store_true",
-                      help="Use configured provider (requires private career fixture)")
-    review_job.add_argument("--career-fixture", default=None,
-                            help="Path to career fixture JSON")
-    review_job.add_argument("--artifacts-dir", default="state/harness-runs",
-                            help="Artifact output directory")
-    review_job.add_argument("--inspect-source", action="store_true",
-                            help="Activate Stage 1 source inspection tool")
-    review_job.add_argument("--max-model-steps", type=int, default=3,
-                            help="Maximum model calls (1-5, default 3)")
-    review_job.set_defaults(func=cmd_experiment_review_job)
 
     # ── profile sub-group ──
     profile = sub.add_parser("profile", help="Career profile management")
@@ -113,6 +90,10 @@ def main(argv: list[str] | None = None):
                       help="Per-event delay for fake model (ms, cancellation tests)")
     chat.add_argument("--session-db", default=None,
                       help="Override session database path")
+    chat.add_argument("--person-id", default=None,
+                      help="Person ID (valid only with --new)")
+    chat.add_argument("--track-id", default=None,
+                      help="Track ID (valid only with --new)")
     chat.set_defaults(func=cmd_chat)
 
     args = parser.parse_args(argv)
@@ -185,6 +166,8 @@ def cmd_chat(args) -> None:
             fake=args.fake,
             fake_delay_ms=args.fake_delay or 0,
             session_db_path=session_db,
+            person_id=getattr(args, 'person_id', None),
+            track_id=getattr(args, 'track_id', None),
         )
     except EmploymentSetupError as exc:
         print(f"Error: {exc}", file=sys.stderr)
