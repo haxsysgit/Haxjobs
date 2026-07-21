@@ -381,13 +381,23 @@ def test_migration_gap_creation():
 # Phase 4: CLI
 # ══════════════════════════════════════════════
 
-def test_cli_profile_migrate():
-    """CLI 'profile migrate' runs and prints summary."""
+def _cli_test_env(career_db_path: Path) -> dict[str, str]:
+    """Keep CLI subprocess tests away from the development career database."""
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = "src:."
+    environment["HAXJOBS_CAREER_DB"] = str(career_db_path)
+    return environment
+
+
+def test_cli_profile_migrate(tmp_path: Path):
+    """CLI 'profile migrate' runs against an isolated database."""
+    environment = _cli_test_env(tmp_path / "career_graph.db")
     result = subprocess.run(
         [sys.executable, "-m", "haxjobs.cli", "profile", "migrate",
          "--fixture", "state/experiments/fixtures/backend-career.json"],
-        capture_output=True, text=True,
-        env={**os.environ, "PYTHONPATH": "src:."},
+        capture_output=True,
+        text=True,
+        env=environment,
         cwd=os.getcwd(),
     )
     assert result.returncode == 0, f"stderr: {result.stderr}"
@@ -398,20 +408,24 @@ def test_cli_profile_migrate():
     assert "Preferences:" in result.stdout
 
 
-def test_cli_profile_show():
-    """CLI 'profile show' runs after migration and shows data."""
-    # Migrate first
-    subprocess.run(
+def test_cli_profile_show(tmp_path: Path):
+    """CLI 'profile show' reads the same isolated database used by migration."""
+    environment = _cli_test_env(tmp_path / "career_graph.db")
+    migration_result = subprocess.run(
         [sys.executable, "-m", "haxjobs.cli", "profile", "migrate",
          "--fixture", "state/experiments/fixtures/backend-career.json"],
         capture_output=True,
-        env={**os.environ, "PYTHONPATH": "src:."},
+        text=True,
+        env=environment,
         cwd=os.getcwd(),
     )
+    assert migration_result.returncode == 0, migration_result.stderr
+
     result = subprocess.run(
         [sys.executable, "-m", "haxjobs.cli", "profile", "show"],
-        capture_output=True, text=True,
-        env={**os.environ, "PYTHONPATH": "src:."},
+        capture_output=True,
+        text=True,
+        env=environment,
         cwd=os.getcwd(),
     )
     assert result.returncode == 0, f"stderr: {result.stderr}"
