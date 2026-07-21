@@ -4,7 +4,7 @@
 
 The corrected Plan 003 keeps the delivered career graph (schema, store, migration, CLI, tests) and adds a full conversational runtime with an inline prompt_toolkit terminal. The rejected Textual TUI and fake chat shells are gone and not restored.
 
-Repair round 1 applied 12 accepted reviewer findings. Repair round 2 applied 15 accepted reviewer findings from four independent DeepSeek V4 Pro reviewers. Repair round 3 (this commit) applies pre-final hardening to one accepted lifecycle defect cluster: detached pending tasks, reused cancel event, and terminal shutdown race.
+Repair round 1 applied 12 accepted reviewer findings. Repair round 2 applied 15 accepted reviewer findings from four independent DeepSeek V4 Pro reviewers. Repair round 3 applied pre-final hardening to one accepted lifecycle defect cluster: detached pending tasks, reused cancel event, and terminal shutdown race. Repair round 4 (this commit) applies two accepted correctness blockers found by a final release-gate reviewer: double TURN_INTERRUPTED emission on pre-model cancellation and tool dispatch vs cancel race condition.
 
 ## Files created
 
@@ -23,7 +23,7 @@ Repair round 1 applied 12 accepted reviewer findings. Repair round 2 applied 15 
 | `tests/test_live_events.py` | 19 tests |
 | `tests/test_model_streaming.py` | 11 tests |
 | `tests/test_session_store.py` | 17 tests |
-| `tests/test_turn_runtime.py` | 18 tests |
+| `tests/test_turn_runtime.py` | 20 tests |
 | `tests/test_employment_host.py` | 9 tests |
 | `tests/test_session.py` | 13 tests |
 | `tests/test_terminal.py` | 13 tests |
@@ -60,13 +60,13 @@ Repair round 1 applied 12 accepted reviewer findings. Repair round 2 applied 15 
 
 ## Test results
 
-**Full suite: 215 passed, 0 failures**
+**Full suite: 217 passed, 0 failures**
 
-All 215 tests pass when the private career fixture (`state/experiments/fixtures/backend-career.json`) is present. The fixture is an untracked local file — not committed to the repository.
+All 217 tests pass when the private career fixture (`state/experiments/fixtures/backend-career.json`) is present. The fixture is an untracked local file — not committed to the repository.
 
-New tests (Plan 003): 128 (20+19+11+17+18+9+13+13+2+6 round-3)
+New tests (Plan 003): 130 (20+19+11+17+20+9+13+13+2+6 round-3)
 Existing tests (Plans 001-002): 87 (23+27+37)
-Total: 215
+Total: 217
 
 | Test file | Count |
 |-----------|-------|
@@ -74,7 +74,7 @@ Total: 215
 | test_live_events.py | 19 |
 | test_model_streaming.py | 11 |
 | test_session_store.py | 17 |
-| test_turn_runtime.py | 18 |
+| test_turn_runtime.py | 20 |
 | test_employment_host.py | 9 |
 | test_session.py | 18 |
 | test_terminal.py | 14 |
@@ -102,6 +102,27 @@ Total: 215
 | 13 | Busy input returns INTERRUPTED | Reviewer B (MINOR) | Added `QUEUED` exit reason; `prompt()` returns QUEUED when busy |
 | 14 | Dead code: `request = ModelMessage`, `completed_tool_calls` | Reviewer B (MODERATE) | Removed both dead variables |
 | 15 | Report test counts stale/false | Reviewer A (MEDIUM) | Updated to actual `pytest --collect-only` counts (209 total) |
+
+## Repair round 4: Release-gate correctness blockers
+
+Two correctness blockers found by a final release-gate reviewer (Reviewer B, final):
+
+| # | Finding | Fix applied |
+|---|---------|-------------|
+| 1 | Double `TURN_INTERRUPTED` — pre-model cancellation emitted once in loop, again in final block | Removed the emit inside the `while`-loop pre-model cancel check; final block now handles the single emission |
+| 2 | Tool dispatch vs cancel race — `cancel_task in done or dispatch_task not in done` discarded successful dispatch when both completed same-tick | Changed condition to `dispatch_task not in done` so successful dispatch always wins the race |
+
+Two deterministic tests added:
+- `test_pre_model_cancellation_emits_exactly_one_turn_interrupted` — proves exactly 1 TURN_INTERRUPTED
+- `test_tool_dispatch_wins_over_simultaneous_cancel` — proves canonical ToolResultMessage keeps successful output and TOOL_COMPLETED emits once
+
+Cosmetic fixes:
+- Removed dead `session_id or` branch in `composition.py` new-session creation
+- Corrected comment in `client.py` from "Skip tool calls" to document actual `tool_calls_unsafe=True` emission
+
+Test count: 217 (+2 from round 4).
+
+---
 
 ## Repair round 3: Lifecycle defect cluster hardening
 
@@ -131,8 +152,17 @@ Files changed in round 3:
 - tests/test_session.py: +216 (6 lifecycle tests)
 - tests/test_terminal.py: +54/-6 (update tracking, callback test)
 
-Test count: 215 (+6 from round 3). Full suite passes twice; PTY tests pass twice;
-py_compile, uv lock, git diff all clean.
+Test count: 215 (+6 from round 3).
+
+## Repair round 4: Release-gate correctness blockers
+
+Two correctness blockers found by a final release-gate reviewer:
+
+1. Double `TURN_INTERRUPTED` emission on pre-model cancellation
+2. Tool dispatch vs cancel race condition
+
+Both fixed. Test count: 217 (+2 from round 4). Full suite passes twice; PTY tests pass twice;
+py_compile, uv lock, git diff all clean. Two focused tests pass 5/5 repetitions.
 
 ## Scope exceptions documented
 
@@ -169,7 +199,7 @@ TerminalClient (prompt_toolkit)
 
 ```bash
 # All passed
-pytest tests/                                     # 209 passed
+pytest tests/                                     # 217 passed
 py_compile $(find src tests -name '*.py')         # clean
 uv lock --check                                    # "Resolved 29 packages in 4ms"
 git diff --check                                   # clean

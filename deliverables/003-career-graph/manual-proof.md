@@ -5,7 +5,7 @@
 - Worktree: `/tmp/haxjobs-exec-003-corrected`
 - Branch: `advisor/003-corrected`
 - Baseline commit: `ae1dbce`
-- Repair commit: TBD
+- Implementation commit: produced by this change (see plans/README.md for parent SHA after merge)
 
 ## PTY Smoke Test (stdlib pty)
 
@@ -73,4 +73,6 @@ HAXJOBS_SESSION_DB=/tmp/haxjobs-plan003-sessions.db uv run haxjobs chat --fake
 | Cancellation | `test_turn_runtime.py::test_cancellation_while_waiting_for_tool` | ✓ PASSED |
 | Unsafe tool calls rejected | `test_turn_runtime.py` (verified by code path) | ✓ |
 | SESSION_STARTED emitted | `test_session.py` (verified by code path) | ✓ |
-| Full suite | `pytest tests/` | 188 passed, 0 failures |
+| Full suite | `pytest tests/` | 217 passed, 0 failures |
+| Pre-model cancel cardinality | `test_turn_runtime.py::test_pre_model_cancellation_emits_exactly_one_turn_interrupted` | ✓ PASSED |
+| Dispatch-vs-cancel race | `test_turn_runtime.py::test_tool_dispatch_wins_over_simultaneous_cancel` | ✓ PASSED |

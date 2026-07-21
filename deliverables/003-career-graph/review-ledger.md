@@ -99,6 +99,31 @@ All round-2 findings addressed in a single repair round covering 15 accepted fin
 - [x] `active_schemas()` ValueError caught and returned as MODEL_FAILED
 - [x] Report counts match actual pytest collection
 
+### Round 4 (this commit) — Release-gate correctness blockers
+
+Final release-gate review by a new DeepSeek V4 Pro reviewer found two correctness blockers
+that extend beyond the nominal repair cap. These are accepted and fixed:
+
+| ID | Finding | Source | Fix applied |
+|----|---------|--------|-------------|
+| R4-1 | Double `TURN_INTERRUPTED` — pre-model cancellation emits once in while loop (line ~135), then again in final event block (~line 535) | Reviewer B (final) | Removed the emit from the pre-model cancel check inside the while loop; the final event block now emits exactly once |
+| R4-2 | Tool dispatch vs cancel race — `cancel_task in done or dispatch_task not in done` treats successful dispatch as cancelled when both complete same-tick | Reviewer B (final) | Changed condition to `dispatch_task not in done`; successful dispatch always wins |
+
+Cosmetic fixes applied:
+- Removed dead `session_id or` branch in `composition.py` new-session creation (session_id always falsy in else branch)
+- Corrected comment in `client.py` from "Skip tool calls when the response was truncated" to document actual emission with `tool_calls_unsafe=True`
+
+Tests added:
+- `test_pre_model_cancellation_emits_exactly_one_turn_interrupted` — exact cardinality
+- `test_tool_dispatch_wins_over_simultaneous_cancel` — deterministic same-tick race where dispatch wins
+
+Test count: 217 (+2). Full suite passes twice. PTY tests pass twice. py_compile, uv lock, git diff all clean.
+Focused tests pass 5/5 repetitions.
+
+Note: The release gate extended beyond the nominal repair cap because a final reviewer found correctness blockers.
+This is recorded honestly here. The implementation commit SHA is produced by this change; the parent fills
+the index after merge.
+
 ### Round 3 (this commit) — Lifecycle defect cluster hardening
 
 Pre-final hardening addressing one accepted defect cluster: detached pending tasks,

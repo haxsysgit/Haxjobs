@@ -883,6 +883,131 @@ async def test_responsive_tool_cancellation():
     assert elapsed < 2.0, f"Cancellation took {elapsed:.2f}s, expected < 2s"
 
 
+# ── Regression: exact TURN_INTERRUPTED cardinality on pre-model cancel ──
+
+@pytest.mark.asyncio
+async def test_pre_model_cancellation_emits_exactly_one_turn_interrupted():
+    """Pre-model cancellation emits TURN_INTERRUPTED exactly once, not twice."""
+    events: list[LiveEvent] = []
+    cancel = asyncio.Event()
+    cancel.set()  # cancel before turn starts
+
+    fake = FakeModelClient(
+        stream_events=[_fake_stream("Should not appear.")],
+    )
+
+    result = await run_turn(
+        session_id="s1",
+        turn_id="t1",
+        model=fake,
+        system_prompt="sys",
+        context_messages=[],
+        history=[],
+        tool_registry=ToolRegistry(),
+        active_tools=(),
+        cancel_event=cancel,
+        emit=_fake_emit(events),
+    )
+
+    assert result.exit_reason == TurnExitReason.INTERRUPTED
+
+    interrupted = [e for e in events if e.event_type == LiveEventType.TURN_INTERRUPTED]
+    assert len(interrupted) == 1, (
+        f"Expected exactly 1 TURN_INTERRUPTED, got {len(interrupted)}"
+    )
+
+
+# ── Regression: tool dispatch wins over simultaneous cancel ──
+
+@pytest.mark.asyncio
+async def test_tool_dispatch_wins_over_simultaneous_cancel():
+    """When dispatch completes and cancel fires in the same tick, dispatch wins.
+
+    The tool handler sets cancel_event as a side effect before returning,
+    so both dispatch_task and cancel_task complete in the same tick.
+    This proves the canonical ToolResultMessage keeps the successful output
+    and TOOL_COMPLETED emits once.
+    """
+    from pydantic import BaseModel
+
+    events: list[LiveEvent] = []
+    registry = ToolRegistry()
+    cancel = asyncio.Event()
+
+    class _FastInput(BaseModel):
+        value: str
+
+    class _FastOutput(BaseModel):
+        ok: bool
+
+    async def fast_handler(input_obj):
+        # Set cancel_event as a side effect before returning.
+        # This causes both dispatch_task and cancel_task to complete
+        # in the same event loop tick, hitting the race condition exactly.
+        cancel.set()
+        return {"ok": True, "data": input_obj.value}
+
+    registry.register(
+        ToolDefinition(
+            name="fast_tool",
+            description="fast tool that also sets cancel",
+            input_model=_FastInput,
+            output_model=_FastOutput,
+            handler=fast_handler,
+        )
+    )
+
+    fake = FakeModelClient(
+        stream_events=[
+            [
+                ModelStreamEvent(
+                    event_type=ModelStreamEventType.COMPLETE_TOOL_CALL,
+                    call_id="c1",
+                    tool_name="fast_tool",
+                    arguments='{"value": "test"}',
+                ),
+                ModelStreamEvent(
+                    event_type=ModelStreamEventType.RESPONSE_COMPLETED,
+                    finish_reason="tool_calls",
+                ),
+            ],
+        ],
+    )
+
+    result = await run_turn(
+        session_id="s1",
+        turn_id="t1",
+        model=fake,
+        system_prompt="sys",
+        context_messages=[],
+        history=[],
+        tool_registry=registry,
+        active_tools=("fast_tool",),
+        cancel_event=cancel,
+        emit=_fake_emit(events),
+        max_model_steps=2,
+    )
+
+    # ToolResultMessage shows successful tool execution
+    tool_results = [m for m in result.new_messages if m.kind == "tool_result"]
+    assert len(tool_results) == 1
+    tr = tool_results[0]
+    assert tr.ok is True, f"Expected ok=True, got ok={tr.ok}, error_code={tr.error_code}"
+    assert tr.error_code is None
+    assert "test" in str(tr.result)
+
+    # TOOL_COMPLETED emitted exactly once
+    completed = [e for e in events if e.event_type == LiveEventType.TOOL_COMPLETED]
+    assert len(completed) == 1, f"Expected 1 TOOL_COMPLETED, got {len(completed)}"
+
+    # No TOOL_FAILED for this call
+    failed = [e for e in events if e.event_type == LiveEventType.TOOL_FAILED]
+    assert len(failed) == 0, f"Expected 0 TOOL_FAILED, got {len(failed)}"
+
+    # Turn is interrupted (cancel_event is now set for the next while iteration)
+    assert result.exit_reason == TurnExitReason.INTERRUPTED
+
+
 # ── Regression: QUEUED exit reason exists and is not INTERRUPTED ──
 
 def test_queued_reason_is_distinct():

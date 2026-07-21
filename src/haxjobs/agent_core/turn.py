@@ -127,13 +127,6 @@ async def run_turn(
         if cancel_event.is_set():
             exit_reason = TurnExitReason.INTERRUPTED
             safe_failure = "interrupted before model call"
-            emit(
-                LiveEvent(
-                    session_id=session_id,
-                    turn_id=turn_id,
-                    event_type=LiveEventType.TURN_INTERRUPTED,
-                )
-            )
             break
 
         model_steps += 1
@@ -386,7 +379,7 @@ async def run_turn(
                 return_when=asyncio.FIRST_COMPLETED,
             )
 
-            if cancel_task in done or dispatch_task not in [d for d in done]:
+            if dispatch_task not in done:
                 # Cancel the dispatch task and the cancel waiter
                 dispatch_task.cancel()
                 if cancel_task in pending:

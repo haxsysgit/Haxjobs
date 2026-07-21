@@ -75,7 +75,7 @@ def compose_session(
     else:
         import uuid
 
-        new_id = session_id or uuid.uuid4().hex[:12]
+        new_id = uuid.uuid4().hex[:12]
         session_store.create_session(new_id)
         session = AgentSession(
             session_id=new_id,
