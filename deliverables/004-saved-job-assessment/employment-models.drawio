@@ -73,17 +73,20 @@
         <mxCell id="asmt-seq" value="sequence (PK AUTOINCREMENT)" style="text;fontSize=11;" vertex="1" parent="group-assessment">
           <mxGeometry x="10" y="30" width="200" height="20" as="geometry"/>
         </mxCell>
-        <mxCell id="asmt-aid" value="assessment_id (UNIQUE)  ◇ make_stable_id('asmt', tool_call_id)" style="text;fontSize=11;" vertex="1" parent="group-assessment">
-          <mxGeometry x="10" y="55" width="200" height="20" as="geometry"/>
-        </mxCell>
         <mxCell id="asmt-tcid" value="tool_call_id (UNIQUE — idempotency key)" style="text;fontSize=11;" vertex="1" parent="group-assessment">
           <mxGeometry x="10" y="80" width="200" height="20" as="geometry"/>
         </mxCell>
         <mxCell id="asmt-fk" value="job_id (FK → Job), track_id (FK → CareerTrack)" style="text;fontSize=11;" vertex="1" parent="group-assessment">
           <mxGeometry x="10" y="105" width="200" height="20" as="geometry"/>
         </mxCell>
-        <mxCell id="asmt-rec" value="recommendation, summary, constraint_checks[], source_content_hash" style="text;fontSize=11;" vertex="1" parent="group-assessment">
-          <mxGeometry x="10" y="130" width="200" height="20" as="geometry"/>
+        <mxCell id="group-constraint" value="ConstraintCheck" style="swimlane;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="600" y="400" width="220" height="120" as="geometry"/>
+        </mxCell>
+        <mxCell id="constraint-fields" value="constraint_id, constraint_text" style="text;fontSize=11;" vertex="1" parent="group-constraint">
+          <mxGeometry x="10" y="30" width="200" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="constraint-result" value="result (pass | fail | unknown)" style="text;fontSize=11;" vertex="1" parent="group-constraint">
+          <mxGeometry x="10" y="55" width="200" height="20" as="geometry"/>
         </mxCell>
         <mxCell id="edge-p-t" value="" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-person" target="group-track">
           <mxGeometry relative="1" as="geometry"/>
@@ -98,6 +101,9 @@
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
         <mxCell id="edge-t-a" value="" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-track" target="group-assessment">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge-a-c" value="has constraint checks" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;endArrow=block;endFill=1;strokeWidth=3;" edge="1" parent="1" source="group-assessment" target="group-constraint">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
       </root>

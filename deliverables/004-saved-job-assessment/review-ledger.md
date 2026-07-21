@@ -2,7 +2,7 @@
 
 ## Status
 
-Final review is pending and not approved. This focused writer pass starts at exact `285f424` and makes one correctness repair commit. No live model, public network, private fixture, provider configuration, credential, plan, or state path was used.
+Final review is pending and not approved. This focused writer pass starts at exact `e0390b5` and makes one correctness repair commit. No live model, public network, private fixture, provider configuration, credential, plan, or state path was used.
 
 ## Prior review history
 
@@ -15,8 +15,14 @@ Final review is pending and not approved. This focused writer pass starts at exa
 | `0a29152` | accepted with blockers | Lifecycle, scope, cancellation, and diagram edge/cell repairs |
 | `58f0807` | accepted with blockers | Partial stream preservation and other correctness repairs; provider-neutral cancelled failure classification remained |
 | `285f424` | accepted with blockers | Provider cancellation classification repaired; seven further correctness blockers remained |
+| `e0390b5` | accepted with blockers | Seven further correctness blockers remained: safe error boundary, settlement ordering, and separate ConstraintCheck artifact |
 
-## Final-pass repairs
+## Final repair pass (`e0390b5`)
+
+1. Runtime exception/provider/tool validation details are mapped once to stable public error categories. A regression injects secret/path/token/provider-body text and asserts neither `TurnResult` nor `LiveEvent` serialization contains it.
+2. Terminal lifecycle ownership moved to `AgentSession`: terminal turn events wait for durable settlement. Settlement failure returns `persistence_failed`, logs the storage exception, emits one generic `TURN_FAILED`, emits no `TURN_COMPLETED` or `SESSION_SETTLED`, and preserves durable messages/measurement for explicit recovery. `TerminalClient` also refuses arbitrary `TURN_FAILED.error` text.
+3. `employment-models.drawio` now has seven groups and a separate `ConstraintCheck` group with `constraint_id, constraint_text` and `result`; it has 34 non-root cells and a 784×524 PNG export.
+
 
 1. Source DNS validation now requires `ipaddress.ip_address(address).is_global`, including rejection of `100.64.0.1`.
 2. Tool cancellation joins and inspects the dispatch task before synthesizing cancellation, so a handler that catches cancellation and commits a success persists/emits the real result.
@@ -35,7 +41,7 @@ The original PNG exports occurred in earlier repair commit `0766d56`. Diagram ce
 
 | Check | Result |
 |---|---|
-| Full pytest suite | 238 passed in 45.80s |
+| Full pytest suite | 240 passed in 45.52s |
 | Focused blocker regression suite | 100 passed |
 | `py_compile` | passed |
 | `uv lock --check` | passed |
@@ -46,7 +52,7 @@ The original PNG exports occurred in earlier repair commit `0766d56`. Diagram ce
 
 | Diagram | Total `mxCell` | PNG dimensions |
 |---|---:|---|
-| `employment-models.drawio` | 34 | 640×524 |
+| `employment-models.drawio` | 36 total / 34 non-root | 784×524 |
 | `tool-effects.drawio` | 22 | 744×404 |
 | `conversation-trajectory.drawio` | 21 | 464×474 |
 

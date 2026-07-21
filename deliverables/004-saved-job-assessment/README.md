@@ -9,17 +9,17 @@
 | `review-ledger.md` | Reviewer findings and decisions (prior reviews plus focused correctness repair; final review pending) |
 | `manual-proof.md` | Controller-owned safe run procedure and CLI verification |
 | `employment-models.drawio` | Employment model schema diagram (source) |
-| `employment-models.png` | Employment model schema diagram (PNG export, 640×524) |
+| `employment-models.png` | Employment model schema diagram (PNG export, 784×524) |
 | `tool-effects.drawio` | Durable tool execution boundary diagram (source) |
 | `tool-effects.png` | Durable tool execution boundary diagram (PNG export, 744×404) |
 | `conversation-trajectory.drawio` | Full job review trajectory diagram (source) |
 | `conversation-trajectory.png` | Full job review trajectory diagram (PNG export, 464×474) |
 
-All PNGs exported via `/opt/drawio/drawio -x -f png`. Each has a valid PNG signature and nonzero IHDR dimensions.
+All PNGs exported via `/opt/drawio/drawio -x -f png`. Each has a valid PNG signature and nonzero IHDR dimensions. `employment-models` has 34 non-root cells, seven model groups, and a separate `ConstraintCheck` group with `constraint_id, constraint_text` and `result (pass | fail | unknown)` fields.
 
 ## Key achievements
 
-- 238 automated tests pass (full suite, including PTY terminal tests with isolated temp career DB)
+- 240 automated tests pass (full suite, including PTY terminal tests with isolated temp career DB)
 - First state-changing employment workflow: user asks → get_job → inspect → assess
 - Durable tool execution boundaries: persist before handler, persist after handler
 - Immutable session configuration: person/track scope pinned at creation

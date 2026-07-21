@@ -109,6 +109,65 @@ async def test_user_message_persistence_failure_stops_before_model(store: Sessio
 
 
 @pytest.mark.asyncio
+async def test_runtime_failure_text_is_stable_and_event_safe(store: SessionStore):
+    """Provider exception details never cross the TurnResult/event boundary."""
+    secret = "SECRET /private/provider-token.txt response-body"
+    model = FakeModelClient(
+        stream_events=[[
+            ModelStreamEvent(
+                event_type=ModelStreamEventType.RESPONSE_FAILED,
+                error=secret,
+                category="provider_error",
+            ),
+        ]]
+    )
+    session = _make_session(store, model=model)
+    events: list[LiveEvent] = []
+    session.subscribe(events.append)
+
+    result = await session.prompt("hello")
+
+    assert secret not in result.safe_failure
+    assert secret not in result.final_text
+    assert all(secret not in event.model_dump_json() for event in events)
+    assert result.safe_failure == "Model stream failed."
+
+
+@pytest.mark.asyncio
+async def test_settlement_failure_is_pending_not_contradictory(store: SessionStore):
+    """A completed model turn stays pending when its settlement write fails."""
+    session = _make_session(store, model_count=2)
+    events: list[LiveEvent] = []
+    session.subscribe(events.append)
+    original_mark = store.mark_turn_settled
+
+    def fail_settlement(session_id, turn_count):
+        raise OSError("SECRET /private/session-token.db")
+
+    store.mark_turn_settled = fail_settlement  # type: ignore[method-assign]
+    result = await session.prompt("hello")
+
+    assert result.exit_reason == TurnExitReason.PERSISTENCE_FAILED
+    assert result.safe_failure == "Turn settlement persistence failed."
+    types = [event.event_type for event in events]
+    assert LiveEventType.TURN_COMPLETED not in types
+    assert types.count(LiveEventType.TURN_FAILED) == 1
+    assert LiveEventType.SESSION_SETTLED not in types
+    assert all("SECRET" not in event.model_dump_json() for event in events)
+    assert store.get_session("s1")["turn_count"] == 0
+    assert store._conn.execute(
+        "SELECT exit_reason FROM turn_measurements WHERE session_id = 's1'"
+    ).fetchone()["exit_reason"] == "completed"
+
+    # Recovery is explicit: once storage works, the durable pending turn can
+    # be followed by a new prompt without an automatic duplicate model call.
+    store.mark_turn_settled = original_mark  # type: ignore[method-assign]
+    recovered = await session.prompt("follow up")
+    assert recovered.exit_reason == TurnExitReason.COMPLETED
+    assert store.get_session("s1")["turn_count"] == 1
+
+
+@pytest.mark.asyncio
 async def test_history_read_failure_is_failed_and_settled(store: SessionStore):
     """A history read error cannot become a manufactured completed turn."""
     session = _make_session(store)

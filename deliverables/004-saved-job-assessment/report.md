@@ -2,7 +2,7 @@
 
 ## Status
 
-**IMPLEMENTED — FINAL REVIEW PENDING** — All 238 automated tests pass in this worktree with no private fixture. The focused repair based on exact `285f424` addresses the seven accepted correctness blockers. Final review remains pending and is not approved. Live provider verification is deferred (controller-owned).
+**IMPLEMENTED — FINAL REVIEW PENDING** — All 240 automated tests pass in this worktree with no private fixture. The final Plan 004 repair from exact `e0390b5` adds the stable runtime error boundary, truthful settlement ordering/recovery, and a separate ConstraintCheck diagram entity. Final review remains pending and is not approved. Live provider verification is deferred (controller-owned).
 
 ## Files created
 
@@ -23,8 +23,8 @@
 | Path | Changes |
 |------|---------|
 | `src/haxjobs/agent_core/tools.py` | Added `ToolExecutionContext`, `EffectKind`, `ToolDefinition` metadata, handler now takes `(input, context)` |
-| `src/haxjobs/agent_core/turn.py` | Added `persist_message` callback (required), `user_message_id`, `TurnResult` usage/input_characters fields, truthful interrupted partial assistant persistence, and live failure events for every terminal message-persistence boundary |
-| `src/haxjobs/agent_core/session.py` | `persist_message` wiring, dangling call detection on resume, measurement recording on every turn exit path |
+| `src/haxjobs/agent_core/turn.py` | Added `persist_message` callback (required), `user_message_id`, `TurnResult` usage/input_characters fields, truthful interrupted partial assistant persistence, live failure events for every terminal message-persistence boundary, and stable public error mapping |
+| `src/haxjobs/agent_core/session.py` | `persist_message` wiring, dangling call detection on resume, measurement recording on every turn exit path, and settlement-gated terminal lifecycle |
 | `src/haxjobs/agent_core/session_store.py` | Added `session_configuration` table, `turn_measurements` table, nonblank opaque configuration storage, `record_measurement()`, and config round-trip methods |
 | `src/haxjobs/employment/schema.py` | Added `Job`, `ConstraintCheck`, `JobAssessment` models; `CareerFixture` now requires `person_id`, `person_name`, `track_name` |
 | `src/haxjobs/employment/store.py` | Added `jobs` and `job_assessments` tables, `list_people()`, job/assessment CRUD methods; `link_skill_evidence` made idempotent with `ON CONFLICT DO NOTHING` |
@@ -36,11 +36,13 @@
 | `src/haxjobs/employment/job_source.py` | Added `fetch_from_job()` accepting Job rows; string-safe references, bounded off-loop DNS await, resolver, transport, connection, and reads run via `asyncio.to_thread` |
 | `src/haxjobs/cli.py` | Added `--person-id`, `--track-id` to chat; removed experiment review-job subcommand |
 | `src/haxjobs/agent_core/__init__.py` | Removed deleted module exports |
+| `src/haxjobs/agent_core/errors.py` | Single stable user-facing error mapper; exception details remain local to logs |
+| `src/haxjobs/interfaces/terminal.py` | Refuses arbitrary turn-failure text at the terminal boundary |
 | `src/haxjobs/employment/__init__.py` | Removed `review_job` exports |
 | `src/haxjobs/interfaces/__init__.py` | Removed `experiment_cli` export |
 | `tests/test_career_graph.py` | Uses synthetic fixture; added migration integrity tests (deterministic IDs, person name, contradictory gaps, idempotent links, required fields) |
 | `tests/test_turn_runtime.py` | Removed duplicate `_TestOutput`; added ToolExecutionContext, persistence failure event, cancel event, and provider-cancelled failure tests; updated all handler signatures to `(input, ctx)` |
-| `tests/test_session.py` | Added unconfigured session, history-read failure settlement, interrupted partial-history, dangling call, no duplicate, no auto-retry, idempotent resume, measurement, and provider-cancelled settlement tests |
+| `tests/test_session.py` | Added unconfigured session, history-read failure settlement, interrupted partial-history, dangling call, no duplicate, no auto-retry, idempotent resume, measurement, provider-cancelled settlement, safe-error, and settlement-recovery tests |
 | `tests/test_employment_host.py` | Added scope selection tests (single/multi/zero person/track), evidence content tests |
 | `tests/test_session_store.py` | Added opaque string/list/arbitrary-text configuration, blank validation, round-trip, transaction, duplicate tests |
 | `tests/test_live_events.py` | Updated test that referenced deleted events module |
@@ -67,12 +69,12 @@
 ## Test results
 
 ```
-238 passed (full suite; runtime varies by environment)
+240 passed (full suite; runtime varies by environment)
 ```
 
 Verified: `uv lock --check` ok, `py_compile` all src/ and tests/ ok, `git diff --check` ok.
 
-Exact collected/tested per-file count (from `pytest --collect-only -q tests/`, 238 collected and 238 passed):
+Exact collected/tested per-file count (from `pytest --collect-only -q tests/`, 240 collected and 240 passed):
 - `tests/test_career_graph.py`: 28
 - `tests/test_conversation_messages.py`: 20
 - `tests/test_durable_tool_effects.py`: 9
@@ -83,7 +85,7 @@ Exact collected/tested per-file count (from `pytest --collect-only -q tests/`, 2
 - `tests/test_job_source.py`: 4
 - `tests/test_live_events.py`: 19
 - `tests/test_model_streaming.py`: 11
-- `tests/test_session.py`: 34
+- `tests/test_session.py`: 36
 - `tests/test_session_store.py`: 22
 - `tests/test_terminal.py`: 14
 - `tests/test_terminal_pty.py`: 2
@@ -110,8 +112,8 @@ The `_fake_registry()` helper in `tests/test_turn_runtime.py` had two identical 
 
 ## Diagram deliverables
 
-Three draw.io source files and three exported PNGs, all under 35 cells:
-- `employment-models.drawio` (34 cells, 32 non-root) / `.png` (640×524) — Person, CareerTrack, Skill, Evidence, Job, JobAssessment relationships; ConstraintCheck noted as embedded field
+Three draw.io source files and three exported PNGs, all under 35 non-root cells:
+- `employment-models.drawio` (36 cells, 34 non-root) / `.png` (784×524) — seven groups: Person, CareerTrack, Skill, EvidenceItem, Job, JobAssessment, and separate ConstraintCheck with `constraint_id, constraint_text` plus `result (pass | fail | unknown)`; orthogonal edges remain under the 35 non-root-cell limit
 - `tool-effects.drawio` (22 cells) / `.png` (744×404) — Durable tool execution boundary, persist failures, dangling call detection
 - `conversation-trajectory.drawio` (21 cells) / `.png` (464×474) — Full job review trajectory: user → get_job → inspect → assess → resume; resume reads current Job + latest assessment through get_job and never records a new assessment
 
@@ -168,6 +170,12 @@ Initial controller verification round identified three blocking findings against
 ## Focused correctness repair pass
 
 Based on exact `285f424`, this pass repairs: `ipaddress.is_global` source validation; cancellation outcome inspection after handler cancellation; failed session read/setup settlement; mutually exclusive chat mode and scope flags; top-level idempotency conflict envelopes; opaque SessionStore configuration; and the stale migration fixture fallback. Deterministic regressions cover each code blocker. Controller-owned manual/live proof remains honestly deferred.
+
+## Final repair details
+
+- Runtime failures now pass through one stable category mapper. Exception/provider/tool validation details remain local to logs and are absent from `TurnResult.safe_failure` and `LiveEvent.error`; the regression injects a secret, path, and provider body.
+- Session terminal events are emitted only after the settlement marker succeeds. A settlement-write failure returns `persistence_failed`, emits one generic `TURN_FAILED`, emits no `TURN_COMPLETED` or `SESSION_SETTLED`, and leaves durable canonical messages/measurement pending for explicit recovery.
+- The employment model export now depicts `ConstraintCheck` as a separate seventh group with its real text/result fields rather than an embedded `constraint_checks[]` label.
 
 ## Commit
 

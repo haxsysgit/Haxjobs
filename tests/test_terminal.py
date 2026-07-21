@@ -175,7 +175,8 @@ def test_failed_event_renders():
             )
         )
 
-    assert "provider timeout" in output.getvalue()
+    assert "provider timeout" not in output.getvalue()
+    assert "The turn could not be completed." in output.getvalue()
 
 
 # ── Rendering errors don't crash ──

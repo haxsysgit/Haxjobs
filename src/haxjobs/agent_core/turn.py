@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable
 
+from haxjobs.agent_core.errors import safe_error, safe_tool_error
 from haxjobs.agent_core.live_events import LiveEvent, LiveEventEmitter, LiveEventType
 from haxjobs.agent_core.messages import (
     AssistantMessage,
@@ -127,7 +128,8 @@ async def run_turn(
         try:
             tool_schemas = tool_registry.active_schemas(active_tools)
         except ValueError as exc:
-            safe_failure = f"active tool schema setup failed: {exc}"
+            logger.warning("active tool schema setup failed: %s", exc, exc_info=True)
+            safe_failure = safe_error("tool_schema")
             emit(
                 LiveEvent(
                     session_id=session_id,
@@ -151,7 +153,7 @@ async def run_turn(
     while model_steps < max_steps:
         if cancel_event.is_set():
             exit_reason = TurnExitReason.INTERRUPTED
-            safe_failure = "interrupted before model call"
+            safe_failure = safe_error("interrupted")
             break
 
         model_steps += 1
@@ -180,7 +182,7 @@ async def run_turn(
             async for stream_event in model.stream(model_request, cancel_event):
                 if cancel_event.is_set():
                     exit_reason = TurnExitReason.INTERRUPTED
-                    safe_failure = "interrupted during streaming"
+                    safe_failure = safe_error("interrupted")
                     emit(
                         LiveEvent(
                             session_id=session_id,
@@ -280,7 +282,7 @@ async def run_turn(
                         # normalize it to this provider-neutral failure event.
                         # It is still cancellation, not a model failure.
                         exit_reason = TurnExitReason.INTERRUPTED
-                        safe_failure = stream_event.error or "interrupted during streaming"
+                        safe_failure = safe_error("interrupted")
                         if accumulated_text:
                             assistant_msg = AssistantMessage(
                                 message_id=_mid(),
@@ -318,7 +320,7 @@ async def run_turn(
                         )
 
                     model_failed = True
-                    safe_failure = stream_event.error or "model stream failed"
+                    safe_failure = safe_error("model")
                     exit_reason = TurnExitReason.MODEL_FAILED
                     # Persist partial assistant text
                     if accumulated_text:
@@ -351,7 +353,7 @@ async def run_turn(
                     persist_message(assistant_msg)
                 except Exception as exc:
                     logger.warning("partial assistant persistence failed: %s", exc)
-            safe_failure = "externally cancelled during streaming"
+            safe_failure = safe_error("interrupted")
             emit(
                 LiveEvent(
                     session_id=session_id,
@@ -374,8 +376,9 @@ async def run_turn(
                 input_characters=input_characters,
             )
         except Exception as exc:
+            logger.warning("model stream failed: %s", exc, exc_info=True)
             model_failed = True
-            safe_failure = str(exc)
+            safe_failure = safe_error("model")
             exit_reason = TurnExitReason.MODEL_FAILED
             break
 
@@ -398,7 +401,7 @@ async def run_turn(
             try:
                 persist_message(assistant_msg)
             except Exception:
-                safe_failure = "assistant message persistence failed"
+                safe_failure = safe_error("assistant_persistence")
                 emit(
                     LiveEvent(
                         session_id=session_id,
@@ -440,7 +443,7 @@ async def run_turn(
         try:
             persist_message(assistant_msg)
         except Exception:
-            safe_failure = "assistant message persistence failed"
+            safe_failure = safe_error("assistant_persistence")
             emit(
                 LiveEvent(
                     session_id=session_id,
@@ -488,7 +491,7 @@ async def run_turn(
         for tc_event in tool_call_events:
             if cancel_event.is_set():
                 exit_reason = TurnExitReason.INTERRUPTED
-                safe_failure = "interrupted before tool dispatch"
+                safe_failure = safe_error("interrupted")
                 emit(
                     LiveEvent(
                         session_id=session_id,
@@ -523,7 +526,7 @@ async def run_turn(
             try:
                 persist_message(tc_msg)
             except Exception:
-                safe_failure = "tool call persistence failed"
+                safe_failure = safe_error("tool_call_persistence")
                 emit(
                     LiveEvent(
                         session_id=session_id,
@@ -650,7 +653,7 @@ async def run_turn(
                         safe_failure = persistence_error
                     tool_starts += 1
 
-                safe_failure = safe_failure or "externally cancelled during tool execution"
+                safe_failure = safe_failure or safe_error("interrupted")
                 emit(LiveEvent(
                     session_id=session_id,
                     turn_id=turn_id,
@@ -713,7 +716,7 @@ async def run_turn(
                             input_characters=input_characters,
                         )
                     tool_starts += 1
-                    safe_failure = "interrupted after tool completed"
+                    safe_failure = safe_error("interrupted")
                 else:
                     cancelled_result = {
                         "ok": False,
@@ -743,7 +746,7 @@ async def run_turn(
                     )
 
                 exit_reason = TurnExitReason.INTERRUPTED
-                safe_failure = safe_failure or "interrupted during tool execution"
+                safe_failure = safe_failure or safe_error("interrupted")
                 emit(LiveEvent(
                     session_id=session_id,
                     turn_id=turn_id,
@@ -822,7 +825,7 @@ async def run_turn(
     else:
         # Loop completed without explicit stop → limit reached
         exit_reason = TurnExitReason.LIMIT_REACHED
-        safe_failure = f"limit reached after {model_steps} model step(s)"
+        safe_failure = safe_error("limit")
         emit(
             LiveEvent(
                 session_id=session_id,
@@ -888,15 +891,17 @@ def _persist_and_emit_tool_result(
     emit: LiveEventEmitter,
 ) -> tuple[ToolResultMessage | None, str]:
     """Persist a tool outcome, then publish its truthful lifecycle event."""
+    ok = result.get("ok", False)
+    code = result.get("code", "handler_error")
     tr_msg = ToolResultMessage(
         message_id=_mid(),
         turn_id=turn_id,
         call_id=call_id,
         tool_name=tool_name,
-        ok=result.get("ok", False),
+        ok=ok,
         result=result.get("data"),
-        error_code=result.get("code") if not result.get("ok") else None,
-        error=result.get("error") if not result.get("ok") else None,
+        error_code=code if not ok else None,
+        error=safe_tool_error(code) if not ok else None,
     )
     new_messages.append(tr_msg)
     try:
@@ -942,7 +947,7 @@ def _persist_and_emit_tool_result(
                 tool_status=code,
                 tool_duration_ms=duration_ms,
                 error_code=code,
-                error=result.get("error", ""),
+                error=safe_tool_error(code),
             )
         )
     return tr_msg, ""

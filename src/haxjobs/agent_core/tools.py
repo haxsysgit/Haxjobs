@@ -11,6 +11,7 @@ from typing import Any, Callable, Coroutine
 
 from pydantic import BaseModel
 
+from haxjobs.agent_core.errors import safe_tool_error
 from haxjobs.model.types import ToolSchema
 
 logger = logging.getLogger(__name__)
@@ -96,7 +97,7 @@ class ToolRegistry:
             return {
                 "ok": False,
                 "code": "unknown_tool",
-                "error": f"unknown tool: {name}",
+                "error": safe_tool_error("unknown_tool"),
             }
 
         # Inactive tool
@@ -104,7 +105,7 @@ class ToolRegistry:
             return {
                 "ok": False,
                 "code": "tool_inactive",
-                "error": f"tool {name} is not in the active set",
+                "error": safe_tool_error("tool_inactive"),
             }
 
         tool = self._tools[name]
@@ -113,42 +114,44 @@ class ToolRegistry:
         try:
             args_dict = json.loads(arguments)
         except json.JSONDecodeError as exc:
+            logger.warning("malformed arguments for %s: %s", name, exc, exc_info=True)
             return {
                 "ok": False,
                 "code": "malformed_arguments",
-                "error": f"invalid JSON arguments: {exc}",
+                "error": safe_tool_error("malformed_arguments"),
             }
 
         # Pydantic validation
         try:
             input_obj = tool.input_model.model_validate(args_dict)
         except Exception as exc:
+            logger.warning("invalid arguments for %s: %s", name, exc, exc_info=True)
             return {
                 "ok": False,
                 "code": "invalid_arguments",
-                "error": f"argument validation failed: {exc}",
+                "error": safe_tool_error("invalid_arguments"),
             }
 
         # Execute handler with context
         try:
             result = await tool.handler(input_obj, context)
         except Exception as exc:
-            logger.warning("tool handler error for %s: %s", name, exc)
+            logger.warning("tool handler error for %s: %s", name, exc, exc_info=True)
             return {
                 "ok": False,
                 "code": "handler_error",
-                "error": "tool execution failed",
+                "error": safe_tool_error("handler_error"),
             }
 
         # Validate output against the declared output model
         try:
             tool.output_model.model_validate(result)
         except Exception as exc:
-            logger.warning("tool output validation failed for %s: %s", name, exc)
+            logger.warning("tool output validation failed for %s: %s", name, exc, exc_info=True)
             return {
                 "ok": False,
                 "code": "invalid_output",
-                "error": "tool output does not match declared schema",
+                "error": safe_tool_error("invalid_output"),
             }
 
         # A handler may return the standard failure envelope directly. This
@@ -158,7 +161,7 @@ class ToolRegistry:
             return {
                 "ok": False,
                 "code": result["code"],
-                "error": result.get("error", "tool execution failed"),
+                "error": safe_tool_error(result["code"]),
             }
 
         # Truncate if needed

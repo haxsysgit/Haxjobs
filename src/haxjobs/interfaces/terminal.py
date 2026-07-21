@@ -21,6 +21,7 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.styles import Style
 
+from haxjobs.agent_core.errors import safe_error
 from haxjobs.agent_core.live_events import LiveEvent, LiveEventType
 
 logger = logging.getLogger(__name__)
@@ -141,7 +142,10 @@ class TerminalClient:
                 sys.stdout.flush()
 
             elif event.event_type == LiveEventType.TURN_FAILED:
-                sys.stdout.write(f"\n[{event.error or 'failed'}]\n")
+                # The runtime normally supplies an allowlisted message, but
+                # the terminal is a second user-facing boundary: never print
+                # an arbitrary exception/provider payload.
+                sys.stdout.write(f"\n[{safe_error('turn')}]\n")
                 sys.stdout.flush()
 
             elif event.event_type == LiveEventType.TURN_COMPLETED:
@@ -224,8 +228,8 @@ class TerminalClient:
                     break
                 except KeyboardInterrupt:
                     break
-                except Exception as exc:
-                    sys.stdout.write(f"\n[{exc}]\n")
+                except Exception:
+                    sys.stdout.write(f"\n[{safe_error('turn')}]\n")
                     sys.stdout.flush()
 
 

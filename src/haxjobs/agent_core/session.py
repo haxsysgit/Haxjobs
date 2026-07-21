@@ -16,6 +16,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Callable
 
+from haxjobs.agent_core.errors import safe_error
 from haxjobs.agent_core.live_events import LiveEvent, LiveEventEmitter, LiveEventType
 from haxjobs.agent_core.messages import (
     ConversationMessage,
@@ -164,22 +165,17 @@ class AgentSession:
             except Exception as exc:
                 # Never let an orchestration/read failure fall through to the
                 # synthetic COMPLETED result below.
-                logger.exception("_run_turn unexpected error")
-                failure = f"turn execution failed: {exc}"
+                logger.exception("_run_turn unexpected error: %s", exc)
+                failure = safe_error("turn")
                 self._emit(LiveEvent(
                     session_id=self.session_id,
                     turn_id="",
                     event_type=LiveEventType.TURN_FAILED,
                     error=failure,
                 ))
-                self._emit(LiveEvent(
-                    session_id=self.session_id,
-                    turn_id="",
-                    event_type=LiveEventType.SESSION_SETTLED,
-                ))
                 last_result = TurnResult(
                     turn_id="",
-                    exit_reason=TurnExitReason.MODEL_FAILED,
+                    exit_reason=TurnExitReason.PERSISTENCE_FAILED,
                     safe_failure=failure,
                 )
             finally:
@@ -214,8 +210,8 @@ class AgentSession:
             self._store.append_message(self.session_id, user_msg)
         except Exception as exc:
             self._turn_count -= 1
-            safe_failure = f"user message persistence failed: {exc}"
-            logger.error(safe_failure)
+            logger.warning("user message persistence failed: %s", exc, exc_info=True)
+            safe_failure = safe_error("user_message_persistence")
             return self._settle_failed_turn(
                 turn_id=turn_id,
                 started_at=started_at,
@@ -253,8 +249,8 @@ class AgentSession:
             tool_registry = self._tool_registry_fn()
             active_tool_names = self._active_tool_names_fn()
         except Exception as exc:
-            safe_failure = f"host/context setup failed: {exc}"
-            logger.error(safe_failure)
+            logger.warning("host/context setup failed: %s", exc, exc_info=True)
+            safe_failure = safe_error("host_setup")
             return self._settle_failed_turn(
                 turn_id=turn_id,
                 started_at=started_at,
@@ -268,8 +264,8 @@ class AgentSession:
         try:
             stored = self._store.load_messages(self.session_id)
         except Exception as exc:
-            safe_failure = f"session history read failed: {exc}"
-            logger.error(safe_failure)
+            logger.warning("session history read failed: %s", exc, exc_info=True)
+            safe_failure = safe_error("history_read")
             return self._settle_failed_turn(
                 turn_id=turn_id,
                 started_at=started_at,
@@ -280,8 +276,8 @@ class AgentSession:
         try:
             history = _parse_canonical_history(stored)
         except Exception as exc:
-            safe_failure = f"session history corrupted: {exc}"
-            logger.error(safe_failure)
+            logger.warning("session history corrupted: %s", exc, exc_info=True)
+            safe_failure = safe_error("history_corrupt")
             return self._settle_failed_turn(
                 turn_id=turn_id,
                 started_at=started_at,
@@ -294,6 +290,17 @@ class AgentSession:
         def _persist_message(msg: ConversationMessage) -> None:
             self._store.append_message(self.session_id, msg)
 
+        def _emit_runtime(event: LiveEvent) -> None:
+            # Session owns terminal lifecycle; publish terminal events only
+            # after the durable settlement marker succeeds.
+            if event.event_type in {
+                LiveEventType.TURN_COMPLETED,
+                LiveEventType.TURN_FAILED,
+                LiveEventType.TURN_INTERRUPTED,
+            }:
+                return
+            self._emit(event)
+
         try:
             result = await run_turn(
                 session_id=self.session_id,
@@ -305,7 +312,7 @@ class AgentSession:
                 tool_registry=tool_registry,
                 active_tools=active_tool_names,
                 cancel_event=self._cancel_event,  # type: ignore[arg-type]
-                emit=self._emit,
+                emit=_emit_runtime,
                 persist_message=_persist_message,
                 user_message_id=user_msg.message_id,
             )
@@ -317,15 +324,8 @@ class AgentSession:
             result = TurnResult(
                 turn_id=turn_id,
                 exit_reason=TurnExitReason.INTERRUPTED,
-                safe_failure="externally cancelled",
+                safe_failure=safe_error("interrupted"),
                 user_message_id=user_msg.message_id,
-            )
-            self._emit(
-                LiveEvent(
-                    session_id=self.session_id,
-                    turn_id=turn_id,
-                    event_type=LiveEventType.TURN_INTERRUPTED,
-                )
             )
 
         # Record measurement
@@ -342,17 +342,49 @@ class AgentSession:
             usage=result.usage,
         )
 
-        # Mark turn settled
-        self._store.mark_turn_settled(self.session_id, self._turn_count)
-
-        # Emit session_settled
-        self._emit(
-            LiveEvent(
+        # Mark turn settled. If this write fails, canonical messages and the
+        # measurement remain durable while the session stays pending for
+        # recovery; no completion or SESSION_SETTLED event is published.
+        try:
+            self._store.mark_turn_settled(self.session_id, self._turn_count)
+        except Exception as exc:
+            logger.warning("turn settlement persistence failed: %s", exc, exc_info=True)
+            settlement_failure = safe_error("settlement")
+            # Keep the in-memory counter aligned with the durable counter so
+            # the next explicit recovery prompt can settle at the next number
+            # rather than skipping the pending turn number.
+            self._turn_count -= 1
+            self._emit(LiveEvent(
                 session_id=self.session_id,
                 turn_id=turn_id,
-                event_type=LiveEventType.SESSION_SETTLED,
+                event_type=LiveEventType.TURN_FAILED,
+                error=settlement_failure,
+            ))
+            from dataclasses import replace
+            return replace(
+                result,
+                exit_reason=TurnExitReason.PERSISTENCE_FAILED,
+                safe_failure=settlement_failure,
             )
-        )
+
+        # Publish one terminal turn event only after settlement succeeds.
+        if result.exit_reason == TurnExitReason.COMPLETED:
+            terminal_type = LiveEventType.TURN_COMPLETED
+        elif result.exit_reason == TurnExitReason.INTERRUPTED:
+            terminal_type = LiveEventType.TURN_INTERRUPTED
+        else:
+            terminal_type = LiveEventType.TURN_FAILED
+        self._emit(LiveEvent(
+            session_id=self.session_id,
+            turn_id=turn_id,
+            event_type=terminal_type,
+            error=result.safe_failure if terminal_type == LiveEventType.TURN_FAILED else "",
+        ))
+        self._emit(LiveEvent(
+            session_id=self.session_id,
+            turn_id=turn_id,
+            event_type=LiveEventType.SESSION_SETTLED,
+        ))
 
         return result
 
@@ -376,7 +408,18 @@ class AgentSession:
         try:
             self._store.mark_turn_settled(self.session_id, self._turn_count)
         except Exception as exc:
-            logger.warning("failed-turn settlement write failed: %s", exc)
+            logger.warning("failed-turn settlement write failed: %s", exc, exc_info=True)
+            self._record_measurement(
+                turn_id=turn_id,
+                started_at=started_at,
+                started_mono=started_mono,
+                exit_reason=measurement_reason,
+            )
+            return TurnResult(
+                turn_id=turn_id,
+                exit_reason=TurnExitReason.PERSISTENCE_FAILED,
+                safe_failure=safe_error("settlement"),
+            )
         self._record_measurement(
             turn_id=turn_id,
             started_at=started_at,
