@@ -2,7 +2,7 @@
 
 ## Status
 
-**COMPLETE** — All automated tests pass. Live provider verification deferred (controller-owned).
+**COMPLETE** — All 216 automated tests pass in an isolated fresh worktree with no private fixture. Live provider verification deferred (controller-owned).
 
 ## Files created
 
@@ -65,7 +65,7 @@
 ## Test results
 
 ```
-214 passed (excluding terminal PTY environment tests)
+216 passed
 ```
 
 Breakdown:
@@ -82,8 +82,7 @@ Breakdown:
 - `tests/test_live_events.py`: 7 passed
 - `tests/test_model_streaming.py`: 5 passed
 - `tests/test_terminal.py`: 44 passed
-
-PTY terminal tests (2 tests) fail due to environment — expected.
+- `tests/test_terminal_pty.py`: 2 passed (isolated temp career DB, synthetic fixture)
 
 ## Architecture invariants confirmed
 
@@ -105,18 +104,17 @@ The `_fake_registry()` helper in `tests/test_turn_runtime.py` had two identical 
 
 ## Diagram deliverables
 
-Three draw.io source files created:
-- `deliverables/004-saved-job-assessment/employment-models.drawio` — Person, CareerTrack, Skill, Evidence, Job, ConstraintCheck, JobAssessment relationships
-- `deliverables/004-saved-job-assessment/tool-effects.drawio` — Durable tool execution boundary, persist failures, dangling call detection
-- `deliverables/004-saved-job-assessment/conversation-trajectory.drawio` — Full job review trajectory: user → get_job → inspect → assess → resume
+Three draw.io source files and three exported PNGs:
+- `employment-models.drawio` / `.png` (758×524, 72 KB) — Person, CareerTrack, Skill, Evidence, Job, ConstraintCheck, JobAssessment relationships
+- `tool-effects.drawio` / `.png` (744×404, 53 KB) — Durable tool execution boundary, persist failures, dangling call detection
+- `conversation-trajectory.drawio` / `.png` (464×474, 52 KB) — Full job review trajectory: user → get_job → inspect → assess → resume
 
-PNG exports deferred to operator (requires local draw.io CLI).
+All PNGs exported via `/opt/drawio/drawio -x -f png`. Each has a valid PNG signature and nonzero IHDR dimensions.
 
 ## Deferred and skipped
 
 - **Live provider manual run:** Controller-owned. Not performed in this worktree.
 - **Real career DB migration:** Requires private fixture with `person_id`, `person_name`, `track_name`.
-- **PNG exports:** Requires local draw.io command; operator will generate from tracked `.drawio` sources.
 - **Compaction, summaries, token budgets:** Plan 005 territory.
 - **User decisions:** Plan 005.
 - **Approvals framework:** Deferred.
@@ -134,8 +132,12 @@ PNG exports deferred to operator (requires local draw.io CLI).
 
 ## Reviewer findings
 
-Awaiting initial Flash reviewer round. No repairs applied yet.
+Controller verification round identified three blocking findings, all repaired:
+
+1. **PTY test isolation (tests/test_terminal_pty.py):** Both `test_terminal_pty_enter_submits_and_escape_interrupts` and `test_terminal_pty_escape_during_streaming_interrupts` defaulted `HAXJOBS_CAREER_DB` to `state/career_graph.db`, violating Plan 004 Phase A's isolated synthetic-test rule. Fixed by adding `_isolated_career_db()` helper that creates a temp career DB migrated from `tests/fixtures/job_review/career.json` and cleaning up after each test.
+2. **Missing PNG exports:** Three `.drawio` files had no PNG exports. All three exported via local `/opt/drawio/drawio -x -f png`. Each PNG verified with valid signature and nonzero IHDR dimensions.
+3. **Report metadata:** Report claimed COMPLETE but listed PTY tests as "fail due to environment" and PNGs as deferred. Corrected to report exact 216 passes and present PNGs.
 
 ## Commit
 
-Awaiting controller acceptance. Report must not claim its own containing commit SHA.
+Repair commit applied at this worktree. Report intentionally omits its containing commit SHA per Plan 004 conventions; controller records final SHA on acceptance.

@@ -2,7 +2,7 @@
 
 Uses stdlib pty to run the terminal in a pseudo-terminal.
 Uses delayed fake model (--fake-delay) for genuine mid-stream interruption.
-All tests use isolated temp session DBs.
+All tests use isolated temp career and session DBs — never reads/writes operator state.
 """
 
 from __future__ import annotations
@@ -15,6 +15,9 @@ import select
 import subprocess
 import tempfile
 from pathlib import Path
+
+from haxjobs.employment.fixtures import load_career_fixture
+from haxjobs.employment.migration import migrate_career_fixture
 
 
 def _read_until(pty_fd: int, marker: bytes, timeout: float = 15.0) -> bytes:
@@ -54,9 +57,26 @@ def _read_all(pty_fd: int, timeout: float = 3.0) -> bytes:
     return collected
 
 
+def _isolated_career_db() -> str:
+    """Create a temp career DB migrated from the synthetic fixture.
+
+    Returns db_path — caller must clean up.
+    """
+    fixture = load_career_fixture("tests/fixtures/job_review/career.json")
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tf:
+        career_db = tf.name
+    try:
+        Path(career_db).unlink(missing_ok=True)
+        migrate_career_fixture(fixture, career_db)
+    except BaseException:
+        Path(career_db).unlink(missing_ok=True)
+        raise
+    return career_db
+
+
 def test_terminal_pty_enter_submits_and_escape_interrupts():
     """Run haxjobs chat --fake in a PTY, send input, prove Enter submits and Escape interrupts."""
-    career_db = os.environ.get("HAXJOBS_CAREER_DB", "state/career_graph.db")
+    career_db = _isolated_career_db()
 
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tf:
         session_db = tf.name
@@ -131,15 +151,16 @@ def test_terminal_pty_enter_submits_and_escape_interrupts():
 
     finally:
         Path(session_db).unlink(missing_ok=True)
+        Path(career_db).unlink(missing_ok=True)
 
 
 def test_terminal_pty_escape_during_streaming_interrupts():
     """Send Escape during a delayed fake stream to prove mid-stream interruption.
 
-    Uses --fake-delay 100 so the fake model streams slowly enough that
+    Uses --fake-delay 150 so the fake model streams slowly enough that
     Escape (sent after a short sleep) arrives before the stream completes.
     """
-    career_db = os.environ.get("HAXJOBS_CAREER_DB", "state/career_graph.db")
+    career_db = _isolated_career_db()
 
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tf:
         session_db = tf.name
@@ -211,3 +232,4 @@ def test_terminal_pty_escape_during_streaming_interrupts():
 
     finally:
         Path(session_db).unlink(missing_ok=True)
+        Path(career_db).unlink(missing_ok=True)

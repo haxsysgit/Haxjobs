@@ -9,14 +9,17 @@
 | `review-ledger.md` | Reviewer findings and decisions (pending) |
 | `manual-proof.md` | Controller-owned safe run metadata (pending) |
 | `employment-models.drawio` | Employment model schema diagram (source) |
+| `employment-models.png` | Employment model schema diagram (PNG export, 758×524) |
 | `tool-effects.drawio` | Durable tool execution boundary diagram (source) |
+| `tool-effects.png` | Durable tool execution boundary diagram (PNG export, 744×404) |
 | `conversation-trajectory.drawio` | Full job review trajectory diagram (source) |
+| `conversation-trajectory.png` | Full job review trajectory diagram (PNG export, 464×474) |
 
-PNG exports require local draw.io CLI. Source `.drawio` files are valid XML.
+All PNGs exported via `/opt/drawio/drawio -x -f png`. Each has a valid PNG signature and nonzero IHDR dimensions.
 
 ## Key achievements
 
-- 214 automated tests pass (excluding terminal PTY environment tests)
+- 216 automated tests pass (all tests, including PTY terminal tests with isolated temp career DB)
 - First state-changing employment workflow: user asks → get_job → inspect → assess
 - Durable tool execution boundaries: persist before handler, persist after handler
 - Immutable session configuration: person/track scope pinned at creation
@@ -28,7 +31,8 @@ PNG exports require local draw.io CLI. Source `.drawio` files are valid XML.
 ## Verification
 
 ```bash
-PYTHONPATH=src:. uv run python3 -m pytest -q tests/ --ignore=tests/test_terminal_pty.py
+PYTHONPATH=src:. uv run python3 -m pytest -q tests/
 PYTHONPATH=src:. uv run python3 -m py_compile $(find src tests -name '*.py')
-PYTHONPATH=src:. uv run -- haxjobs chat --help
+uv lock --check
+git diff --check
 ```
