@@ -2,6 +2,10 @@
 
 Plan 003 Phase 7: The session persists canonical messages, manages busy-input policy,
 and orchestrates turns through the turn runtime.
+
+Repair round 3: The original prompt task owns a serial loop; no detached asyncio.create_task
+inside AgentSession. Each turn gets a fresh asyncio.Event so idle abort never poisons
+the next turn. The terminal's owner task includes all queued work.
 """
 
 from __future__ import annotations
@@ -46,7 +50,7 @@ class AgentSession:
         self._active_tool_names_fn = active_tool_names_fn
 
         self._subscribers: list[LiveEventEmitter] = []
-        self._cancel_event = asyncio.Event()
+        self._cancel_event: asyncio.Event | None = None
         self._busy = False
         self._turn_count = 0
         self._session_started_emitted = False
@@ -66,8 +70,12 @@ class AgentSession:
         return unsubscribe
 
     def abort(self) -> None:
-        """Signal cancellation to the active turn. Returns the session to idle."""
-        self._cancel_event.set()
+        """Signal cancellation to the currently busy turn. No-op when idle.
+
+        Each turn gets a fresh asyncio.Event. Idle Escape never poisons the next turn.
+        """
+        if self._cancel_event is not None:
+            self._cancel_event.set()
 
     def _emit(self, event: LiveEvent) -> None:
         """Emit to all subscribers. Subscriber failures are collected and logged."""
@@ -94,7 +102,13 @@ class AgentSession:
     async def prompt(self, text: str) -> TurnResult:
         """Submit user text for a new turn. Queues if busy.
 
-        Returns the TurnResult when the turn settles.
+        When idle the calling task owns a serial loop that runs the current turn
+        and every pending successor. No detached asyncio.create_task is spawned
+        inside AgentSession.
+
+        The original owner prompt returns the result of the **last** turn in the
+        chain (deterministic: the final turn before all pending work is exhausted).
+        Secondary prompt calls while busy return QUEUED immediately.
         """
         if self._busy:
             # Busy: replace pending message
@@ -116,11 +130,47 @@ class AgentSession:
                 safe_failure="session busy, message queued",
             )
 
-        return await self._run_turn(text)
+        # Idle: become the owner and run a serial chain
+        self._busy = True
+        self._pending_message = text
+        try:
+            return await self._run_serial_loop()
+        finally:
+            self._busy = False
+
+    async def _run_serial_loop(self) -> TurnResult:
+        """Run turns serially until no pending work remains.
+
+        Each iteration gets a fresh asyncio.Event so idle abort never poisons
+        the next turn. The original prompt task owns the entire chain.
+        """
+        last_result: TurnResult | None = None
+        while self._pending_message is not None:
+            text = self._pending_message
+            self._pending_message = None
+            self._cancel_event = asyncio.Event()
+            try:
+                last_result = await self._run_turn(text)
+            except Exception:
+                logger.exception("_run_turn unexpected error")
+                # Continue to next pending message on unexpected errors
+            finally:
+                self._cancel_event = None
+        if last_result is None:
+            last_result = TurnResult(
+                turn_id="",
+                exit_reason=TurnExitReason.COMPLETED,
+            )
+        return last_result
 
     async def _run_turn(self, text: str) -> TurnResult:
-        """Execute one conversational turn."""
-        self._busy = True
+        """Execute one conversational turn.
+
+        A fresh cancel_event was already created by _run_serial_loop and is
+        stored in self._cancel_event. No was_aborted / clear() dance is needed
+        — each turn starts with a clean slate.
+        """
+        self._busy = True  # defensive; already True from serial loop
         turn_id = _tid()
         self._turn_count += 1
 
@@ -135,131 +185,40 @@ class AgentSession:
                 )
             )
 
-        try:
-            # Persist user message before any provider call
-            user_msg = UserMessage(
-                message_id=_mid(),
-                turn_id=turn_id,
-                content=text,
-            )
-            self._store.append_message(self.session_id, user_msg)
+        # Persist user message before any provider call
+        user_msg = UserMessage(
+            message_id=_mid(),
+            turn_id=turn_id,
+            content=text,
+        )
+        self._store.append_message(self.session_id, user_msg)
 
+        self._emit(
+            LiveEvent(
+                session_id=self.session_id,
+                turn_id=turn_id,
+                event_type=LiveEventType.USER_MESSAGE_ACCEPTED,
+                text=text,
+            )
+        )
+
+        # Get current system prompt, context, and tools
+        try:
+            system_prompt = self._system_prompt_fn()
+            context_msgs = self._context_messages_fn()
+            tool_registry = self._tool_registry_fn()
+            active_tool_names = self._active_tool_names_fn()
+        except Exception as exc:
+            logger.error("host/context setup failed: %s", exc)
             self._emit(
                 LiveEvent(
                     session_id=self.session_id,
                     turn_id=turn_id,
-                    event_type=LiveEventType.USER_MESSAGE_ACCEPTED,
-                    text=text,
+                    event_type=LiveEventType.TURN_FAILED,
+                    error="Host or context setup failed",
                 )
             )
-
-            # ── Honour any abort set before the turn started ──
-            # _cancel_event.clear() is delayed until after persistence so an abort
-            # delivered between prompt scheduling and _run_turn start is seen.
-            was_aborted = self._cancel_event.is_set()
-            self._cancel_event.clear()
-            if was_aborted:
-                self._emit(
-                    LiveEvent(
-                        session_id=self.session_id,
-                        turn_id=turn_id,
-                        event_type=LiveEventType.TURN_INTERRUPTED,
-                    )
-                )
-                self._store.mark_turn_settled(self.session_id, self._turn_count)
-                self._emit(
-                    LiveEvent(
-                        session_id=self.session_id,
-                        turn_id=turn_id,
-                        event_type=LiveEventType.SESSION_SETTLED,
-                    )
-                )
-                return TurnResult(
-                    turn_id=turn_id,
-                    exit_reason=TurnExitReason.INTERRUPTED,
-                    safe_failure="aborted before model call",
-                )
-
-            # Get current system prompt, context, and tools
-            try:
-                system_prompt = self._system_prompt_fn()
-                context_msgs = self._context_messages_fn()
-                tool_registry = self._tool_registry_fn()
-                active_tool_names = self._active_tool_names_fn()
-            except Exception as exc:
-                logger.error("host/context setup failed: %s", exc)
-                self._emit(
-                    LiveEvent(
-                        session_id=self.session_id,
-                        turn_id=turn_id,
-                        event_type=LiveEventType.TURN_FAILED,
-                        error="Host or context setup failed",
-                    )
-                )
-                self._store.mark_turn_settled(self.session_id, self._turn_count)
-                self._emit(
-                    LiveEvent(
-                        session_id=self.session_id,
-                        turn_id=turn_id,
-                        event_type=LiveEventType.SESSION_SETTLED,
-                    )
-                )
-                return TurnResult(
-                    turn_id=turn_id,
-                    exit_reason=TurnExitReason.MODEL_FAILED,
-                    safe_failure=f"host/context setup: {exc}",
-                )
-
-            # Load canonical history
-            stored = self._store.load_messages(self.session_id)
-            try:
-                history = _parse_canonical_history(stored)
-            except CanonicalParseError as exc:
-                logger.error("canonical parse error: %s", exc)
-                self._emit(
-                    LiveEvent(
-                        session_id=self.session_id,
-                        turn_id=turn_id,
-                        event_type=LiveEventType.TURN_FAILED,
-                        error=f"Session history corrupted: {exc}",
-                    )
-                )
-                self._store.mark_turn_settled(self.session_id, self._turn_count)
-                self._emit(
-                    LiveEvent(
-                        session_id=self.session_id,
-                        turn_id=turn_id,
-                        event_type=LiveEventType.SESSION_SETTLED,
-                    )
-                )
-                return TurnResult(
-                    turn_id=turn_id,
-                    exit_reason=TurnExitReason.MODEL_FAILED,
-                    safe_failure=f"canonical parse: {exc}",
-                )
-
-            # Run turn
-            result = await run_turn(
-                session_id=self.session_id,
-                turn_id=turn_id,
-                model=self._model,
-                system_prompt=system_prompt,
-                context_messages=context_msgs,
-                history=history,
-                tool_registry=tool_registry,
-                active_tools=active_tool_names,
-                cancel_event=self._cancel_event,
-                emit=self._emit,
-            )
-
-            # Persist new messages
-            for msg in result.new_messages:
-                self._store.append_message(self.session_id, msg)
-
-            # Mark turn settled
             self._store.mark_turn_settled(self.session_id, self._turn_count)
-
-            # Emit session_settled
             self._emit(
                 LiveEvent(
                     session_id=self.session_id,
@@ -267,27 +226,71 @@ class AgentSession:
                     event_type=LiveEventType.SESSION_SETTLED,
                 )
             )
+            return TurnResult(
+                turn_id=turn_id,
+                exit_reason=TurnExitReason.MODEL_FAILED,
+                safe_failure=f"host/context setup: {exc}",
+            )
 
-            return result
+        # Load canonical history
+        stored = self._store.load_messages(self.session_id)
+        try:
+            history = _parse_canonical_history(stored)
+        except CanonicalParseError as exc:
+            logger.error("canonical parse error: %s", exc)
+            self._emit(
+                LiveEvent(
+                    session_id=self.session_id,
+                    turn_id=turn_id,
+                    event_type=LiveEventType.TURN_FAILED,
+                    error=f"Session history corrupted: {exc}",
+                )
+            )
+            self._store.mark_turn_settled(self.session_id, self._turn_count)
+            self._emit(
+                LiveEvent(
+                    session_id=self.session_id,
+                    turn_id=turn_id,
+                    event_type=LiveEventType.SESSION_SETTLED,
+                )
+            )
+            return TurnResult(
+                turn_id=turn_id,
+                exit_reason=TurnExitReason.MODEL_FAILED,
+                safe_failure=f"canonical parse: {exc}",
+            )
 
-        finally:
-            # Process pending message if any — keep _busy=True across the chain
-            pending = self._pending_message
-            self._pending_message = None
-            if pending is not None:
-                task = asyncio.create_task(self._run_turn(pending))
+        # Run turn (cancel_event is already self._cancel_event from serial loop)
+        result = await run_turn(
+            session_id=self.session_id,
+            turn_id=turn_id,
+            model=self._model,
+            system_prompt=system_prompt,
+            context_messages=context_msgs,
+            history=history,
+            tool_registry=tool_registry,
+            active_tools=active_tool_names,
+            cancel_event=self._cancel_event,  # type: ignore[arg-type]  # always set by serial loop
+            emit=self._emit,
+        )
 
-                def _safe_pending_done(t: asyncio.Task) -> None:
-                    try:
-                        exc = t.exception()
-                        if exc is not None:
-                            logger.error("pending turn failed: %s", exc)
-                    except Exception:
-                        pass
+        # Persist new messages
+        for msg in result.new_messages:
+            self._store.append_message(self.session_id, msg)
 
-                task.add_done_callback(_safe_pending_done)
-            else:
-                self._busy = False
+        # Mark turn settled
+        self._store.mark_turn_settled(self.session_id, self._turn_count)
+
+        # Emit session_settled
+        self._emit(
+            LiveEvent(
+                session_id=self.session_id,
+                turn_id=turn_id,
+                event_type=LiveEventType.SESSION_SETTLED,
+            )
+        )
+
+        return result
 
     @classmethod
     def resume(

@@ -14,6 +14,7 @@ from haxjobs.agent_core.messages import ConversationMessage
 from haxjobs.agent_core.session import AgentSession, CanonicalParseError
 from haxjobs.agent_core.session_store import SessionStore
 from haxjobs.agent_core.tools import ToolRegistry
+from haxjobs.agent_core.turn import TurnExitReason
 from haxjobs.model.fake import FakeModelClient
 from haxjobs.model.types import (
     ModelMessage,
@@ -328,3 +329,218 @@ def test_session_close(store: SessionStore):
     session.add_cleanup(lambda: cleaned.append(True))
     session.close()
     assert len(cleaned) == 1
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Repair round 3: Lifecycle defect cluster — deterministic tests
+# ═══════════════════════════════════════════════════════════════════
+
+# ── R3-1: Idle abort does not cancel next prompt ──
+
+@pytest.mark.asyncio
+async def test_idle_abort_does_not_cancel_next_prompt(store: SessionStore):
+    """When the session is idle, abort() is a no-op. The next prompt runs normally."""
+    session = _make_session(store, model_count=2)
+
+    # Idle abort
+    session.abort()
+    session.abort()  # multiple idle aborts are fine
+
+    # Next prompt should complete normally, not be interrupted
+    result = await session.prompt("hello after idle abort")
+    assert result.exit_reason is not None
+    assert result.exit_reason != TurnExitReason.INTERRUPTED  # type: ignore[comparison-overlap]
+
+
+# ── R3-2: Cancel current then queued successor runs with fresh event ──
+
+@pytest.mark.asyncio
+async def test_cancel_current_queued_successor_runs(store: SessionStore):
+    """After aborting the current turn, the queued successor runs with a fresh
+    cancel event — not poisoned by the previous abort."""
+    store.create_session("s1")
+
+    # Slow model for the first turn
+    model = FakeModelClient(
+        stream_events=[
+            [
+                ModelStreamEvent(
+                    event_type=ModelStreamEventType.TEXT_DELTA, delta="slow",
+                ),
+                ModelStreamEvent(
+                    event_type=ModelStreamEventType.RESPONSE_COMPLETED,
+                    finish_reason="stop",
+                ),
+            ],
+        ],
+        delay_ms=300,
+        repeat=True,
+    )
+    session = AgentSession(
+        session_id="s1",
+        session_store=store,
+        model=model,
+        system_prompt=lambda: "sys",
+        context_messages=lambda: [],
+        tool_registry_fn=lambda: ToolRegistry(),
+        active_tool_names_fn=lambda: (),
+    )
+
+    # Start the first turn as a task
+    task1 = asyncio.create_task(session.prompt("first"))
+    await asyncio.sleep(0.05)  # let it start streaming
+
+    # Queue second message while busy
+    result2 = await session.prompt("second")
+    assert result2.exit_reason == TurnExitReason.QUEUED
+
+    # Abort the first turn mid-stream
+    session.abort()
+
+    # Wait for the owner task to finish (first interrupted + second runs)
+    final = await task1
+
+    # Because the serial loop runs both turns, the final result is from the
+    # last turn ("second") — which should have a fresh event and complete normally.
+    # If the idle abort poisoned the successor, "second" would also be INTERRUPTED.
+    assert final.exit_reason == TurnExitReason.COMPLETED, (
+        f"Expected COMPLETED from queued successor, got {final.exit_reason}"
+    )
+
+
+# ── R3-3: Pending work finishes before session close ──
+
+@pytest.mark.asyncio
+async def test_pending_work_finishes_before_close(store: SessionStore):
+    """All pending turns finish and are persisted before the session closes.
+    No turn is dropped."""
+    store.create_session("s1")
+
+    model = FakeModelClient(
+        stream_events=[
+            [
+                ModelStreamEvent(
+                    event_type=ModelStreamEventType.TEXT_DELTA, delta="ok",
+                ),
+                ModelStreamEvent(
+                    event_type=ModelStreamEventType.RESPONSE_COMPLETED,
+                    finish_reason="stop",
+                ),
+            ],
+        ],
+        repeat=True,
+    )
+    session = AgentSession(
+        session_id="s1",
+        session_store=store,
+        model=model,
+        system_prompt=lambda: "sys",
+        context_messages=lambda: [],
+        tool_registry_fn=lambda: ToolRegistry(),
+        active_tool_names_fn=lambda: (),
+    )
+
+    # Submit first prompt (becomes the owner task)
+    task1 = asyncio.create_task(session.prompt("first"))
+    await asyncio.sleep(0.02)
+
+    # Queue second while busy — returns QUEUED, handled by serial loop
+    await session.prompt("second")
+
+    # Queue a third
+    await session.prompt("third")
+
+    # Wait for the owner task to finish all three
+    await task1
+
+    # All three user messages and three assistant messages should be persisted
+    stored = store.load_messages("s1")
+    kinds = [m["payload_json"]["kind"] for m in stored]
+    assert kinds.count("user") == 3, f"Expected 3 user messages, got {kinds.count('user')}"
+    assert kinds.count("assistant") == 3, f"Expected 3 assistant messages, got {kinds.count('assistant')}"
+
+    # Session should be idle
+    assert session._busy is False
+    assert session._pending_message is None
+    assert session._cancel_event is None
+
+
+# ── R3-4: No detached task after turn chain completes ──
+
+@pytest.mark.asyncio
+async def test_no_detached_task_after_chain(store: SessionStore):
+    """After the serial loop finishes, no detached asyncio task lingers.
+    The session is fully idle with _cancel_event cleared."""
+    session = _make_session(store, model_count=1)
+
+    result = await session.prompt("single")
+    assert result.exit_reason is not None
+
+    # Session must be fully idle — no active cancel event, no pending work
+    assert session._busy is False
+    assert session._pending_message is None
+    assert session._cancel_event is None, (
+        "cancel_event should be None after serial loop, not a lingering Event"
+    )
+
+    # Subsequent idle abort is still a no-op
+    session.abort()  # should not crash
+
+
+# ── R3-5: Immediate Enter then Escape reaches active turn ──
+
+@pytest.mark.asyncio
+async def test_immediate_enter_then_escape_reaches_active_turn(store: SessionStore):
+    """Simulating 'Enter then Escape immediately': abort must reach the running turn.
+    After the yield tick, the session is busy and cancel_event is set."""
+    store.create_session("s1")
+
+    model = FakeModelClient(
+        stream_events=[
+            [
+                ModelStreamEvent(
+                    event_type=ModelStreamEventType.TEXT_DELTA, delta="streaming...",
+                ),
+                ModelStreamEvent(
+                    event_type=ModelStreamEventType.RESPONSE_COMPLETED,
+                    finish_reason="stop",
+                ),
+            ],
+        ],
+        delay_ms=500,
+    )
+    session = AgentSession(
+        session_id="s1",
+        session_store=store,
+        model=model,
+        system_prompt=lambda: "sys",
+        context_messages=lambda: [],
+        tool_registry_fn=lambda: ToolRegistry(),
+        active_tool_names_fn=lambda: (),
+    )
+
+    # Fire prompt as a non-blocking task (mimicking terminal)
+    prompt_task = asyncio.create_task(session.prompt("hello"))
+
+    # Yield one tick — this is what TerminalClient does after creating the task
+    await asyncio.sleep(0)
+
+    # Now the session should be busy and cancel_event should be set
+    assert session._busy is True
+    assert session._cancel_event is not None, (
+        "cancel_event should be set after the yield tick"
+    )
+
+    # Simulate immediate Escape
+    session.abort()
+    assert session._cancel_event.is_set(), (
+        "abort should set the current turn's cancel event"
+    )
+
+    # Wait for turn to finish (it should be interrupted)
+    result = await prompt_task
+    assert result.exit_reason == TurnExitReason.INTERRUPTED
+
+    # Verify the session returns to clean idle state
+    assert session._busy is False
+    assert session._cancel_event is None

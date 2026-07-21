@@ -318,10 +318,54 @@ def test_tool_progress_event_rendered():
     assert "loading..." in result
 
 
-# ── Regression: TerminalClient tracks prompt tasks (Finding 5) ──
+# ── Regression: TerminalClient tracks owner task (Round 3) ──
 
-def test_terminal_client_has_prompt_task_tracking():
-    """TerminalClient initializes with _prompt_tasks set."""
+def test_terminal_client_has_owner_task_tracking():
+    """TerminalClient initializes with _owner_task = None."""
     client = TerminalClient(mock.MagicMock(), show_session_info=False)
-    assert hasattr(client, "_prompt_tasks")
-    assert isinstance(client._prompt_tasks, set)
+    assert hasattr(client, "_owner_task")
+    assert client._owner_task is None
+
+
+# ── R3-6: Done callback handles CancelledError explicitly ──
+
+def test_safe_prompt_done_handles_cancelled():
+    """The _safe_prompt_done callback does not crash on a cancelled task."""
+    from haxjobs.interfaces.terminal import _safe_prompt_done
+
+    async def _canceller():
+        raise asyncio.CancelledError()
+
+    async def _normal():
+        return "ok"
+
+    async def _failing():
+        raise RuntimeError("boom")
+
+    # Cancelled task — should return silently
+    loop = asyncio.new_event_loop()
+    try:
+        t_cancelled = loop.create_task(_canceller())
+        loop.run_until_complete(asyncio.sleep(0))
+        t_cancelled.cancel()
+        try:
+            loop.run_until_complete(t_cancelled)
+        except asyncio.CancelledError:
+            pass
+        # Should not raise
+        _safe_prompt_done(t_cancelled)
+
+        # Normal task — no exception
+        t_normal = loop.create_task(_normal())
+        loop.run_until_complete(t_normal)
+        _safe_prompt_done(t_normal)  # should not raise
+
+        # Failing task — logs error but doesn't raise
+        t_failing = loop.create_task(_failing())
+        try:
+            loop.run_until_complete(t_failing)
+        except RuntimeError:
+            pass
+        _safe_prompt_done(t_failing)  # should not raise, just logs
+    finally:
+        loop.close()

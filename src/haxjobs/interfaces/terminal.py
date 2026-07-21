@@ -2,6 +2,11 @@
 
 Plan 003 Phase 8: The terminal must only consume a constructed session and live events.
 CareerStore, provider, and tools stay outside. No alternate-screen app.
+
+Repair round 3: Terminal tracks one owner prompt task (which now includes queued work).
+Yields one event-loop tick after creation so the session marks itself busy before
+the next key is handled. Cooperative shutdown awaits the owner task, catches
+CancelledError explicitly, then force-cancels and closes.
 """
 
 from __future__ import annotations
@@ -34,12 +39,16 @@ class TerminalClient:
     Import rules:
     - Must not import CareerStore, provider clients, or employment handlers.
     - Only imports the session protocol and live event types.
+
+    Lifecycle: tracks one owner prompt task (the session runs a serial chain
+    so all queued work completes inside that single task). Shutdown awaits it
+    before close.
     """
 
     def __init__(self, session, *, show_session_info: bool = True):
         self._session = session
         self._show_session_info = show_session_info
-        self._prompt_tasks: set[asyncio.Task] = set()
+        self._owner_task: asyncio.Task | None = None
 
     async def run(self) -> None:
         """Run the interactive terminal loop."""
@@ -55,26 +64,27 @@ class TerminalClient:
         try:
             await self._input_loop()
         finally:
-            # Cooperative abort — give the session time to persist interrupted state
+            # ── Cooperative shutdown ──
+            # 1. Tell session to abort the current turn
             self._session.abort()
-            if self._prompt_tasks:
+            # 2. Await the one owner task (which includes all queued work)
+            if self._owner_task is not None and not self._owner_task.done():
                 try:
-                    await asyncio.wait_for(
-                        asyncio.gather(*self._prompt_tasks, return_exceptions=True),
-                        timeout=1.0,
-                    )
+                    await asyncio.wait_for(self._owner_task, timeout=1.0)
                 except asyncio.TimeoutError:
                     pass
-            # Force-cancel any remaining tasks
-            for task in list(self._prompt_tasks):
-                if not task.done():
-                    task.cancel()
-            # Drain all tasks
-            if self._prompt_tasks:
-                await asyncio.gather(*self._prompt_tasks, return_exceptions=True)
-            self._prompt_tasks.clear()
+                except asyncio.CancelledError:
+                    pass
+            # 3. Force-cancel if still running
+            if self._owner_task is not None and not self._owner_task.done():
+                self._owner_task.cancel()
+                try:
+                    await self._owner_task
+                except asyncio.CancelledError:
+                    pass
+            self._owner_task = None
             unsub()
-            # Close session (persists final state, releases stores)
+            # 4. Close session (persists final state, releases stores)
             if hasattr(self._session, "close"):
                 self._session.close()
 
@@ -195,19 +205,18 @@ class TerminalClient:
                         continue
 
                     # Fire session.prompt as a task — do NOT await it inline.
-                    # This keeps the input loop active so Escape can call abort
-                    # and Enter can use the one-slot busy policy.
+                    # When idle, this task becomes the owner and runs the serial chain
+                    # (current turn + any queued work). When busy, it returns QUEUED
+                    # immediately.
                     task = asyncio.ensure_future(self._session.prompt(text))
-                    self._prompt_tasks.add(task)
-                    task.add_done_callback(lambda t: self._prompt_tasks.discard(t))
 
-                    def _safe_prompt_done(t: asyncio.Task) -> None:
-                        try:
-                            exc = t.exception()
-                            if exc is not None:
-                                logger.error("prompt task failed: %s", exc)
-                        except Exception:
-                            pass
+                    if self._owner_task is None or self._owner_task.done():
+                        # This is the owner task — track it
+                        self._owner_task = task
+                        # Yield one tick so the session marks itself busy before
+                        # the next key (e.g. Escape) is handled.
+                        await asyncio.sleep(0)
+                    # else: busy — task returns QUEUED quickly; do not track
 
                     task.add_done_callback(_safe_prompt_done)
 
@@ -218,6 +227,18 @@ class TerminalClient:
                 except Exception as exc:
                     sys.stdout.write(f"\n[{exc}]\n")
                     sys.stdout.flush()
+
+
+def _safe_prompt_done(t: asyncio.Task) -> None:
+    """Done callback for prompt tasks — logs errors, swallows CancelledError."""
+    try:
+        if t.cancelled():
+            return
+        exc = t.exception()
+        if exc is not None:
+            logger.error("prompt task failed: %s", exc)
+    except Exception:
+        pass
 
 
 async def run_terminal(

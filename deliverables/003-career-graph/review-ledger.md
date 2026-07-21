@@ -98,3 +98,38 @@ All round-2 findings addressed in a single repair round covering 15 accepted fin
 - [x] Host/context setup failures caught with TURN_FAILED + SESSION_SETTLED
 - [x] `active_schemas()` ValueError caught and returned as MODEL_FAILED
 - [x] Report counts match actual pytest collection
+
+### Round 3 (this commit) — Lifecycle defect cluster hardening
+
+Pre-final hardening addressing one accepted defect cluster: detached pending tasks,
+reused cancel event poisoning, and terminal shutdown race.
+
+| ID | Finding | Source | Fix applied |
+|----|---------|--------|-------------|
+| R3-1 | `_cancel_event` shared across turns — idle Escape poisons next prompt | Plan item 1,3 | Per-turn fresh `asyncio.Event` created in `_run_serial_loop`; `abort()` no-op when `_cancel_event is None` |
+| R3-2 | Pending work launched as detached `asyncio.create_task` inside AgentSession | Plan item 1,2 | Removed; original prompt task owns serial loop (`_run_serial_loop`) that atomically takes pending message and runs next turn in same task |
+| R3-3 | Terminal cannot wait for detached pending task before closing stores | Plan item 1,4 | Terminal tracks one `_owner_task`; shutdown awaits it (includes all queued work) before force-cancel and `session.close()` |
+| R3-4 | No event-loop yield after prompt task creation — Escape may fire before session marks busy | Plan item 4 | `await asyncio.sleep(0)` after creating owner task so session sets `_cancel_event` before next key |
+| R3-5 | Callback does not handle `asyncio.CancelledError` explicitly | Plan item 4 | `_safe_prompt_done` checks `t.cancelled()` before `t.exception()` |
+| R3-6 | Owner prompt return value undocumented | Plan item 5 | Documented: owner returns result of **last** turn in chain; secondary calls return QUEUED; six deterministic tests added |
+
+Added 6 deterministic tests (215 total, +6):
+- `test_idle_abort_does_not_cancel_next_prompt`
+- `test_cancel_current_queued_successor_runs`
+- `test_pending_work_finishes_before_close`
+- `test_no_detached_task_after_chain`
+- `test_immediate_enter_then_escape_reaches_active_turn`
+- `test_safe_prompt_done_handles_cancelled`
+
+Files changed:
+- `src/haxjobs/agent_core/session.py`: +126/-147 (restructure)
+- `src/haxjobs/interfaces/terminal.py`: +41/-28 (owner task, yield, shutdown)
+- `tests/test_session.py`: +216 (6 tests)
+- `tests/test_terminal.py`: +54/-6 (update tracking test, add callback test)
+
+Verification:
+- 215 tests pass (full suite twice)
+- PTY tests pass twice (genuine mid-stream interruption)
+- py_compile clean
+- uv lock --check clean
+- git diff --check clean

@@ -1,10 +1,10 @@
-# Plan 003 Corrected — Implementation Report (Repair Round 2)
+# Plan 003 Corrected — Implementation Report (Repair Round 3)
 
 ## Summary
 
 The corrected Plan 003 keeps the delivered career graph (schema, store, migration, CLI, tests) and adds a full conversational runtime with an inline prompt_toolkit terminal. The rejected Textual TUI and fake chat shells are gone and not restored.
 
-Repair round 1 applied 12 accepted reviewer findings. Repair round 2 applied 15 accepted reviewer findings from four independent DeepSeek V4 Pro reviewers covering: synchronous resume (critical), pending-turn race, abort timing, terminal shutdown grace, pending replacement rendering, PTY mid-stream interruption, real cancellation tests, CareerStore 0600 permissions, session close/cleanup, host/context setup failure catching, strict canonical parse errors, fake model repeat mode, QUEUED exit reason, dead code removal, and report accuracy.
+Repair round 1 applied 12 accepted reviewer findings. Repair round 2 applied 15 accepted reviewer findings from four independent DeepSeek V4 Pro reviewers. Repair round 3 (this commit) applies pre-final hardening to one accepted lifecycle defect cluster: detached pending tasks, reused cancel event, and terminal shutdown race.
 
 ## Files created
 
@@ -60,13 +60,13 @@ Repair round 1 applied 12 accepted reviewer findings. Repair round 2 applied 15 
 
 ## Test results
 
-**Full suite: 209 passed, 0 failures**
+**Full suite: 215 passed, 0 failures**
 
-All 209 tests pass when the private career fixture (`state/experiments/fixtures/backend-career.json`) is present. The fixture is an untracked local file — not committed to the repository.
+All 215 tests pass when the private career fixture (`state/experiments/fixtures/backend-career.json`) is present. The fixture is an untracked local file — not committed to the repository.
 
-New tests (Plan 003): 122 (20+19+11+17+18+9+13+13+2)
+New tests (Plan 003): 128 (20+19+11+17+18+9+13+13+2+6 round-3)
 Existing tests (Plans 001-002): 87 (23+27+37)
-Total: 209
+Total: 215
 
 | Test file | Count |
 |-----------|-------|
@@ -76,8 +76,8 @@ Total: 209
 | test_session_store.py | 17 |
 | test_turn_runtime.py | 18 |
 | test_employment_host.py | 9 |
-| test_session.py | 13 |
-| test_terminal.py | 13 |
+| test_session.py | 18 |
+| test_terminal.py | 14 |
 | test_terminal_pty.py | 2 |
 | test_career_graph.py | 23 |
 | test_stage0_job_review.py | 27 |
@@ -102,6 +102,37 @@ Total: 209
 | 13 | Busy input returns INTERRUPTED | Reviewer B (MINOR) | Added `QUEUED` exit reason; `prompt()` returns QUEUED when busy |
 | 14 | Dead code: `request = ModelMessage`, `completed_tool_calls` | Reviewer B (MODERATE) | Removed both dead variables |
 | 15 | Report test counts stale/false | Reviewer A (MEDIUM) | Updated to actual `pytest --collect-only` counts (209 total) |
+
+## Repair round 3: Lifecycle defect cluster hardening
+
+Pre-final hardening fixing one accepted defect cluster from the plan:
+
+1. AgentSession no longer reuses one cancel event — each turn in the serial loop
+   gets a fresh asyncio.Event. abort() affects only the currently busy turn and
+   is a no-op while idle.
+2. No detached asyncio.create_task inside AgentSession — the original prompt task
+   owns a serial loop (_run_serial_loop) that runs the current turn, atomically
+   takes the one pending message, and repeats. _busy stays true for the entire
+   chain, only cleared when no pending work remains.
+3. TerminalClient tracks one owner task — yields asyncio.sleep(0) after creating
+   it so the session marks itself busy before Escape is handled. Callback catches
+   CancelledError explicitly via t.cancelled() check. Shutdown awaits the owner
+   task (which includes all queued work) before force-cancel and session.close().
+4. Owner prompt return value documented: the original prompt caller receives the
+   result of the LAST turn in the chain. Secondary calls return QUEUED immediately.
+5. 6 deterministic tests prove: idle abort does not poison next prompt; cancel
+   current then queued successor runs with fresh event; pending work finishes
+   before close; no detached task after chain; callback handles cancelled task;
+   immediate Enter then Escape reaches active turn.
+
+Files changed in round 3:
+- src/haxjobs/agent_core/session.py: +126/-147 (restructure)
+- src/haxjobs/interfaces/terminal.py: +41/-28 (owner task, yield, shutdown)
+- tests/test_session.py: +216 (6 lifecycle tests)
+- tests/test_terminal.py: +54/-6 (update tracking, callback test)
+
+Test count: 215 (+6 from round 3). Full suite passes twice; PTY tests pass twice;
+py_compile, uv lock, git diff all clean.
 
 ## Scope exceptions documented
 
