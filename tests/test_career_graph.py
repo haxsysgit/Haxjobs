@@ -463,10 +463,10 @@ def test_career_store_memory_does_not_crash():
 # ══════════════════════════════════════════════
 
 
-def test_migration_deterministic_ids():
-    """Two migrations of the same fixture produce identical IDs."""
+def test_migration_deterministic_ids(tmp_path: Path):
+    """Two migrations of the same fixture use the same database and IDs."""
     fixture = _valid_career_fixture()
-    db_path = _temp_db()
+    db_path = str(tmp_path / "migration.db")
     store = migrate_career_fixture(fixture, db_path)
     try:
         person_id = fixture.person_id

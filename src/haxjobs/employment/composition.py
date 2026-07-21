@@ -49,11 +49,9 @@ def compose_session(
     db_path = Path(session_db_path) if session_db_path else SESSION_DB_PATH
     session_store = SessionStore(db_path)
 
-    # Career store
-    career_store = CareerStore(CAREER_DB_PATH)
-
+    career_store: CareerStore | None = None
     try:
-        # Resolve person/track scope
+        career_store = CareerStore(CAREER_DB_PATH)
         resolved_person_id, resolved_track_id = _resolve_scope(
             career_store=career_store,
             person_id=person_id,
@@ -62,52 +60,49 @@ def compose_session(
             session_store=session_store,
         )
 
-        # Create host
         host = EmploymentHost(
             store=career_store,
             person_id=resolved_person_id,
             track_id=resolved_track_id,
         )
-    except (EmploymentSetupError, ValueError):
-        career_store.close()
+
+        if fake:
+            model = _fake_model(delay_ms=fake_delay_ms)
+        else:
+            model = OpenAIModelClient()
+
+        if session_id:
+            session = AgentSession.resume(
+                session_id=session_id,
+                session_store=session_store,
+                model=model,
+                system_prompt=host.system_prompt,
+                context_messages=host.context_messages,
+                tool_registry_fn=host.registered_tools,
+                active_tool_names_fn=host.active_tool_names,
+            )
+        else:
+            new_id = uuid.uuid4().hex[:12]
+            config = json.dumps({"person_id": resolved_person_id, "track_id": resolved_track_id})
+            session_store.create_session(new_id, configuration_json=config)
+            session = AgentSession(
+                session_id=new_id,
+                session_store=session_store,
+                model=model,
+                system_prompt=host.system_prompt,
+                context_messages=host.context_messages,
+                tool_registry_fn=host.registered_tools,
+                active_tool_names_fn=host.active_tool_names,
+            )
+
+        # Session.close() owns both stores after successful composition.
+        session.add_cleanup(career_store.close)
+        return session
+    except Exception:
+        if career_store is not None:
+            career_store.close()
         session_store.close()
         raise
-
-    # Model
-    if fake:
-        model = _fake_model(delay_ms=fake_delay_ms)
-    else:
-        model = OpenAIModelClient()
-
-    # Session
-    if session_id:
-        session = AgentSession.resume(
-            session_id=session_id,
-            session_store=session_store,
-            model=model,
-            system_prompt=host.system_prompt,
-            context_messages=host.context_messages,
-            tool_registry_fn=host.registered_tools,
-            active_tool_names_fn=host.active_tool_names,
-        )
-    else:
-        new_id = uuid.uuid4().hex[:12]
-        config = json.dumps({"person_id": resolved_person_id, "track_id": resolved_track_id})
-        session_store.create_session(new_id, configuration_json=config)
-        session = AgentSession(
-            session_id=new_id,
-            session_store=session_store,
-            model=model,
-            system_prompt=host.system_prompt,
-            context_messages=host.context_messages,
-            tool_registry_fn=host.registered_tools,
-            active_tool_names_fn=host.active_tool_names,
-        )
-
-    # Register cleanup so CareerStore is closed when the session closes
-    session.add_cleanup(career_store.close)
-
-    return session
 
 
 def _resolve_scope(
@@ -134,12 +129,28 @@ def _resolve_scope(
         cfg = json.loads(cfg_str)
         stored_person_id = cfg["person_id"]
         stored_track_id = cfg["track_id"]
+        stored_track = career_store.get_track(stored_track_id)
+        if stored_track is None:
+            raise ValueError(
+                f"Session {session_id} references missing career track "
+                f"'{stored_track_id}'. Create a new session."
+            )
+        if stored_track["person_id"] != stored_person_id:
+            raise ValueError(
+                f"Session {session_id} stores track '{stored_track_id}' for "
+                f"person '{stored_track['person_id']}', not '{stored_person_id}'."
+            )
 
         # If caller provides explicit person_id, validate match
         if person_id is not None and person_id != stored_person_id:
             raise ValueError(
                 f"Session {session_id} was created for person '{stored_person_id}' "
                 f"but current host is for '{person_id}'. Create a new session."
+            )
+        if track_id is not None and track_id != stored_track_id:
+            raise ValueError(
+                f"Session {session_id} was created for track '{stored_track_id}' "
+                f"but current host requested '{track_id}'. Create a new session."
             )
         return stored_person_id, stored_track_id
 
@@ -166,6 +177,15 @@ def _resolve_scope(
                 f"Available: {[t['track_id'] for t in tracks]}"
             )
         track_id = tracks[0]["track_id"]
+    else:
+        selected_track = career_store.get_track(track_id)
+        if selected_track is None:
+            raise EmploymentSetupError(f"Career track '{track_id}' not found.")
+        if selected_track["person_id"] != person_id:
+            raise EmploymentSetupError(
+                f"Career track '{track_id}' belongs to person "
+                f"'{selected_track['person_id']}', not '{person_id}'."
+            )
 
     return person_id, track_id
 

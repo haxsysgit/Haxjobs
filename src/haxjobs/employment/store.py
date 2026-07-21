@@ -102,6 +102,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     source_url TEXT NOT NULL DEFAULT '',
     source_type TEXT NOT NULL DEFAULT '',
     description TEXT NOT NULL DEFAULT '',
+    source_status TEXT NOT NULL DEFAULT '',
+    description_kind TEXT NOT NULL DEFAULT '',
     description_complete INTEGER NOT NULL DEFAULT 0,
     observed_at TEXT NOT NULL,
     allowed_source_hosts TEXT NOT NULL DEFAULT '[]',
@@ -152,11 +154,25 @@ class CareerStore:
         if not is_memory:
             self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.executescript(_DDL)
+        self._migrate_job_columns()
         if not is_memory:
             db_path.chmod(0o600)
 
     def close(self) -> None:
         self._conn.close()
+
+    def _migrate_job_columns(self) -> None:
+        """Add Plan 004 job columns to databases created before they existed."""
+        columns = {
+            row["name"]
+            for row in self._conn.execute("PRAGMA table_info(jobs)").fetchall()
+        }
+        for name in ("source_status", "description_kind"):
+            if name not in columns:
+                self._conn.execute(
+                    f"ALTER TABLE jobs ADD COLUMN {name} TEXT NOT NULL DEFAULT ''"
+                )
+        self._conn.commit()
 
     # ── Person ──
 
@@ -392,12 +408,14 @@ class CareerStore:
         self._conn.execute(
             """INSERT INTO jobs (job_id, external_ref, employer_name, title,
                location, source_url, source_type, description,
-               description_complete, observed_at, allowed_source_hosts,
-               warnings, source_content_hash, created_at, updated_at)
+               source_status, description_kind, description_complete,
+               observed_at, allowed_source_hosts, warnings,
+               source_content_hash, created_at, updated_at)
                VALUES (:job_id, :external_ref, :employer_name, :title,
                :location, :source_url, :source_type, :description,
-               :description_complete, :observed_at, :allowed_source_hosts,
-               :warnings, :source_content_hash, :created_at, :updated_at)
+               :source_status, :description_kind, :description_complete,
+               :observed_at, :allowed_source_hosts, :warnings,
+               :source_content_hash, :created_at, :updated_at)
                ON CONFLICT(job_id) DO UPDATE SET
                external_ref=excluded.external_ref,
                employer_name=excluded.employer_name,
@@ -406,6 +424,8 @@ class CareerStore:
                source_url=excluded.source_url,
                source_type=excluded.source_type,
                description=excluded.description,
+               source_status=excluded.source_status,
+               description_kind=excluded.description_kind,
                description_complete=excluded.description_complete,
                observed_at=excluded.observed_at,
                allowed_source_hosts=excluded.allowed_source_hosts,

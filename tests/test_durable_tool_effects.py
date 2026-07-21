@@ -328,6 +328,56 @@ def test_duplicate_call_id_different_payload_conflict():
 
 # ── Fixed session scope ──
 
+def test_new_session_rejects_cross_person_explicit_track():
+    """Explicit composition cannot pair one person's ID with another's track."""
+    from haxjobs.employment.composition import _resolve_scope
+    from haxjobs.employment.host import EmploymentSetupError
+    from haxjobs.employment.schema import CareerTrack, Person
+
+    career_store = CareerStore(":memory:")
+    session_store = SessionStore(":memory:")
+    try:
+        now = "2026-07-21T00:00:00+00:00"
+        career_store.upsert_person(Person(person_id="person-a", name="A", location="L", created_at=now, updated_at=now))
+        career_store.upsert_person(Person(person_id="person-b", name="B", location="L", created_at=now, updated_at=now))
+        career_store.upsert_track(CareerTrack(track_id="track-b", person_id="person-b", name="B", created_at=now, updated_at=now))
+
+        with pytest.raises(EmploymentSetupError, match="belongs to person"):
+            _resolve_scope(
+                career_store=career_store, person_id="person-a", track_id="track-b",
+                session_id=None, session_store=session_store,
+            )
+    finally:
+        career_store.close()
+        session_store.close()
+
+
+def test_resume_rejects_stored_cross_person_track():
+    """Resume validates ownership of the immutable stored scope."""
+    from haxjobs.employment.composition import _resolve_scope
+    from haxjobs.employment.schema import CareerTrack, Person
+
+    career_store = CareerStore(":memory:")
+    session_store = SessionStore(":memory:")
+    try:
+        now = "2026-07-21T00:00:00+00:00"
+        career_store.upsert_person(Person(person_id="person-a", name="A", location="L", created_at=now, updated_at=now))
+        career_store.upsert_person(Person(person_id="person-b", name="B", location="L", created_at=now, updated_at=now))
+        career_store.upsert_track(CareerTrack(track_id="track-b", person_id="person-b", name="B", created_at=now, updated_at=now))
+        session_store.create_session(
+            "s-cross", configuration_json=json.dumps({"person_id": "person-a", "track_id": "track-b"})
+        )
+
+        with pytest.raises(ValueError, match="stores track"):
+            _resolve_scope(
+                career_store=career_store, person_id=None, track_id=None,
+                session_id="s-cross", session_store=session_store,
+            )
+    finally:
+        career_store.close()
+        session_store.close()
+
+
 def test_fixed_session_scope():
     """Session created for person A cannot resume for person B."""
     from haxjobs.employment.composition import _resolve_scope

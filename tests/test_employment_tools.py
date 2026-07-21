@@ -115,6 +115,7 @@ async def test_record_job_assessment_idempotent_replay(store: CareerStore):
         context=ctx,
     )
     assert first["ok"] is True
+    assert first["data"]["replay"] is False
 
     # Same call_id, same args
     second = await registry.dispatch(
@@ -125,6 +126,7 @@ async def test_record_job_assessment_idempotent_replay(store: CareerStore):
     )
     assert second["ok"] is True
     assert second["data"]["assessment_id"] == first["data"]["assessment_id"]
+    assert second["data"]["replay"] is True
 
 
 @pytest.mark.asyncio

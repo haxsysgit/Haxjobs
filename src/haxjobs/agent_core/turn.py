@@ -51,6 +51,7 @@ class TurnExitReason(str, Enum):
     LIMIT_REACHED = "limit_reached"
     INTERRUPTED = "interrupted"
     QUEUED = "queued"
+    PERSISTENCE_FAILED = "persistence_failed"
 
 
 @dataclass

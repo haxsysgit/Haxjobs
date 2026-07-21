@@ -126,6 +126,19 @@ def test_host_uses_explicit_track_id():
         store.close()
 
 
+def test_host_rejects_track_owned_by_another_person():
+    """Host construction rejects a cross-person track before tool/model use."""
+    store = _setup_store()
+    now = "2026-07-21T00:00:00+00:00"
+    try:
+        store.upsert_person(Person(person_id="other", name="Other", location="L", created_at=now, updated_at=now))
+        store.upsert_track(CareerTrack(track_id="other-track", person_id="other", name="Other", created_at=now, updated_at=now))
+        with pytest.raises(EmploymentSetupError, match="belongs to person"):
+            EmploymentHost(store=store, person_id="test-person", track_id="other-track")
+    finally:
+        store.close()
+
+
 # ── Context contains only selected track ──
 
 def test_context_contains_selected_track():
@@ -245,6 +258,60 @@ def test_system_prompt_contains_identity():
 
 from haxjobs.employment.composition import _resolve_scope
 from haxjobs.employment.host import EmploymentSetupError
+
+
+def test_composition_failure_closes_opened_stores(monkeypatch):
+    """Composition cleanup covers host and session creation failures."""
+    import haxjobs.employment.composition as composition
+
+    class TrackingSessionStore(SessionStore):
+        instances = []
+
+        def __init__(self, path):
+            super().__init__(":memory:")
+            self.closed = False
+            self.instances.append(self)
+
+        def close(self):
+            self.closed = True
+            super().close()
+
+    class TrackingCareerStore(CareerStore):
+        instances = []
+
+        def __init__(self, path):
+            super().__init__(":memory:")
+            self.closed = False
+            self.instances.append(self)
+
+        def close(self):
+            self.closed = True
+            super().close()
+
+    monkeypatch.setattr(composition, "SessionStore", TrackingSessionStore)
+    monkeypatch.setattr(composition, "CareerStore", TrackingCareerStore)
+
+    with pytest.raises(EmploymentSetupError, match="No people"):
+        composition.compose_session(fake=True)
+
+    assert TrackingSessionStore.instances[0].closed
+    assert TrackingCareerStore.instances[0].closed
+
+    class FailingCreateSessionStore(TrackingSessionStore):
+        def create_session(self, session_id, configuration_json=""):
+            raise RuntimeError("session creation failed")
+
+    TrackingSessionStore.instances.clear()
+    TrackingCareerStore.instances.clear()
+    monkeypatch.setattr(composition, "SessionStore", FailingCreateSessionStore)
+    monkeypatch.setattr(composition, "_resolve_scope", lambda **kwargs: ("p", "t"))
+    monkeypatch.setattr(composition, "EmploymentHost", lambda **kwargs: object())
+
+    with pytest.raises(RuntimeError, match="session creation failed"):
+        composition.compose_session(fake=True)
+
+    assert TrackingSessionStore.instances[0].closed
+    assert TrackingCareerStore.instances[0].closed
 
 
 def test_single_person_auto_selected():

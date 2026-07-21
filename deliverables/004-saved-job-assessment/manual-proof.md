@@ -2,6 +2,8 @@
 
 ## Status
 
+Final review is pending, not approved. The automated fake source trajectory and event-loop heartbeat regressions are covered by the isolated test suite; no live or private proof was run.
+
 Interactive TTY proof is **controller-owned**. This noninteractive writer process cannot open a `prompt_toolkit` terminal or stream live model responses. No live model run is claimed here.
 
 ## Verified: CLI help output
@@ -46,6 +48,8 @@ options:
 The `haxjobs chat` subcommand accepts `--person-id` and `--track-id` (Plan 004 scope) and `--fake` for no-network development. The deleted `experiment review-job` subcommand is absent.
 
 ## Controller-owned live proof procedure
+
+This remains controller-owned and is not part of the writer verification.
 
 The following exact commands and expected observations are provided for the controller to run in an attended interactive terminal:
 

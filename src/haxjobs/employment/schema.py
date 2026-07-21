@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, PrivateAttr, field_validator
 
 
 def _utcnow() -> str:
@@ -138,6 +138,7 @@ class ConstraintCheck(BaseModel):
 
 class JobAssessment(BaseModel):
     assessment_id: str = ""  # stable ID derived from tool_call_id; store-populated
+    _replayed: bool = PrivateAttr(default=False)
     job_id: str
     track_id: str
     tool_call_id: str
@@ -151,3 +152,8 @@ class JobAssessment(BaseModel):
     source_content_hash: str = ""
     sequence: int | None = None  # store-populated output-only
     created_at: str = Field(default_factory=_utcnow)
+
+    @property
+    def replayed(self) -> bool:
+        """Whether this result came from an idempotent existing write."""
+        return self._replayed

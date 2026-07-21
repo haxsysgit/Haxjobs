@@ -59,6 +59,11 @@ class EmploymentHost:
                 f"Career track '{self.track_id}' not found. "
                 f"Run 'haxjobs migrate' first."
             )
+        if track["person_id"] != self.person_id:
+            raise EmploymentSetupError(
+                f"Career track '{self.track_id}' belongs to person "
+                f"'{track['person_id']}', not '{self.person_id}'."
+            )
 
         # Build tool registry with employment tools
         fetcher = self.job_source_fetcher or JobSourceFetcher()

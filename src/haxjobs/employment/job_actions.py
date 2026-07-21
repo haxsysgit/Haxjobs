@@ -101,6 +101,7 @@ def record_assessment(store, assessment: JobAssessment) -> JobAssessment | Idemp
         existing_assmt = _assessment_from_row(existing)
         if _assessments_equal(assessment, existing_assmt):
             # Same payload -> idempotent replay
+            existing_assmt._replayed = True
             return existing_assmt
         else:
             # Different payload -> conflict
@@ -120,6 +121,7 @@ def record_assessment(store, assessment: JobAssessment) -> JobAssessment | Idemp
         if existing is not None:
             existing_assmt = _assessment_from_row(existing)
             if _assessments_equal(assessment, existing_assmt):
+                existing_assmt._replayed = True
                 return existing_assmt
             return IdempotencyConflict(
                 existing_assessment_id=existing["assessment_id"],
@@ -176,8 +178,8 @@ async def inspect_job_source(
     job.description_kind = "source_page_text"
     job.warnings = list(raw_result.warnings) if raw_result.warnings else []
     job.observed_at = _utcnow()
-    if raw_result.description_complete is not None:
-        job.description_complete = raw_result.description_complete
+    # SourceObservation has no completeness field. Preserve the saved
+    # completeness claim until an adapter provides one explicitly.
     store.upsert_job(job)
 
     return SourceInspectionResult(
@@ -186,7 +188,7 @@ async def inspect_job_source(
         visible_text=raw_result.visible_text,
         status=raw_result.status,
         content_type=getattr(raw_result, "content_type", ""),
-        description_complete=raw_result.description_complete,
+        description_complete=job.description_complete,
         warnings=job.warnings,
     )
 
@@ -194,7 +196,8 @@ async def inspect_job_source(
 def normalise_description(text: str) -> str:
     """Normalize description text: strip extra whitespace, normalize line endings."""
     import re
-    # Collapse multiple newlines to at most two
+    # Collapse multiple newlines to at most two and remove parser padding.
+    text = re.sub(r"[ \t]+\n", "\n", text)
     text = re.sub(r"\n{3,}", "\n\n", text)
     # Strip leading/trailing whitespace
     text = text.strip()

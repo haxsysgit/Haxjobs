@@ -184,7 +184,35 @@ class AgentSession:
         started_at = _utcnow()
         started_mono = time.monotonic()
 
-        # Emit SESSION_STARTED exactly once, on the first turn
+        # Persist user message before any provider call. If this fails, the
+        # turn was not accepted and must never enter model execution.
+        user_msg = UserMessage(
+            message_id=_mid(),
+            turn_id=turn_id,
+            content=text,
+        )
+        try:
+            self._store.append_message(self.session_id, user_msg)
+        except Exception as exc:
+            self._turn_count -= 1
+            safe_failure = f"user message persistence failed: {exc}"
+            logger.error(safe_failure)
+            self._emit(
+                LiveEvent(
+                    session_id=self.session_id,
+                    turn_id=turn_id,
+                    event_type=LiveEventType.TURN_FAILED,
+                    error=safe_failure,
+                )
+            )
+            return TurnResult(
+                turn_id=turn_id,
+                exit_reason=TurnExitReason.PERSISTENCE_FAILED,
+                safe_failure=safe_failure,
+            )
+
+        # Emit SESSION_STARTED exactly once, after the first user message is
+        # durably accepted.
         if not self._session_started_emitted:
             self._session_started_emitted = True
             self._emit(
@@ -194,14 +222,6 @@ class AgentSession:
                     event_type=LiveEventType.SESSION_STARTED,
                 )
             )
-
-        # Persist user message before any provider call
-        user_msg = UserMessage(
-            message_id=_mid(),
-            turn_id=turn_id,
-            content=text,
-        )
-        self._store.append_message(self.session_id, user_msg)
 
         self._emit(
             LiveEvent(

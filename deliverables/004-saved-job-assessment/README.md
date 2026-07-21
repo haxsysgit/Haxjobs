@@ -19,7 +19,7 @@ All PNGs exported via `/opt/drawio/drawio -x -f png`. Each has a valid PNG signa
 
 ## Key achievements
 
-- 216 automated tests pass (full suite, including PTY terminal tests with isolated temp career DB)
+- 223 automated tests pass (full suite, including PTY terminal tests with isolated temp career DB)
 - First state-changing employment workflow: user asks → get_job → inspect → assess
 - Durable tool execution boundaries: persist before handler, persist after handler
 - Immutable session configuration: person/track scope pinned at creation
@@ -31,7 +31,7 @@ All PNGs exported via `/opt/drawio/drawio -x -f png`. Each has a valid PNG signa
 ## Verification
 
 ```bash
-PYTHONPATH=src:. uv run python3 -m pytest -q tests/            # 216 passed
+PYTHONPATH=src:. uv run python3 -m pytest -q tests/            # 223 passed
 PYTHONPATH=src:. uv run python3 -m py_compile $(find src tests -name '*.py')  # ok
 uv lock --check                                                # ok
 git diff --check                                               # ok

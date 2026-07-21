@@ -2,7 +2,7 @@
 
 ## Status
 
-**COMPLETE** — All 216 automated tests pass in an isolated fresh worktree with no private fixture. Three independent Flash reviews completed (architecture APPROVED, correctness/privacy APPROVED with nonblocking observation, deliverables blockers repaired). Fresh final review is controller-owned and pending. Live provider verification deferred (controller-owned).
+**IMPLEMENTED — FINAL REVIEW PENDING** — All 223 automated tests pass in an isolated fresh worktree with no private fixture. The approved substitute final reviewer blocked commit `626890c` with reproducible correctness findings; this focused repair addresses those findings. Final review remains pending and is not approved. Live provider verification is deferred (controller-owned).
 
 ## Files created
 
@@ -11,10 +11,11 @@
 | `src/haxjobs/employment/identifiers.py` | Stable deterministic ID helper (`make_stable_id`) |
 | `src/haxjobs/employment/job_actions.py` | Plain Python actions: import, get, record, assess jobs |
 | `src/haxjobs/employment/tools.py` | Employment tool definitions (get_job, inspect_job_source, record_job_assessment) |
-| `tests/test_job_actions.py` | Job import, assessment, idempotency tests (9 tests) |
+| `tests/test_job_actions.py` | Job import, source snapshot, migration, assessment, idempotency tests |
 | `tests/test_employment_tools.py` | Tool dispatch tests (7 tests) |
-| `tests/test_trajectory_job_328.py` | Full fake trajectory + resume test (2 tests) |
-| `tests/test_durable_tool_effects.py` | Persistence order, dangling calls, idempotency, scope (9 tests) |
+| `tests/test_trajectory_job_328.py` | Full no-network fake trajectory + resume test (2 tests) |
+| `tests/test_job_source.py` | Blocking source transport event-loop heartbeat regression |
+| `tests/test_durable_tool_effects.py` | Persistence order, dangling calls, idempotency, scope, cleanup (9 tests) |
 
 ## Files modified
 
@@ -31,7 +32,7 @@
 | `src/haxjobs/employment/host.py` | Tools moved to `employment/tools.py`, uses `build_employment_tool_registry()` |
 | `src/haxjobs/employment/context.py` | Evidence content included (not just labels), privacy label, verification flag, deduplication, character caps |
 | `src/haxjobs/employment/composition.py` | Session configuration (immutable person/track scope), person/track auto-selection, cleanup on failure |
-| `src/haxjobs/employment/job_source.py` | Added `fetch_from_job()` accepting Job rows, `asyncio.to_thread` offload for blocking I/O |
+| `src/haxjobs/employment/job_source.py` | Added `fetch_from_job()` accepting Job rows; resolver, transport, connection, and reads run via `asyncio.to_thread` |
 | `src/haxjobs/cli.py` | Added `--person-id`, `--track-id` to chat; removed experiment review-job subcommand |
 | `src/haxjobs/agent_core/__init__.py` | Removed deleted module exports |
 | `src/haxjobs/employment/__init__.py` | Removed `review_job` exports |
@@ -65,7 +66,7 @@
 ## Test results
 
 ```
-216 passed in 44.87s
+223 passed in 45.44s
 ```
 
 Verified: `uv lock --check` ok, `py_compile` all src/ and tests/ ok, `git diff --check` ok.
@@ -76,7 +77,8 @@ Breakdown:
 - `tests/test_session.py`: 28 passed (18 original + 10 new Phase C/D)
 - `tests/test_session_store.py`: 21 passed (17 original + 4 new Phase C)
 - `tests/test_employment_host.py`: 16 passed (9 original + 7 new Phase C/H)
-- `tests/test_job_actions.py`: 12 passed (all new Phase E/F)
+- `tests/test_job_actions.py`: 13 passed (all new Phase E/F)
+- `tests/test_job_source.py`: 1 passed (blocking transport heartbeat)
 - `tests/test_employment_tools.py`: 7 passed (all new Phase G)
 - `tests/test_trajectory_job_328.py`: 2 passed (all new Phase K)
 - `tests/test_durable_tool_effects.py`: 9 passed (all new Phase K)
@@ -150,6 +152,16 @@ Initial controller verification round identified three blocking findings against
 2. **Missing PNG exports:** Three `.drawio` files had no PNG exports. All three exported via local `/opt/drawio/drawio -x -f png`. Each PNG verified with valid signature and nonzero IHDR dimensions.
 3. **Report metadata:** Report claimed COMPLETE but listed PTY tests as "fail due to environment" and PNGs as deferred. Corrected to report exact 216 passes and present PNGs.
 
+## Correctness repair findings addressed
+
+- Successful source inspection now maps `SourceObservation.status`, preserves the saved completeness state, and updates the saved snapshot; the fake-fetch regression proves the write.
+- DNS resolution and all synchronous transport work, including injected blocking fakes, run behind `asyncio.to_thread`; the heartbeat regression proves loop progress.
+- The job 328 trajectory injects a deterministic resolver/transport and fails on real DNS access.
+- `jobs.source_status` and `jobs.description_kind` are in new DDL, mapped on upsert, and added to existing databases with explicit migrations.
+- Composition and host construction reject cross-person tracks, including corrupted stored resume scope, and cleanup is covered on composition failure.
+- Assessment writes report `replay: false` on the first write and `true` only on an identical replay; conflicts remain typed and write-free.
+- Initial user-message persistence failure returns `persistence_failed`, emits `TURN_FAILED`, skips model/tool execution and measurement, and does not emit completion.
+
 ## Commit
 
-Plan 004 repair commit applied at this worktree. Report intentionally omits its containing commit SHA per Plan 004 conventions; controller records final SHA on acceptance.
+Plan 004 focused correctness repair commit applied at this worktree. Final review is pending, not approved. Report intentionally omits its containing commit SHA; controller records the final SHA after review.

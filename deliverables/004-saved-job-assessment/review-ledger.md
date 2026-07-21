@@ -19,10 +19,16 @@ Three independent Flash reviews were run against the repair candidate after the 
 
 3. **Report metadata.** Report claimed COMPLETE but listed PTY tests as "failing due to environment" and PNGs as deferred. Corrected to report 216 passes with present PNGs.
 
+## Current correctness repair (626890c)
+
+The approved substitute final reviewer blocked this candidate with reproducible findings. The sole Plan 004 writer repaired the accepted root causes: successful source snapshot mapping, off-loop DNS and blocking transport, no-network trajectory fixtures, job-column DDL and explicit migration, person/track ownership at create and resume, truthful assessment replay results, failed initial-message persistence, and the missing composition cleanup coverage. Focused regressions cover each repair. No live model, public network, private fixture, state database, credential, or manual proof was run.
+
+**Current verdict: final review pending, not approved.**
+
 ## Writer verification (0766d56 + Plan 004 repairs)
 
 ```
-216 passed (full suite)
+223 passed (full suite after the current correctness repair)
 uv lock --check: ok
 py_compile all src/ and tests/: ok
 git diff --check: ok

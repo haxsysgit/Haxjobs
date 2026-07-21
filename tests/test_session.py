@@ -77,6 +77,35 @@ async def test_first_prompt_persists_user_message(store: SessionStore):
     assert stored[0]["payload_json"]["content"] == "hello"
 
 
+@pytest.mark.asyncio
+async def test_user_message_persistence_failure_stops_before_model(store: SessionStore):
+    """A failed initial write is an explicit failure, not an empty completion."""
+    model = _fake_model_response()
+    session = _make_session(store, model=model)
+    events: list[LiveEvent] = []
+    session.subscribe(events.append)
+
+    def fail_user_message(session_id, message):
+        raise OSError("session database unavailable")
+
+    store.append_message = fail_user_message  # type: ignore[method-assign]
+    result = await session.prompt("must not run")
+
+    assert result.exit_reason == TurnExitReason.PERSISTENCE_FAILED
+    assert result.turn_id
+    assert "user message persistence failed" in result.safe_failure
+    assert model.requests == []
+    assert any(
+        event.event_type == LiveEventType.TURN_FAILED
+        and "persistence" in event.error.lower()
+        for event in events
+    )
+    assert not any(event.event_type == LiveEventType.TURN_COMPLETED for event in events)
+    assert store._conn.execute(
+        "SELECT COUNT(*) FROM turn_measurements"
+    ).fetchone()["COUNT(*)"] == 0
+
+
 # ── Two turns replay prior canonical history ──
 
 @pytest.mark.asyncio

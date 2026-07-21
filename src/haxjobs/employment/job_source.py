@@ -203,6 +203,14 @@ class JobSourceFetcher:
         self._resolver = resolver
         self._transport_factory = transport_factory
 
+    async def _resolve_public_addresses(self, hostname: str) -> tuple[bool, str]:
+        """Run resolver work off the event loop, including injected resolvers."""
+        import asyncio
+
+        return await asyncio.to_thread(
+            _check_public_addresses, hostname, resolver=self._resolver
+        )
+
     async def fetch_from_job(self, job) -> SourceObservation:
         """Fetch source for a saved Job (Pydantic model or row dict).
 
@@ -252,7 +260,7 @@ class JobSourceFetcher:
             )
 
         # Check DNS addresses are all public
-        ok, addr_error = _check_public_addresses(hostname, resolver=self._resolver)
+        ok, addr_error = await self._resolve_public_addresses(hostname)
         if not ok:
             return SourceObservation(
                 ok=False,
@@ -326,7 +334,7 @@ class JobSourceFetcher:
             )
 
         # Check DNS addresses are all public
-        ok, addr_error = _check_public_addresses(hostname, resolver=self._resolver)
+        ok, addr_error = await self._resolve_public_addresses(hostname)
         if not ok:
             return SourceObservation(
                 ok=False,
@@ -355,11 +363,9 @@ class JobSourceFetcher:
             )
 
     async def _do_fetch_async(self, url: str, job_ref: int, hostname: str) -> SourceObservation:
-        """Offload blocking network I/O to a thread."""
+        """Offload all blocking transport work, including injected fakes."""
         import asyncio
-        if self._transport_factory is not None:
-            # Test transport injection — synchronous fake path
-            return self._do_fetch(url, job_ref, hostname)
+
         return await asyncio.to_thread(self._do_fetch, url, job_ref, hostname)
 
     def _do_fetch(

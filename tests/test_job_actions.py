@@ -7,6 +7,7 @@ import json
 
 import pytest
 
+from haxjobs.employment.job_source import JobSourceFetcher
 from haxjobs.employment.job_actions import (
     IdempotencyConflict,
     get_job,
@@ -49,6 +50,47 @@ def test_import_job_328_from_fixture(store: CareerStore):
 
     row = store.get_job("job-328")
     assert row is not None
+
+
+def test_job_source_fields_migrate_and_round_trip(tmp_path):
+    """Existing jobs databases gain and retain source state columns."""
+    import sqlite3
+
+    db_path = tmp_path / "old-career.db"
+    conn = sqlite3.connect(db_path)
+    conn.execute("""
+        CREATE TABLE jobs (
+            job_id TEXT PRIMARY KEY, external_ref TEXT NOT NULL,
+            employer_name TEXT, title TEXT NOT NULL, location TEXT NOT NULL DEFAULT '',
+            source_url TEXT NOT NULL DEFAULT '', source_type TEXT NOT NULL DEFAULT '',
+            description TEXT NOT NULL DEFAULT '', description_complete INTEGER NOT NULL DEFAULT 0,
+            observed_at TEXT NOT NULL, allowed_source_hosts TEXT NOT NULL DEFAULT '[]',
+            warnings TEXT NOT NULL DEFAULT '[]', source_content_hash TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+    migrated = CareerStore(db_path)
+    try:
+        columns = {
+            row["name"]
+            for row in migrated._conn.execute("PRAGMA table_info(jobs)").fetchall()
+        }
+        assert {"source_status", "description_kind"} <= columns
+        job = Job(
+            job_id="job-old", external_ref="old", title="Old", location="L",
+            source_url="https://example.com/job", source_type="html", description="D",
+            source_status="current", description_kind="source_page_text",
+            observed_at="2026-07-21T00:00:00+00:00",
+        )
+        migrated.upsert_job(job)
+        row = migrated.get_job("job-old")
+        assert row["source_status"] == "current"
+        assert row["description_kind"] == "source_page_text"
+    finally:
+        migrated.close()
 
 
 def test_get_job_returns_none_for_unknown(store: CareerStore):
@@ -222,10 +264,35 @@ def test_source_content_hash_computed_server_side(store: CareerStore):
     assert job.source_content_hash == expected
 
 
-def test_inspect_updates_job_snapshot(store: CareerStore):
-    """Placeholder: test that inspection updates Job snapshot.
-    Full test requires fake transport — tested in test_employment_tools.py."""
-    pass
+@pytest.mark.asyncio
+async def test_inspect_updates_job_snapshot(store: CareerStore):
+    """A successful fake fetch updates the saved Job snapshot."""
+    import hashlib
+
+    import_job_from_fixture(store, "discussion/fixtures/harness/job-49.json")
+
+    class Response:
+        status = 200
+        headers = {"Content-Type": "text/plain"}
+
+        def read(self) -> bytes:
+            return b"  New source description\n\nwith details.  "
+
+    fetcher = JobSourceFetcher(
+        resolver=lambda hostname: [(2, "93.184.216.34")],
+        transport_factory=lambda url, timeout: Response(),
+    )
+    from haxjobs.employment.job_actions import inspect_job_source
+
+    result = await inspect_job_source(store, "job-49", fetcher)
+    assert result.ok is True
+    job = get_job(store, "job-49")
+    assert job is not None
+    assert job.description == "New source description\n\nwith details."
+    assert job.source_status == "current"
+    assert job.description_kind == "source_page_text"
+    assert job.description_complete is False
+    assert job.source_content_hash == hashlib.sha256(job.description.encode()).hexdigest()
 
 
 def test_assessment_hash_loads_from_saved_job(store: CareerStore):

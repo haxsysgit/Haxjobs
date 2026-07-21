@@ -245,7 +245,7 @@ def build_employment_tool_registry(
             assessment_id=result.assessment_id,
             recommendation=result.recommendation,
             sequence=result.sequence,
-            replay=result.sequence is not None and result.assessment_id != assessment.assessment_id,
+            replay=result.replayed,
         ).model_dump()
 
     registry.register(ToolDefinition(

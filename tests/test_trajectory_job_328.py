@@ -18,6 +18,7 @@ from haxjobs.agent_core.tools import ToolRegistry
 from haxjobs.agent_core.turn import TurnExitReason
 from haxjobs.employment import job_actions
 from haxjobs.employment.host import EmploymentHost
+from haxjobs.employment.job_source import JobSourceFetcher
 from haxjobs.employment.store import CareerStore
 from haxjobs.model.fake import FakeModelClient
 from haxjobs.model.types import ModelStreamEvent, ModelStreamEventType
@@ -37,6 +38,21 @@ def _setup_career_store() -> CareerStore:
                                     created_at=now, updated_at=now))
 
     return store
+
+
+class _FakeResponse:
+    status = 200
+    headers = {"Content-Type": "text/html"}
+
+    def read(self) -> bytes:
+        return b"<html><body><h1>Software Engineer</h1><p>Python and APIs.</p></body></html>"
+
+
+def _no_network_fetcher() -> JobSourceFetcher:
+    return JobSourceFetcher(
+        resolver=lambda hostname: [(2, "93.184.216.34")],
+        transport_factory=lambda url, timeout: _FakeResponse(),
+    )
 
 
 def _fake_stream_with_tool_and_text(
@@ -72,7 +88,7 @@ def _fake_stream_with_tool_and_text(
 
 
 @pytest.mark.asyncio
-async def test_job_328_incomplete_assessment_trajectory():
+async def test_job_328_incomplete_assessment_trajectory(monkeypatch):
     """Full fake trajectory: thin job -> source inspection -> needs_more_information.
 
     The fake model is scripted to:
@@ -84,8 +100,21 @@ async def test_job_328_incomplete_assessment_trajectory():
     store = _setup_career_store()
     session_store = SessionStore(":memory:")
     try:
-        # Build host
-        host = EmploymentHost(store=store, person_id="p1", track_id="t1")
+        import haxjobs.employment.job_source as job_source
+        monkeypatch.setattr(
+            job_source.socket, "getaddrinfo",
+            lambda *args, **kwargs: (_ for _ in ()).throw(
+                AssertionError("trajectory attempted real DNS")
+            ),
+        )
+        # Build host with deterministic fake source transport. No DNS or socket
+        # access is permitted in this trajectory.
+        host = EmploymentHost(
+            store=store,
+            person_id="p1",
+            track_id="t1",
+            job_source_fetcher=_no_network_fetcher(),
+        )
 
         # Scripted fake model: get_job -> inspect -> record -> text
         fake_model = FakeModelClient(
@@ -173,6 +202,16 @@ async def test_job_328_incomplete_assessment_trajectory():
         result = await session.prompt("What do you think of job 328?")
         assert result.exit_reason is not None
 
+        # Inspection was a genuine successful fetch, not an accepted failure.
+        inspect_results = [
+            m for m in session_store.load_messages(new_id)
+            if m["payload_json"]["kind"] == "tool_result"
+            and m["payload_json"]["tool_name"] == "inspect_job_source"
+        ]
+        assert len(inspect_results) == 1
+        assert inspect_results[0]["payload_json"]["ok"] is True
+        assert store.get_job("job-328")["description"] == "Software Engineer\nPython and APIs."
+
         # Check that assessment was recorded
         stored = session_store.load_messages(new_id)
         tool_results = [
@@ -197,9 +236,13 @@ async def test_job_328_assessment_survives_resume():
     store = _setup_career_store()
     session_store = SessionStore(":memory:")
     try:
-        host = EmploymentHost(store=store, person_id="p1", track_id="t1")
-
         # First session: record an assessment
+        host = EmploymentHost(
+            store=store,
+            person_id="p1",
+            track_id="t1",
+            job_source_fetcher=_no_network_fetcher(),
+        )
         import uuid
         sid = uuid.uuid4().hex[:12]
         session_store.create_session(sid, configuration_json=json.dumps(
