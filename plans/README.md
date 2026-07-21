@@ -30,7 +30,7 @@ None.
 |---|---|---:|---:|---|---|---|---|
 | [001](001-stage0-observed-job-review.md) | Build the Stage 0 observed job review | P1 | L | clean reconciled execution baseline | DONE | `e396fd2` | pending |
 | [002](002-stage1-source-inspection-loop.md) | Stage 1 bounded source-inspection loop | P1 | L | Plan 001 DONE at a28d5ba | DONE | `6d64624` | deliverables/002-stage1/ | Live runs completed 2026-07-20; Flash reviewers found 0 blockers, 1 minor (code NameError fixed in follow-up). |
-| [003](003-career-graph-schema.md) | Career graph schema — tracks, skills, evidence, persistence, CLI, TUI | P1 | M | Plan 002 DONE | DONE | `9ee53be` | deliverables/003-career-graph/ | 3 Flash reviewers approved. 86 tests pass. |
+| [003](003-career-graph-schema.md) | Career graph schema, persistence, and profile CLI | P1 | M | Plan 002 DONE | DONE | `9ee53be` | deliverables/003-career-graph/ | Career graph retained. The completed plan's Textual TUI was later deleted because it was not an agent interface. |
 
 The advisor/operator owns this table. Executors do not edit it.
 

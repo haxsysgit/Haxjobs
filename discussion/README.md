@@ -24,6 +24,7 @@ HaxJobs is being designed and built from scratch.
 
 - [2026 job-search patterns](research/2026-job-search-patterns.md)
 - [Pi and Hermes study for a job-native HaxJobs architecture](research/2026-07-17-pi-hermes-job-native-harness-study.md)
+- [Interactive agent CLI study: Pi, Hermes, Claude Code, and the missing HaxJobs session runtime](research/2026-07-17-interactive-agent-cli-study.md)
 
 ## Design method
 

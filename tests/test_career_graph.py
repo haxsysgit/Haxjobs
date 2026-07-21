@@ -417,13 +417,3 @@ def test_cli_profile_show():
     assert result.returncode == 0, f"stderr: {result.stderr}"
     assert "arinze-elensulu" in result.stdout
 
-
-# ══════════════════════════════════════════════
-# Phase 5: TUI import
-# ══════════════════════════════════════════════
-
-def test_tui_import():
-    """TUI module imports cleanly."""
-    from haxjobs.interfaces.tui import HaxJobsChat, run_tui
-    assert HaxJobsChat is not None
-    assert run_tui is not None
