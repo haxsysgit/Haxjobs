@@ -43,7 +43,7 @@ Other execution facts:
 | [006](006-global-cli-packaging.md) | Global CLI packaging | P1 | M | Plan 005 DONE | DONE | `0cd94fa` | - | `~/.haxjobs` runtime home, `haxjobs setup`, wheel verifier passes. 290 tests. |
 | [007](007-clean-wheel.md) | Clean wheel for PyPI publish | P1 | S | Plan 006 DONE | DONE | `2a11954` | - | Wheel excludes personal data, __version__ 0.1.0, LICENSE, classifiers, README for installed users. 290 tests. |
 | [008](008-dev-prod-ux.md) | Dev/prod separation and first-run UX | P1 | M | Plan 007 DONE | TODO | - | - | Dev-mode guard, remove hardcoded personal values, better first-run messages. |
-| [009](009-code-quality-hardening.md) | Code quality hardening | P1 | L | Plan 008 DONE | TODO | - | - | TurnResultBuilder, settlement dedup, MessageProjector class, __all__ exports, module docstrings. No logic changes. |
+| [009](009-code-quality-hardening.md) | Code quality hardening | P1 | L | Plan 008 DONE | DONE | `9e4fdf2` | - | TurnResultBuilder, settlement dedup, MessageProjector class, __all__ exports, module docstrings. 290 tests. |
 
 The advisor/operator owns this table. Executors do not edit it.
 
