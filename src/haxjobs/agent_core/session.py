@@ -329,11 +329,9 @@ class AgentSession:
                 user_message_id=user_msg.message_id,
             )
 
-        # Canonical message persistence is a separate boundary. A failed
-        # assistant/tool message write leaves recovery work pending: record a
-        # measurement when possible, but never mark or announce settlement.
+        # Dangling-call PERSISTENCE_FAILED: pending recovery, skip settlement marker.
         if result.exit_reason == TurnExitReason.PERSISTENCE_FAILED:
-            measurement_ok = self._record_measurement(
+            self._record_measurement(
                 turn_id=turn_id,
                 started_at=started_at,
                 started_mono=started_mono,
@@ -345,11 +343,6 @@ class AgentSession:
                 input_characters=result.input_characters,
                 usage=result.usage,
             )
-            if not measurement_ok:
-                result = replace(
-                    result,
-                    safe_failure=safe_error("measurement"),
-                )
             self._emit(LiveEvent(
                 session_id=self.session_id,
                 turn_id=turn_id,
@@ -358,13 +351,42 @@ class AgentSession:
             ))
             return result
 
-        # Measurement is part of settlement. Do not mark the turn durable or
-        # publish a terminal lifecycle event when this write is unavailable.
+        return self._settle_turn(
+            turn_id=turn_id,
+            started_at=started_at,
+            started_mono=started_mono,
+            result=result,
+        )
+
+    def _settle_turn(
+        self,
+        *,
+        turn_id: str,
+        started_at: str,
+        started_mono: float,
+        result: TurnResult,
+        measurement_reason: str | None = None,
+    ) -> TurnResult:
+        """Persist measurement, mark durable, publish terminal events.
+
+        Shared by _run_turn (normal outcome) and _settle_failed_turn
+        (early failure before model execution). Returns the result unchanged
+        on success, or a PERSISTENCE_FAILED result on store errors.
+
+        PERSISTENCE_FAILED outcomes from dangling tool calls are handled
+        directly in _run_turn and never reach this method.
+        """
+        exit_str = measurement_reason or (
+            result.exit_reason.value
+            if isinstance(result.exit_reason, TurnExitReason)
+            else str(result.exit_reason)
+        )
+        # Measurement is part of settlement.
         measurement_ok = self._record_measurement(
             turn_id=turn_id,
             started_at=started_at,
             started_mono=started_mono,
-            exit_reason=result.exit_reason.value if isinstance(result.exit_reason, TurnExitReason) else str(result.exit_reason),
+            exit_reason=exit_str,
             model_name=result.model_name,
             provider_name=result.provider_name,
             model_steps=result.model_steps,
@@ -386,17 +408,12 @@ class AgentSession:
                 safe_failure=measurement_failure,
             )
 
-        # Mark turn settled only after every durable turn record succeeds. If
-        # this write fails, canonical messages and measurement remain durable
-        # while the session stays pending for recovery; no completion or
-        # SESSION_SETTLED event is published.
+        # Mark turn settled.
         try:
             self._store.mark_turn_settled(self.session_id, self._turn_count)
         except Exception as exc:
             logger.warning("turn settlement persistence failed: %s", exc, exc_info=True)
             settlement_failure = safe_error("settlement")
-            # Canonical messages and the measurement already exist. Keep the
-            # in-memory sequence consumed so a retry cannot reuse its number.
             self._emit(LiveEvent(
                 session_id=self.session_id,
                 turn_id=turn_id,
@@ -409,7 +426,7 @@ class AgentSession:
                 safe_failure=settlement_failure,
             )
 
-        # Publish one terminal turn event only after settlement succeeds.
+        # Publish terminal events.
         if result.exit_reason == TurnExitReason.COMPLETED:
             terminal_type = LiveEventType.TURN_COMPLETED
         elif result.exit_reason == TurnExitReason.INTERRUPTED:
@@ -427,7 +444,6 @@ class AgentSession:
             turn_id=turn_id,
             event_type=LiveEventType.SESSION_SETTLED,
         ))
-
         return result
 
     def _settle_failed_turn(
@@ -441,63 +457,20 @@ class AgentSession:
         result_reason: TurnExitReason = TurnExitReason.MODEL_FAILED,
         turn_has_durable_message: bool = True,
     ) -> TurnResult:
-        """Persist and publish one truthful failed-turn settlement when possible."""
-        # Buffer TURN_FAILED until measurement and the settlement marker both
-        # succeed. This prevents a failed persistence attempt from looking like
-        # a settled turn to an interface subscriber.
-        if not self._record_measurement(
-            turn_id=turn_id,
-            started_at=started_at,
-            started_mono=started_mono,
-            exit_reason=measurement_reason,
-        ):
-            if not turn_has_durable_message:
-                self._turn_count -= 1
-            measurement_failure = safe_error("measurement")
-            self._emit(LiveEvent(
-                session_id=self.session_id,
-                turn_id=turn_id,
-                event_type=LiveEventType.TURN_FAILED,
-                error=measurement_failure,
-            ))
-            return TurnResult(
-                turn_id=turn_id,
-                exit_reason=TurnExitReason.PERSISTENCE_FAILED,
-                safe_failure=measurement_failure,
-            )
-
-        try:
-            self._store.mark_turn_settled(self.session_id, self._turn_count)
-        except Exception as exc:
-            logger.warning("failed-turn settlement write failed: %s", exc, exc_info=True)
-            settlement_failure = safe_error("settlement")
-            self._emit(LiveEvent(
-                session_id=self.session_id,
-                turn_id=turn_id,
-                event_type=LiveEventType.TURN_FAILED,
-                error=settlement_failure,
-            ))
-            return TurnResult(
-                turn_id=turn_id,
-                exit_reason=TurnExitReason.PERSISTENCE_FAILED,
-                safe_failure=settlement_failure,
-            )
-
-        self._emit(LiveEvent(
-            session_id=self.session_id,
-            turn_id=turn_id,
-            event_type=LiveEventType.TURN_FAILED,
-            error=safe_failure,
-        ))
-        self._emit(LiveEvent(
-            session_id=self.session_id,
-            turn_id=turn_id,
-            event_type=LiveEventType.SESSION_SETTLED,
-        ))
-        return TurnResult(
+        """Durable settlement for early failures that never reached run_turn."""
+        if not turn_has_durable_message:
+            self._turn_count -= 1
+        result = TurnResult(
             turn_id=turn_id,
             exit_reason=result_reason,
             safe_failure=safe_failure,
+        )
+        return self._settle_turn(
+            turn_id=turn_id,
+            started_at=started_at,
+            started_mono=started_mono,
+            result=result,
+            measurement_reason=measurement_reason,
         )
 
     def _record_measurement(

@@ -1,10 +1,17 @@
 """Bounded streaming turn runtime — domain-free model and tool loop.
 
-Plan 003 Phase 5: Run one conversational turn through the model with streaming,
-tool dispatch, live events, and cancellation.
+Responsibilities:
+- Stream model responses and handle text/tool-call events
+- Dispatch tools through the ToolRegistry with cancellation safety
+- Persist canonical messages at durable boundaries (tool-call before handler,
+  tool-result after handler)
+- Emit live events for each lifecycle transition
+- Return a TurnResult with safe, content-free failure text
 
-Plan 004: Durable tool execution boundary — persist_message callback, ToolExecutionContext,
-user_message_id, TurnResult usage/input_characters.
+Does NOT:
+- Own session state, history, or measurement (AgentSession in session.py owns those)
+- Know about employment/career data
+- Handle message projection (messages.py owns that)
 """
 
 from __future__ import annotations
@@ -73,6 +80,48 @@ class TurnResult:
     input_characters: int = 0
 
 
+class _TurnResultBuilder:
+    """Mutable accumulator — call .build() to get the frozen TurnResult."""
+
+    def __init__(self, turn_id: str, user_message_id: str):
+        self.turn_id = turn_id
+        self.user_message_id = user_message_id
+        self.exit_reason = TurnExitReason.COMPLETED
+        self.final_text = ""
+        self.model_steps = 0
+        self.tool_starts = 0
+        self.new_messages: list[ConversationMessage] = []
+        self.safe_failure = ""
+        self.model_name = ""
+        self.provider_name = ""
+        self.usage: ModelUsage | None = None
+        self.input_characters = 0
+
+    def build(self) -> TurnResult:
+        return TurnResult(
+            turn_id=self.turn_id,
+            exit_reason=self.exit_reason,
+            final_text=self.final_text,
+            model_steps=self.model_steps,
+            tool_starts=self.tool_starts,
+            new_messages=list(self.new_messages),
+            safe_failure=self.safe_failure,
+            user_message_id=self.user_message_id,
+            model_name=self.model_name,
+            provider_name=self.provider_name,
+            usage=self.usage,
+            input_characters=self.input_characters,
+        )
+
+    def mark_failed(self, reason: TurnExitReason, failure_key: str) -> None:
+        self.exit_reason = reason
+        self.safe_failure = safe_error(failure_key)
+
+    def mark_interrupted(self) -> None:
+        self.exit_reason = TurnExitReason.INTERRUPTED
+        self.safe_failure = safe_error("interrupted")
+
+
 async def run_turn(
     *,
     session_id: str,
@@ -97,14 +146,10 @@ async def run_turn(
     """
     max_steps = min(max(max_model_steps, 1), _MAX_MODEL_STEPS)
     new_messages: list[ConversationMessage] = []
-    final_text = ""
-    safe_failure = ""
-    exit_reason = TurnExitReason.COMPLETED
     model_steps = 0
     tool_starts = 0
-    captured_usage: ModelUsage | None = None
-    captured_model_name = ""
-    captured_provider_name = ""
+
+    builder = _TurnResultBuilder(turn_id=turn_id, user_message_id=user_message_id)
 
     # Compute projected input characters
     provider_messages_initial: list[ModelMessage] = project_messages(
@@ -112,7 +157,7 @@ async def run_turn(
         context_messages=context_messages,
         history=history,
     )
-    input_characters = sum(len(m.content or "") for m in provider_messages_initial)
+    builder.input_characters = sum(len(m.content or "") for m in provider_messages_initial)
 
     emit(
         LiveEvent(
@@ -129,22 +174,16 @@ async def run_turn(
             tool_schemas = tool_registry.active_schemas(active_tools)
         except ValueError as exc:
             logger.warning("active tool schema setup failed: %s", exc, exc_info=True)
-            safe_failure = safe_error("tool_schema")
+            builder.mark_failed(TurnExitReason.MODEL_FAILED, "tool_schema")
             emit(
                 LiveEvent(
                     session_id=session_id,
                     turn_id=turn_id,
                     event_type=LiveEventType.TURN_FAILED,
-                    error=safe_failure,
+                    error=builder.safe_failure,
                 )
             )
-            return TurnResult(
-                turn_id=turn_id,
-                exit_reason=TurnExitReason.MODEL_FAILED,
-                safe_failure=safe_failure,
-                user_message_id=user_message_id,
-                input_characters=input_characters,
-            )
+            return builder.build()
 
     # Build initial provider messages
     provider_messages: list[ModelMessage] = provider_messages_initial
@@ -152,8 +191,7 @@ async def run_turn(
     # ── Main loop ──
     while model_steps < max_steps:
         if cancel_event.is_set():
-            exit_reason = TurnExitReason.INTERRUPTED
-            safe_failure = safe_error("interrupted")
+            builder.mark_interrupted()
             break
 
         model_steps += 1
@@ -185,12 +223,10 @@ async def run_turn(
                 # event, so inspect the task before accepting any event.
                 if _task_cancel_requested():
                     cancel_event.set()
-                    exit_reason = TurnExitReason.INTERRUPTED
-                    safe_failure = safe_error("interrupted")
+                    builder.mark_interrupted()
                     break
                 if cancel_event.is_set():
-                    exit_reason = TurnExitReason.INTERRUPTED
-                    safe_failure = safe_error("interrupted")
+                    builder.mark_interrupted()
                     # Persist partial assistant text before publishing interruption.
                     if accumulated_text:
                         assistant_msg = AssistantMessage(
@@ -201,46 +237,28 @@ async def run_turn(
                         )
                         new_messages.append(assistant_msg)
                         if not _persist_partial_assistant(assistant_msg, persist_message):
-                            safe_failure = safe_error("assistant_persistence")
+                            builder.mark_failed(TurnExitReason.PERSISTENCE_FAILED, "assistant_persistence")
                             emit(LiveEvent(
                                 session_id=session_id,
                                 turn_id=turn_id,
                                 event_type=LiveEventType.TURN_FAILED,
-                                error=safe_failure,
+                                error=builder.safe_failure,
                             ))
-                            return TurnResult(
-                                turn_id=turn_id,
-                                exit_reason=TurnExitReason.PERSISTENCE_FAILED,
-                                final_text=accumulated_text,
-                                model_steps=model_steps,
-                                tool_starts=tool_starts,
-                                new_messages=new_messages,
-                                safe_failure=safe_failure,
-                                user_message_id=user_message_id,
-                                model_name=captured_model_name,
-                                provider_name=captured_provider_name,
-                                usage=captured_usage,
-                                input_characters=input_characters,
-                            )
+                            builder.final_text = accumulated_text
+                            builder.model_steps = model_steps
+                            builder.tool_starts = tool_starts
+                            builder.new_messages = new_messages
+                            return builder.build()
                     emit(LiveEvent(
                         session_id=session_id,
                         turn_id=turn_id,
                         event_type=LiveEventType.TURN_INTERRUPTED,
                     ))
-                    return TurnResult(
-                        turn_id=turn_id,
-                        exit_reason=exit_reason,
-                        final_text=accumulated_text,
-                        model_steps=model_steps,
-                        tool_starts=tool_starts,
-                        new_messages=new_messages,
-                        safe_failure=safe_failure,
-                        user_message_id=user_message_id,
-                        model_name=captured_model_name,
-                        provider_name=captured_provider_name,
-                        usage=captured_usage,
-                        input_characters=input_characters,
-                    )
+                    builder.final_text = accumulated_text
+                    builder.model_steps = model_steps
+                    builder.tool_starts = tool_starts
+                    builder.new_messages = new_messages
+                    return builder.build()
 
                 if stream_event.event_type == ModelStreamEventType.TEXT_DELTA:
                     accumulated_text += stream_event.delta
@@ -287,13 +305,12 @@ async def run_turn(
                 elif stream_event.event_type == ModelStreamEventType.RESPONSE_COMPLETED:
                     if _task_cancel_requested():
                         cancel_event.set()
-                        exit_reason = TurnExitReason.INTERRUPTED
-                        safe_failure = safe_error("interrupted")
+                        builder.mark_interrupted()
                         break
                     finish_reason = stream_event.finish_reason
-                    captured_usage = stream_event.usage
-                    captured_model_name = stream_event.model
-                    captured_provider_name = stream_event.provider
+                    builder.usage = stream_event.usage
+                    builder.model_name = stream_event.model
+                    builder.provider_name = stream_event.provider
                     emit(
                         LiveEvent(
                             session_id=session_id,
@@ -305,13 +322,11 @@ async def run_turn(
                     break
 
                 elif stream_event.event_type == ModelStreamEventType.RESPONSE_FAILED:
-                    final_text = accumulated_text
                     if stream_event.category == "cancelled":
                         # Providers may consume asyncio.CancelledError and
                         # normalize it to this provider-neutral failure event.
                         # It is still cancellation, not a model failure.
-                        exit_reason = TurnExitReason.INTERRUPTED
-                        safe_failure = safe_error("interrupted")
+                        builder.mark_interrupted()
                         if accumulated_text:
                             assistant_msg = AssistantMessage(
                                 message_id=_mid(),
@@ -321,27 +336,18 @@ async def run_turn(
                             )
                             new_messages.append(assistant_msg)
                             if not _persist_partial_assistant(assistant_msg, persist_message):
-                                safe_failure = safe_error("assistant_persistence")
+                                builder.mark_failed(TurnExitReason.PERSISTENCE_FAILED, "assistant_persistence")
                                 emit(LiveEvent(
                                     session_id=session_id,
                                     turn_id=turn_id,
                                     event_type=LiveEventType.TURN_FAILED,
-                                    error=safe_failure,
+                                    error=builder.safe_failure,
                                 ))
-                                return TurnResult(
-                                    turn_id=turn_id,
-                                    exit_reason=TurnExitReason.PERSISTENCE_FAILED,
-                                    final_text=final_text,
-                                    model_steps=model_steps,
-                                    tool_starts=tool_starts,
-                                    new_messages=new_messages,
-                                    safe_failure=safe_failure,
-                                    user_message_id=user_message_id,
-                                    model_name=captured_model_name,
-                                    provider_name=captured_provider_name,
-                                    usage=captured_usage,
-                                    input_characters=input_characters,
-                                )
+                                builder.final_text = accumulated_text
+                                builder.model_steps = model_steps
+                                builder.tool_starts = tool_starts
+                                builder.new_messages = new_messages
+                                return builder.build()
                         emit(
                             LiveEvent(
                                 session_id=session_id,
@@ -349,24 +355,14 @@ async def run_turn(
                                 event_type=LiveEventType.TURN_INTERRUPTED,
                             )
                         )
-                        return TurnResult(
-                            turn_id=turn_id,
-                            exit_reason=exit_reason,
-                            final_text=final_text,
-                            model_steps=model_steps,
-                            tool_starts=tool_starts,
-                            new_messages=new_messages,
-                            safe_failure=safe_failure,
-                            user_message_id=user_message_id,
-                            model_name=captured_model_name,
-                            provider_name=captured_provider_name,
-                            usage=captured_usage,
-                            input_characters=input_characters,
-                        )
+                        builder.final_text = accumulated_text
+                        builder.model_steps = model_steps
+                        builder.tool_starts = tool_starts
+                        builder.new_messages = new_messages
+                        return builder.build()
 
                     model_failed = True
-                    safe_failure = safe_error("model")
-                    exit_reason = TurnExitReason.MODEL_FAILED
+                    builder.mark_failed(TurnExitReason.MODEL_FAILED, "model")
                     # Persist partial assistant text. A failed write changes the
                     # turn outcome; it is not an interrupted/model-only failure.
                     if accumulated_text:
@@ -378,27 +374,18 @@ async def run_turn(
                         )
                         new_messages.append(assistant_msg)
                         if not _persist_partial_assistant(assistant_msg, persist_message):
-                            safe_failure = safe_error("assistant_persistence")
+                            builder.mark_failed(TurnExitReason.PERSISTENCE_FAILED, "assistant_persistence")
                             emit(LiveEvent(
                                 session_id=session_id,
                                 turn_id=turn_id,
                                 event_type=LiveEventType.TURN_FAILED,
-                                error=safe_failure,
+                                error=builder.safe_failure,
                             ))
-                            return TurnResult(
-                                turn_id=turn_id,
-                                exit_reason=TurnExitReason.PERSISTENCE_FAILED,
-                                final_text=accumulated_text,
-                                model_steps=model_steps,
-                                tool_starts=tool_starts,
-                                new_messages=new_messages,
-                                safe_failure=safe_failure,
-                                user_message_id=user_message_id,
-                                model_name=captured_model_name,
-                                provider_name=captured_provider_name,
-                                usage=captured_usage,
-                                input_characters=input_characters,
-                            )
+                            builder.final_text = accumulated_text
+                            builder.model_steps = model_steps
+                            builder.tool_starts = tool_starts
+                            builder.new_messages = new_messages
+                            return builder.build()
                     break
         except asyncio.CancelledError:
             # External task cancellation can interrupt the provider iterator
@@ -414,28 +401,19 @@ async def run_turn(
                 )
                 new_messages.append(assistant_msg)
                 if not _persist_partial_assistant(assistant_msg, persist_message):
-                    safe_failure = safe_error("assistant_persistence")
+                    builder.mark_failed(TurnExitReason.PERSISTENCE_FAILED, "assistant_persistence")
                     emit(LiveEvent(
                         session_id=session_id,
                         turn_id=turn_id,
                         event_type=LiveEventType.TURN_FAILED,
-                        error=safe_failure,
+                        error=builder.safe_failure,
                     ))
-                    return TurnResult(
-                        turn_id=turn_id,
-                        exit_reason=TurnExitReason.PERSISTENCE_FAILED,
-                        final_text=accumulated_text,
-                        model_steps=model_steps,
-                        tool_starts=tool_starts,
-                        new_messages=new_messages,
-                        safe_failure=safe_failure,
-                        user_message_id=user_message_id,
-                        model_name=captured_model_name,
-                        provider_name=captured_provider_name,
-                        usage=captured_usage,
-                        input_characters=input_characters,
-                    )
-            safe_failure = safe_error("interrupted")
+                    builder.final_text = accumulated_text
+                    builder.model_steps = model_steps
+                    builder.tool_starts = tool_starts
+                    builder.new_messages = new_messages
+                    return builder.build()
+            builder.mark_interrupted()
             emit(
                 LiveEvent(
                     session_id=session_id,
@@ -443,31 +421,21 @@ async def run_turn(
                     event_type=LiveEventType.TURN_INTERRUPTED,
                 )
             )
-            return TurnResult(
-                turn_id=turn_id,
-                exit_reason=TurnExitReason.INTERRUPTED,
-                final_text=accumulated_text,
-                model_steps=model_steps,
-                tool_starts=tool_starts,
-                new_messages=new_messages,
-                safe_failure=safe_failure,
-                user_message_id=user_message_id,
-                model_name=captured_model_name,
-                provider_name=captured_provider_name,
-                usage=captured_usage,
-                input_characters=input_characters,
-            )
+            builder.final_text = accumulated_text
+            builder.model_steps = model_steps
+            builder.tool_starts = tool_starts
+            builder.new_messages = new_messages
+            return builder.build()
         except Exception as exc:
             logger.warning("model stream failed: %s", exc, exc_info=True)
             model_failed = True
-            safe_failure = safe_error("model")
-            exit_reason = TurnExitReason.MODEL_FAILED
+            builder.mark_failed(TurnExitReason.MODEL_FAILED, "model")
             break
 
         # A provider can consume external task cancellation and make its
         # iterator appear successful. Preserve only partial text and stop
         # before assistant completion or tool effects.
-        if exit_reason == TurnExitReason.INTERRUPTED:
+        if builder.exit_reason == TurnExitReason.INTERRUPTED:
             if accumulated_text:
                 assistant_msg = AssistantMessage(
                     message_id=_mid(),
@@ -477,54 +445,36 @@ async def run_turn(
                 )
                 new_messages.append(assistant_msg)
                 if not _persist_partial_assistant(assistant_msg, persist_message):
-                    safe_failure = safe_error("assistant_persistence")
+                    builder.mark_failed(TurnExitReason.PERSISTENCE_FAILED, "assistant_persistence")
                     emit(LiveEvent(
                         session_id=session_id,
                         turn_id=turn_id,
                         event_type=LiveEventType.TURN_FAILED,
-                        error=safe_failure,
+                        error=builder.safe_failure,
                     ))
-                    return TurnResult(
-                        turn_id=turn_id,
-                        exit_reason=TurnExitReason.PERSISTENCE_FAILED,
-                        final_text=accumulated_text,
-                        model_steps=model_steps,
-                        tool_starts=tool_starts,
-                        new_messages=new_messages,
-                        safe_failure=safe_failure,
-                        user_message_id=user_message_id,
-                        model_name=captured_model_name,
-                        provider_name=captured_provider_name,
-                        usage=captured_usage,
-                        input_characters=input_characters,
-                    )
+                    builder.final_text = accumulated_text
+                    builder.model_steps = model_steps
+                    builder.tool_starts = tool_starts
+                    builder.new_messages = new_messages
+                    return builder.build()
+            builder.safe_failure = builder.safe_failure or safe_error("interrupted")
             emit(LiveEvent(
                 session_id=session_id,
                 turn_id=turn_id,
                 event_type=LiveEventType.TURN_INTERRUPTED,
             ))
-            return TurnResult(
-                turn_id=turn_id,
-                exit_reason=TurnExitReason.INTERRUPTED,
-                final_text=accumulated_text,
-                model_steps=model_steps,
-                tool_starts=tool_starts,
-                new_messages=new_messages,
-                safe_failure=safe_failure or safe_error("interrupted"),
-                user_message_id=user_message_id,
-                model_name=captured_model_name,
-                provider_name=captured_provider_name,
-                usage=captured_usage,
-                input_characters=input_characters,
-            )
+            builder.final_text = accumulated_text
+            builder.model_steps = model_steps
+            builder.tool_starts = tool_starts
+            builder.new_messages = new_messages
+            return builder.build()
 
         if model_failed:
             break
 
         # ── No tool calls: turn complete ──
         if not tool_call_events:
-            final_text = accumulated_text
-            exit_reason = TurnExitReason.COMPLETED
+            builder.exit_reason = TurnExitReason.COMPLETED
 
             # Persist assistant message
             assistant_msg = AssistantMessage(
@@ -537,29 +487,20 @@ async def run_turn(
             try:
                 persist_message(assistant_msg)
             except Exception:
-                safe_failure = safe_error("assistant_persistence")
+                builder.mark_failed(TurnExitReason.PERSISTENCE_FAILED, "assistant_persistence")
                 emit(
                     LiveEvent(
                         session_id=session_id,
                         turn_id=turn_id,
                         event_type=LiveEventType.TURN_FAILED,
-                        error=safe_failure,
+                        error=builder.safe_failure,
                     )
                 )
-                return TurnResult(
-                    turn_id=turn_id,
-                    exit_reason=TurnExitReason.PERSISTENCE_FAILED,
-                    final_text=accumulated_text,
-                    model_steps=model_steps,
-                    tool_starts=tool_starts,
-                    new_messages=new_messages,
-                    safe_failure=safe_failure,
-                    user_message_id=user_message_id,
-                    model_name=captured_model_name,
-                    provider_name=captured_provider_name,
-                    usage=captured_usage,
-                    input_characters=input_characters,
-                )
+                builder.final_text = accumulated_text
+                builder.model_steps = model_steps
+                builder.tool_starts = tool_starts
+                builder.new_messages = new_messages
+                return builder.build()
 
             # Append to provider messages for potential next step
             provider_messages.append(
@@ -579,29 +520,20 @@ async def run_turn(
         try:
             persist_message(assistant_msg)
         except Exception:
-            safe_failure = safe_error("assistant_persistence")
+            builder.mark_failed(TurnExitReason.PERSISTENCE_FAILED, "assistant_persistence")
             emit(
                 LiveEvent(
                     session_id=session_id,
                     turn_id=turn_id,
                     event_type=LiveEventType.TURN_FAILED,
-                    error=safe_failure,
+                    error=builder.safe_failure,
                 )
             )
-            return TurnResult(
-                turn_id=turn_id,
-                exit_reason=TurnExitReason.PERSISTENCE_FAILED,
-                final_text=accumulated_text,
-                model_steps=model_steps,
-                tool_starts=tool_starts,
-                new_messages=new_messages,
-                safe_failure=safe_failure,
-                user_message_id=user_message_id,
-                model_name=captured_model_name,
-                provider_name=captured_provider_name,
-                usage=captured_usage,
-                input_characters=input_characters,
-            )
+            builder.final_text = accumulated_text
+            builder.model_steps = model_steps
+            builder.tool_starts = tool_starts
+            builder.new_messages = new_messages
+            return builder.build()
 
         # Build provider assistant message with tool calls
         provider_tool_calls: list[dict[str, Any]] = []
@@ -626,8 +558,7 @@ async def run_turn(
         # Dispatch each tool call
         for tc_event in tool_call_events:
             if cancel_event.is_set():
-                exit_reason = TurnExitReason.INTERRUPTED
-                safe_failure = safe_error("interrupted")
+                builder.mark_interrupted()
                 emit(
                     LiveEvent(
                         session_id=session_id,
@@ -635,20 +566,11 @@ async def run_turn(
                         event_type=LiveEventType.TURN_INTERRUPTED,
                     )
                 )
-                return TurnResult(
-                    turn_id=turn_id,
-                    exit_reason=exit_reason,
-                    final_text=accumulated_text,
-                    model_steps=model_steps,
-                    tool_starts=tool_starts,
-                    new_messages=new_messages,
-                    safe_failure=safe_failure,
-                    user_message_id=user_message_id,
-                    model_name=captured_model_name,
-                    provider_name=captured_provider_name,
-                    usage=captured_usage,
-                    input_characters=input_characters,
-                )
+                builder.final_text = accumulated_text
+                builder.model_steps = model_steps
+                builder.tool_starts = tool_starts
+                builder.new_messages = new_messages
+                return builder.build()
 
             # Persist canonical tool call message BEFORE handler execution
             tc_msg = ToolCallMessage(
@@ -662,29 +584,20 @@ async def run_turn(
             try:
                 persist_message(tc_msg)
             except Exception:
-                safe_failure = safe_error("tool_call_persistence")
+                builder.mark_failed(TurnExitReason.PERSISTENCE_FAILED, "tool_call_persistence")
                 emit(
                     LiveEvent(
                         session_id=session_id,
                         turn_id=turn_id,
                         event_type=LiveEventType.TURN_FAILED,
-                        error=safe_failure,
+                        error=builder.safe_failure,
                     )
                 )
-                return TurnResult(
-                    turn_id=turn_id,
-                    exit_reason=TurnExitReason.PERSISTENCE_FAILED,
-                    final_text=accumulated_text,
-                    model_steps=model_steps,
-                    tool_starts=tool_starts,
-                    new_messages=new_messages,
-                    safe_failure=safe_failure,
-                    user_message_id=user_message_id,
-                    model_name=captured_model_name,
-                    provider_name=captured_provider_name,
-                    usage=captured_usage,
-                    input_characters=input_characters,
-                )
+                builder.final_text = accumulated_text
+                builder.model_steps = model_steps
+                builder.tool_starts = tool_starts
+                builder.new_messages = new_messages
+                return builder.build()
 
             # Emit tool_started
             t_start = time.monotonic()
@@ -754,20 +667,12 @@ async def run_turn(
                             event_type=LiveEventType.TURN_FAILED,
                             error=persistence_error,
                         ))
-                        return TurnResult(
-                            turn_id=turn_id,
-                            exit_reason=TurnExitReason.PERSISTENCE_FAILED,
-                            final_text=accumulated_text,
-                            model_steps=model_steps,
-                            tool_starts=tool_starts + 1,
-                            new_messages=new_messages,
-                            safe_failure=persistence_error,
-                            user_message_id=user_message_id,
-                            model_name=captured_model_name,
-                            provider_name=captured_provider_name,
-                            usage=captured_usage,
-                            input_characters=input_characters,
-                        )
+                        builder.mark_failed(TurnExitReason.PERSISTENCE_FAILED, "tool_result_persistence")
+                        builder.final_text = accumulated_text
+                        builder.model_steps = model_steps
+                        builder.tool_starts = tool_starts + 1
+                        builder.new_messages = new_messages
+                        return builder.build()
                     tool_starts += 1
                 else:
                     _, persistence_error = _persist_and_emit_tool_result(
@@ -786,42 +691,32 @@ async def run_turn(
                         emit=emit,
                     )
                     if persistence_error:
-                        return TurnResult(
-                            turn_id=turn_id,
-                            exit_reason=TurnExitReason.PERSISTENCE_FAILED,
-                            final_text=accumulated_text,
-                            model_steps=model_steps,
-                            tool_starts=tool_starts + 1,
-                            new_messages=new_messages,
-                            safe_failure=persistence_error,
-                            user_message_id=user_message_id,
-                            model_name=captured_model_name,
-                            provider_name=captured_provider_name,
-                            usage=captured_usage,
-                            input_characters=input_characters,
-                        )
+                        builder.mark_failed(TurnExitReason.PERSISTENCE_FAILED, "tool_result_persistence")
+                        builder.final_text = accumulated_text
+                        builder.model_steps = model_steps
+                        builder.tool_starts = tool_starts + 1
+                        builder.new_messages = new_messages
+                        return builder.build()
                     tool_starts += 1
+                    provider_messages.append(
+                        ModelMessage(
+                            role="tool",
+                            content=json.dumps({"ok": False, "code": "cancelled", "error": "tool execution cancelled"}, default=str),
+                            tool_call_id=tc_event.call_id,
+                        )
+                    )
 
-                safe_failure = safe_failure or safe_error("interrupted")
+                builder.mark_interrupted()
                 emit(LiveEvent(
                     session_id=session_id,
                     turn_id=turn_id,
                     event_type=LiveEventType.TURN_INTERRUPTED,
                 ))
-                return TurnResult(
-                    turn_id=turn_id,
-                    exit_reason=TurnExitReason.INTERRUPTED,
-                    final_text=accumulated_text,
-                    model_steps=model_steps,
-                    tool_starts=tool_starts,
-                    new_messages=new_messages,
-                    safe_failure=safe_failure,
-                    user_message_id=user_message_id,
-                    model_name=captured_model_name,
-                    provider_name=captured_provider_name,
-                    usage=captured_usage,
-                    input_characters=input_characters,
-                )
+                builder.final_text = accumulated_text
+                builder.model_steps = model_steps
+                builder.tool_starts = tool_starts
+                builder.new_messages = new_messages
+                return builder.build()
 
             if dispatch_task not in done:
                 # Cancellation wins the race, but the cancelled handler may
@@ -850,22 +745,14 @@ async def run_turn(
                             event_type=LiveEventType.TURN_FAILED,
                             error=persistence_error,
                         ))
-                        return TurnResult(
-                            turn_id=turn_id,
-                            exit_reason=TurnExitReason.PERSISTENCE_FAILED,
-                            final_text=accumulated_text,
-                            model_steps=model_steps,
-                            tool_starts=tool_starts + 1,
-                            new_messages=new_messages,
-                            safe_failure=persistence_error,
-                            user_message_id=user_message_id,
-                            model_name=captured_model_name,
-                            provider_name=captured_provider_name,
-                            usage=captured_usage,
-                            input_characters=input_characters,
-                        )
+                        builder.mark_failed(TurnExitReason.PERSISTENCE_FAILED, "tool_result_persistence")
+                        builder.final_text = accumulated_text
+                        builder.model_steps = model_steps
+                        builder.tool_starts = tool_starts + 1
+                        builder.new_messages = new_messages
+                        return builder.build()
                     tool_starts += 1
-                    safe_failure = safe_error("interrupted")
+                    builder.mark_interrupted()
                 else:
                     cancelled_result = {
                         "ok": False,
@@ -884,20 +771,12 @@ async def run_turn(
                         emit=emit,
                     )
                     if persistence_error:
-                        return TurnResult(
-                            turn_id=turn_id,
-                            exit_reason=TurnExitReason.PERSISTENCE_FAILED,
-                            final_text=accumulated_text,
-                            model_steps=model_steps,
-                            tool_starts=tool_starts + 1,
-                            new_messages=new_messages,
-                            safe_failure=persistence_error,
-                            user_message_id=user_message_id,
-                            model_name=captured_model_name,
-                            provider_name=captured_provider_name,
-                            usage=captured_usage,
-                            input_characters=input_characters,
-                        )
+                        builder.mark_failed(TurnExitReason.PERSISTENCE_FAILED, "tool_result_persistence")
+                        builder.final_text = accumulated_text
+                        builder.model_steps = model_steps
+                        builder.tool_starts = tool_starts + 1
+                        builder.new_messages = new_messages
+                        return builder.build()
                     tool_starts += 1
                     provider_messages.append(
                         ModelMessage(
@@ -907,27 +786,17 @@ async def run_turn(
                         )
                     )
 
-                exit_reason = TurnExitReason.INTERRUPTED
-                safe_failure = safe_failure or safe_error("interrupted")
+                builder.mark_interrupted()
                 emit(LiveEvent(
                     session_id=session_id,
                     turn_id=turn_id,
                     event_type=LiveEventType.TURN_INTERRUPTED,
                 ))
-                return TurnResult(
-                    turn_id=turn_id,
-                    exit_reason=exit_reason,
-                    final_text=accumulated_text,
-                    model_steps=model_steps,
-                    tool_starts=tool_starts,
-                    new_messages=new_messages,
-                    safe_failure=safe_failure,
-                    user_message_id=user_message_id,
-                    model_name=captured_model_name,
-                    provider_name=captured_provider_name,
-                    usage=captured_usage,
-                    input_characters=input_characters,
-                )
+                builder.final_text = accumulated_text
+                builder.model_steps = model_steps
+                builder.tool_starts = tool_starts
+                builder.new_messages = new_messages
+                return builder.build()
 
             # Cancel the cancel waiter — dispatch completed normally
             await _cancel_and_join(cancel_task)
@@ -951,27 +820,18 @@ async def run_turn(
             if persistence_error:
                 # The ToolCallMessage remains dangling and will reconcile to
                 # unknown_outcome on resume. Never publish a false result event.
-                safe_failure = persistence_error
+                builder.mark_failed(TurnExitReason.PERSISTENCE_FAILED, "tool_result_persistence")
                 emit(LiveEvent(
                     session_id=session_id,
                     turn_id=turn_id,
                     event_type=LiveEventType.TURN_FAILED,
-                    error=safe_failure,
+                    error=builder.safe_failure,
                 ))
-                return TurnResult(
-                    turn_id=turn_id,
-                    exit_reason=TurnExitReason.PERSISTENCE_FAILED,
-                    final_text=accumulated_text,
-                    model_steps=model_steps,
-                    tool_starts=tool_starts + 1,
-                    new_messages=new_messages,
-                    safe_failure=safe_failure,
-                    user_message_id=user_message_id,
-                    model_name=captured_model_name,
-                    provider_name=captured_provider_name,
-                    usage=captured_usage,
-                    input_characters=input_characters,
-                )
+                builder.final_text = accumulated_text
+                builder.model_steps = model_steps
+                builder.tool_starts = tool_starts + 1
+                builder.new_messages = new_messages
+                return builder.build()
 
             tool_starts += 1
 
@@ -986,19 +846,18 @@ async def run_turn(
 
     else:
         # Loop completed without explicit stop → limit reached
-        exit_reason = TurnExitReason.LIMIT_REACHED
-        safe_failure = safe_error("limit")
+        builder.mark_failed(TurnExitReason.LIMIT_REACHED, "limit")
         emit(
             LiveEvent(
                 session_id=session_id,
                 turn_id=turn_id,
                 event_type=LiveEventType.TURN_FAILED,
-                error=safe_failure,
+                error=builder.safe_failure,
             )
         )
 
     # ── Emit final event ──
-    if exit_reason == TurnExitReason.COMPLETED:
+    if builder.exit_reason == TurnExitReason.COMPLETED:
         emit(
             LiveEvent(
                 session_id=session_id,
@@ -1006,7 +865,7 @@ async def run_turn(
                 event_type=LiveEventType.TURN_COMPLETED,
             )
         )
-    elif exit_reason == TurnExitReason.INTERRUPTED:
+    elif builder.exit_reason == TurnExitReason.INTERRUPTED:
         emit(
             LiveEvent(
                 session_id=session_id,
@@ -1014,30 +873,21 @@ async def run_turn(
                 event_type=LiveEventType.TURN_INTERRUPTED,
             )
         )
-    elif exit_reason in (TurnExitReason.MODEL_FAILED,):
+    elif builder.exit_reason in (TurnExitReason.MODEL_FAILED,):
         emit(
             LiveEvent(
                 session_id=session_id,
                 turn_id=turn_id,
                 event_type=LiveEventType.TURN_FAILED,
-                error=safe_failure,
+                error=builder.safe_failure,
             )
         )
 
-    return TurnResult(
-        turn_id=turn_id,
-        exit_reason=exit_reason,
-        final_text=final_text,
-        model_steps=model_steps,
-        tool_starts=tool_starts,
-        new_messages=new_messages,
-        safe_failure=safe_failure,
-        user_message_id=user_message_id,
-        model_name=captured_model_name,
-        provider_name=captured_provider_name,
-        usage=captured_usage,
-        input_characters=input_characters,
-    )
+    builder.final_text = accumulated_text if 'accumulated_text' in dir() else ""
+    builder.model_steps = model_steps
+    builder.tool_starts = tool_starts
+    builder.new_messages = new_messages
+    return builder.build()
 
 
 def _persist_and_emit_tool_result(

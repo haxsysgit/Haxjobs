@@ -80,83 +80,96 @@ ConversationMessage = UserMessage | AssistantMessage | ToolCallMessage | ToolRes
 
 # ── Projection ──
 
+class MessageProjector:
+    """Projects canonical conversation history to provider-compatible ModelMessages.
+
+    Stateful across message kinds: batches assistant text with subsequent
+    tool calls into a single provider assistant message. Tool results flush
+    the preceding assistant block and become standalone tool messages.
+    """
+
+    def __init__(self) -> None:
+        self._result: list[ModelMessage] = []
+        self._pending_text: str | None = None
+        self._pending_tool_calls: list[dict[str, Any]] = []
+
+    def _flush(self) -> None:
+        if self._pending_text is not None or self._pending_tool_calls:
+            msg = ModelMessage(
+                role="assistant",
+                content=self._pending_text or "",
+            )
+            if self._pending_tool_calls:
+                msg.tool_calls = list(self._pending_tool_calls)
+            self._result.append(msg)
+        self._pending_text = None
+        self._pending_tool_calls = []
+
+    def project(
+        self,
+        system_prompt: str,
+        context_messages: list[ModelMessage],
+        history: list[ConversationMessage],
+    ) -> list[ModelMessage]:
+        """Project system prompt, context, and history into provider messages."""
+        self._result = []
+        self._pending_text = None
+        self._pending_tool_calls = []
+
+        # System prompt first
+        self._result.append(ModelMessage(role="system", content=system_prompt))
+
+        # Career context second
+        self._result.extend(context_messages)
+
+        for msg in history:
+            if msg.kind == "user":
+                self._flush()
+                self._result.append(ModelMessage(role="user", content=msg.content))
+
+            elif msg.kind == "assistant":
+                self._flush()
+                self._pending_text = msg.content
+
+            elif msg.kind == "tool_call":
+                if self._pending_text is None and not self._pending_tool_calls:
+                    self._pending_text = ""
+                self._pending_tool_calls.append({
+                    "id": msg.call_id,
+                    "type": "function",
+                    "function": {
+                        "name": msg.tool_name,
+                        "arguments": msg.arguments,
+                    },
+                })
+
+            elif msg.kind == "tool_result":
+                self._flush()
+                self._result.append(ModelMessage(
+                    role="tool",
+                    content=_tool_result_content(msg),
+                    tool_call_id=msg.call_id,
+                ))
+
+        self._flush()
+        return list(self._result)
+
+
+# Module-level convenience — creates a fresh instance per call.
+_projector = MessageProjector()
+
+
 def project_messages(
     system_prompt: str,
     context_messages: list[ModelMessage],
     history: list[ConversationMessage],
 ) -> list[ModelMessage]:
-    """Project canonical conversation history to provider-compatible ModelMessages.
-
-    Rules:
-    - System prompt is always first.
-    - Career context (context_messages) follows system prompt.
-    - Canonical session history comes after context.
-    - Assistant tool calls project to provider assistant messages with tool_calls.
-    - Tool results project to provider tool messages with matching call IDs.
-    - Career context is never part of persisted history (caller ensures this).
-    """
-    result: list[ModelMessage] = []
-
-    # System prompt first
-    result.append(ModelMessage(role="system", content=system_prompt))
-
-    # Career context second
-    result.extend(context_messages)
-
-    # Canonical history — project with tool-call batching
-    pending_assistant_text: str | None = None
-    pending_tool_calls: list[dict[str, Any]] = []
-
-    def _flush_pending() -> None:
-        nonlocal pending_assistant_text, pending_tool_calls
-        if pending_assistant_text is not None or pending_tool_calls:
-            msg = ModelMessage(
-                role="assistant",
-                content=pending_assistant_text or "",
-            )
-            if pending_tool_calls:
-                msg.tool_calls = list(pending_tool_calls)
-            result.append(msg)
-        pending_assistant_text = None
-        pending_tool_calls = []
-
-    for msg in history:
-        if msg.kind == "user":
-            _flush_pending()
-            result.append(ModelMessage(role="user", content=msg.content))
-
-        elif msg.kind == "assistant":
-            _flush_pending()
-            pending_assistant_text = msg.content
-            # If this is the last message in a sequence (no following tool calls),
-            # it will be flushed by the next message kind or at loop end.
-
-        elif msg.kind == "tool_call":
-            # If no pending assistant text yet, start with empty content
-            if pending_assistant_text is None and not pending_tool_calls:
-                pending_assistant_text = ""
-            pending_tool_calls.append({
-                "id": msg.call_id,
-                "type": "function",
-                "function": {
-                    "name": msg.tool_name,
-                    "arguments": msg.arguments,
-                },
-            })
-
-        elif msg.kind == "tool_result":
-            # Flush the preceding assistant message (with its tool calls) before the tool result
-            _flush_pending()
-            result.append(ModelMessage(
-                role="tool",
-                content=_tool_result_content(msg),
-                tool_call_id=msg.call_id,
-            ))
-
-    # Flush any trailing assistant message
-    _flush_pending()
-
-    return result
+    """Project canonical conversation history to provider-compatible ModelMessages."""
+    return _projector.project(
+        system_prompt=system_prompt,
+        context_messages=context_messages,
+        history=history,
+    )
 
 
 def _tool_result_content(msg: ToolResultMessage) -> str:
