@@ -36,5 +36,15 @@
   "preferred_locations": ["London", "Remote UK"],
   "target_role_families": ["backend", "ai_engineer_llm", "platform_backend"],
   "excluded_role_families": ["it_support", "frontend_only", "java_enterprise"],
-  "work_authorization": "UK right to work — no sponsorship required"
+  "work_authorization": "UK right to work — no sponsorship required",
+  "detect_skills": [
+    "Python", "Django", "FastAPI", "SQL", "SQLite", "PostgreSQL",
+    "React", "TypeScript", "JavaScript", "Docker", "Git", "pytest",
+    "MCP", "API design", "LLM pipelines", "agent tooling", "CI/CD",
+    "Linux"
+  ],
+  "gap_skills": {"React": "working", "TypeScript": "working",
+                 "Docker": "working", "CI/CD": "working"},
+  "salary_range": "",
+  "notice_period": ""
 }

@@ -39,6 +39,10 @@ class CareerFixture(BaseModel):
     target_role_families: list[str] = Field(default_factory=list)
     excluded_role_families: list[str] = Field(default_factory=list)
     work_authorization: str = ""
+    detect_skills: list[str] = Field(default_factory=list)
+    gap_skills: dict[str, str] = Field(default_factory=dict)
+    salary_range: str = ""
+    notice_period: str = ""
 
     @field_validator("person_id")
     @classmethod

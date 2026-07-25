@@ -69,8 +69,8 @@ def main(argv: list[str] | None = None):
     prof_con.set_defaults(func=cmd_profile_constraint_add)
 
     prof_migrate = prof_sub.add_parser("migrate", help="Migrate career fixture to graph")
-    prof_migrate.add_argument("--fixture", required=True,
-                              help="Path to career fixture JSON")
+    prof_migrate.add_argument("--fixture", default=None,
+                              help="Path to career fixture JSON (auto-detected if omitted)")
     prof_migrate.set_defaults(func=cmd_profile_migrate)
 
     # ── setup ──
@@ -78,8 +78,8 @@ def main(argv: list[str] | None = None):
 
     # ── shortcut: haxjobs migrate ──
     migrate_cmd = sub.add_parser("migrate", help="Quick: migrate career fixture to graph")
-    migrate_cmd.add_argument("--fixture", required=True,
-                             help="Path to career fixture JSON")
+    migrate_cmd.add_argument("--fixture", default=None,
+                             help="Path to career fixture JSON (auto-detected if omitted)")
     migrate_cmd.set_defaults(func=cmd_profile_migrate)
 
     # ── chat / default command ──
@@ -151,7 +151,14 @@ def main(argv: list[str] | None = None):
             )
         except EmploymentSetupError as exc:
             print(f"Error: {exc}", file=sys.stderr)
-            print("Run 'haxjobs migrate' first.", file=sys.stderr)
+            print("\nNo career data found.", file=sys.stderr)
+            print("\nTo get started, create a career fixture JSON file, then run:", file=sys.stderr)
+            print("\n  haxjobs migrate --fixture path/to/your-career.json", file=sys.stderr)
+            print("\nA minimal career fixture needs fixture_id, fixture_version, person_id,", file=sys.stderr)
+            print("person_name, track_name, career_direction, hard_constraints, and", file=sys.stderr)
+            print("at least one evidence item.", file=sys.stderr)
+            print("\nExample: https://github.com/haxsysgit/Haxjobs/blob/main/tests/fixtures/job_review/career.json", file=sys.stderr)
+            return
             return
         except ValueError as exc:
             print(f"Error: {exc}", file=sys.stderr)
@@ -204,7 +211,10 @@ def cmd_chat(args) -> None:
         )
     except EmploymentSetupError as exc:
         print(f"Error: {exc}", file=sys.stderr)
-        print("Run 'haxjobs migrate' first.", file=sys.stderr)
+        print("\nNo career data found.", file=sys.stderr)
+        print("\nTo get started, create a career fixture JSON file, then run:", file=sys.stderr)
+        print("\n  haxjobs migrate --fixture path/to/your-career.json", file=sys.stderr)
+        print("\nExample: https://github.com/haxsysgit/Haxjobs/blob/main/tests/fixtures/job_review/career.json", file=sys.stderr)
         return
     except ValueError as exc:
         print(f"Error: {exc}", file=sys.stderr)

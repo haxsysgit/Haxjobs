@@ -23,16 +23,7 @@ from haxjobs.employment.schema import (
 from haxjobs.employment.store import CareerStore
 
 # Skills to detect via keyword matching against evidence content.
-_KNOWN_SKILLS = [
-    "Python", "Django", "FastAPI", "SQL", "SQLite", "PostgreSQL",
-    "React", "TypeScript", "JavaScript", "Docker", "Git", "pytest",
-    "MCP", "API design", "LLM pipelines", "agent tooling", "CI/CD",
-    "Linux",
-]
-
-# Skills considered gaps for this persona.
-_GAP_SKILLS = {"React": "working", "TypeScript": "working",
-               "Docker": "working", "CI/CD": "working"}
+# The list comes from the CareerFixture, not hardcoded constants.
 
 _PROFICIENCY_ORDER = {"learning": 0, "working": 1, "strong": 2, "primary": 3}
 
@@ -60,8 +51,8 @@ def migrate_career_fixture(fixture: CareerFixture, db_path: str | Path) -> Caree
         name=fixture.person_name,
         location=fixture.preferred_locations[0] if fixture.preferred_locations else "",
         work_authorization=fixture.work_authorization,
-        notice_period="immediate",
-        salary_range="35000-45000 GBP",
+        salary_range=fixture.salary_range,
+        notice_period=fixture.notice_period,
         created_at=now,
         updated_at=now,
     )
@@ -118,7 +109,7 @@ def migrate_career_fixture(fixture: CareerFixture, db_path: str | Path) -> Caree
 
         # Find matching skills via keyword matching (case-insensitive)
         matched_skills: list[str] = []
-        for sk in _KNOWN_SKILLS:
+        for sk in fixture.detect_skills:
             # Use word-boundary matching to avoid substring hits
             pattern = re.compile(r"\b" + re.escape(sk.lower()) + r"\b")
             if pattern.search(content_lower):
@@ -161,7 +152,7 @@ def migrate_career_fixture(fixture: CareerFixture, db_path: str | Path) -> Caree
 
     # ── SkillGaps ──
     existing_skills = {s["name"]: s["proficiency"] for s in store.list_skills(track_id)}
-    for gap_skill, prof in _GAP_SKILLS.items():
+    for gap_skill, prof in fixture.gap_skills.items():
         if gap_skill in existing_skills and _proficiency_at_least(existing_skills[gap_skill], prof):
             continue  # skip: already met or exceeds target
         store.upsert_gap(SkillGap(
@@ -178,15 +169,44 @@ def migrate_career_fixture(fixture: CareerFixture, db_path: str | Path) -> Caree
 
 
 def migrate_cli_entrypoint(fixture_path: str | None = None) -> CareerStore | None:
-    """Load an explicitly selected fixture, run migration, and print summary."""
+    """Load a fixture, run migration, and print summary.
+
+    If fixture_path is None, scans the current directory for exactly one
+    JSON file containing fixture_id and fixture_version keys and uses that.
+    """
     if fixture_path is None:
-        print("Fixture path required. Provide --fixture <path>.")
         import sys
-        sys.exit(2)
+        cwd = Path.cwd()
+        candidates = []
+        for p in sorted(cwd.glob("*.json")):
+            try:
+                raw = json.loads(p.read_text())
+                if isinstance(raw, dict) and "fixture_id" in raw and "fixture_version" in raw:
+                    candidates.append(p)
+            except (json.JSONDecodeError, OSError):
+                pass
+
+        if len(candidates) == 1:
+            fixture_path = str(candidates[0])
+            print(f"Auto-detected career fixture: {fixture_path}")
+        elif len(candidates) > 1:
+            print("Multiple JSON fixtures found in current directory:")
+            for c in candidates:
+                print(f"  {c}")
+            print("\nProvide --fixture to pick one.")
+            print("\nExample: haxjobs migrate --fixture tests/fixtures/job_review/career.json")
+            sys.exit(2)
+        else:
+            print("No career data found. Create a career fixture JSON file, then run:")
+            print("\n  haxjobs migrate --fixture path/to/your-career.json")
+            print("\nA minimal fixture needs fixture_id, fixture_version, person_id,")
+            print("person_name, track_name, career_direction, hard_constraints, and")
+            print("at least one evidence item.")
+            print("\nExample: https://github.com/haxsysgit/Haxjobs/blob/main/tests/fixtures/job_review/career.json")
+            sys.exit(2)
 
     if not Path(fixture_path).exists():
         print(f"Fixture not found: {fixture_path}")
-        print("Create it from your profile or run: haxjobs profile migrate --fixture <path>")
         import sys
         sys.exit(1)
 

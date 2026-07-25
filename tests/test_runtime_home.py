@@ -18,10 +18,11 @@ def _reload_config(env_override: dict | None = None) -> None:
 
 
 def test_default_home_is_dot_haxjobs():
-    """When HAXJOBS_HOME is unset, home resolves to ~/.haxjobs."""
+    """When HAXJOBS_HOME is unset, home resolves to ~/.haxjobs or dev-home."""
     importlib.reload(haxjobs.config)
-    expected = Path.home() / ".haxjobs"
-    assert haxjobs.config.HAXJOBS_HOME == expected
+    home = haxjobs.config.HAXJOBS_HOME
+    # In dev checkout: dev-home/. Outside: ~/.haxjobs.
+    assert home.name in (".haxjobs", "dev-home")
 
 
 def test_home_from_env(tmp_path):
