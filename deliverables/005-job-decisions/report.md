@@ -43,6 +43,7 @@ and employment registry interfaces.
 
 ### Tests
 
+- `tests/test_employment_tools.py`
 - `tests/test_job_decisions.py`
 - `tests/test_trajectory_job_328.py`
 
