@@ -9,6 +9,7 @@ from typing import AsyncIterator, Protocol
 
 from openai import AsyncOpenAI
 
+from haxjobs.config import PROVIDER_CONFIG_PATH
 from haxjobs.model.types import (
     ModelFailure,
     ModelMessage,
@@ -34,16 +35,15 @@ class ModelClient(Protocol):
     ) -> AsyncIterator[ModelStreamEvent]: ...
 
 
-_DEFAULT_CREDENTIALS_PATH = Path.home() / ".haxjobs" / "haxjobs.toml"
-
-
 class OpenAIModelClient:
-    """OpenAI-compatible adapter. Reads provider config from ~/.haxjobs/haxjobs.toml."""
+    """OpenAI-compatible adapter. Reads provider config from HAXJOBS_HOME/haxjobs.toml."""
 
     def __init__(
         self,
-        credentials_path: Path = _DEFAULT_CREDENTIALS_PATH,
+        credentials_path: Path | None = None,
     ) -> None:
+        if credentials_path is None:
+            credentials_path = PROVIDER_CONFIG_PATH
         self._credentials_path = credentials_path
         self._client: AsyncOpenAI | None = None
         self._model: str = ""

@@ -3,6 +3,7 @@ import argparse
 import asyncio
 import sys
 
+from haxjobs.config import PROVIDER_CONFIG_PATH, ensure_runtime_home
 from haxjobs.interfaces.profile_cli import (
     cmd_profile_migrate,
     cmd_profile_show,
@@ -72,6 +73,9 @@ def main(argv: list[str] | None = None):
                               help="Path to career fixture JSON")
     prof_migrate.set_defaults(func=cmd_profile_migrate)
 
+    # ── setup ──
+    sub.add_parser("setup", help="Configure your provider (API key, model)")
+
     # ── shortcut: haxjobs migrate ──
     migrate_cmd = sub.add_parser("migrate", help="Quick: migrate career fixture to graph")
     migrate_cmd.add_argument("--fixture", required=True,
@@ -98,10 +102,22 @@ def main(argv: list[str] | None = None):
     chat.set_defaults(func=cmd_chat)
 
     args = parser.parse_args(argv)
+
+    # Help only — do not create directories.
+    if getattr(args, "command", None) == "setup":
+        from haxjobs.interfaces.setup_cli import run_setup
+        run_setup()
+        return
+
     if getattr(args, "command", None) == "chat":
         has_scope = bool(args.person_id or args.track_id)
         if has_scope and not args.new:
             parser.error("--person-id/--track-id are only valid with --new")
+
+    # Real commands need the runtime home.
+    if getattr(args, "command", None) is not None:
+        ensure_runtime_home()
+
     if not hasattr(args, "func"):
         # Default: open or resume latest session (same as `haxjobs chat`)
         from haxjobs.interfaces.terminal import run_terminal
@@ -109,6 +125,11 @@ def main(argv: list[str] | None = None):
         from haxjobs.employment.host import EmploymentSetupError
         from haxjobs.agent_core.session_store import SessionStore
         from haxjobs.config import SESSION_DB_PATH
+
+        ensure_runtime_home()
+        if not PROVIDER_CONFIG_PATH.exists():
+            print("No provider is configured. Run `haxjobs setup`.", file=sys.stderr)
+            return
 
         try:
             session_id = None
@@ -147,6 +168,10 @@ def cmd_chat(args) -> None:
     from haxjobs.employment.host import EmploymentSetupError
     from haxjobs.agent_core.session_store import SessionStore
     from haxjobs.config import SESSION_DB_PATH
+
+    if not args.fake and not PROVIDER_CONFIG_PATH.exists():
+        print("No provider is configured. Run `haxjobs setup`.", file=sys.stderr)
+        return
 
     try:
         session_db = args.session_db or str(SESSION_DB_PATH)
