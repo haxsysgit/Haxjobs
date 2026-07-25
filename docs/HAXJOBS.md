@@ -24,7 +24,7 @@ The model boundary knows nothing about careers. The agent core knows nothing abo
 - `src/haxjobs/config.py` — paths from `haxjobs.toml`
 - `src/haxjobs/cv_variants/` — user CV variant templates, registry, renderer (data, not code to rebuild)
 
-273 tests pass locally (all tests, including PTY terminal tests with isolated temp career DB). This includes the Plan 005 candidate's decision trajectories and cross-process SQLite idempotency regression. Stage 0/1 experiment runtime was deleted after conversational runtime trajectories passed. Final controller review is pending.
+274 tests pass locally (all tests, including PTY terminal tests with isolated temp career DB). This includes the Plan 005 candidate's decision trajectories and cross-process SQLite idempotency regression. Stage 0/1 experiment runtime was deleted after conversational runtime trajectories passed. Final controller review is pending.
 
 ### What was deleted
 

@@ -11,6 +11,7 @@
 | Reason truthfulness | Empty user reason remains empty. | PASS |
 | Apply safety | `apply` writes only an internal decision row and has no submission/outreach path. | PASS |
 | Recall | `get_job` returns nullable latest assessment and decision for the bound track. | PASS |
+| Job 49 trajectory | Session records assessment before user skip, persists the decision, and same-scope resume recalls both separately. | PASS |
 | Resume scope | Existing Plan 004 immutable session configuration is unchanged. | PASS; no agent-core change |
 | No live/private proof | No live provider, public network, private fixture, or operator DB is claimed. | PASS |
 | Independent review gate | Three fresh external reviewers approve the same commit. | DEFERRED controller step |

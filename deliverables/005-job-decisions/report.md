@@ -7,7 +7,7 @@ Final controller review is pending. This report does not claim controller approv
 live provider proof, or merge.
 
 The Plan 004 baseline was 269 passing tests at the start of this repair. The
-current full suite is **273 passed**. The focused Plan 005 files are **48 passed**.
+current full suite is **274 passed**. The focused Plan 005 files are **49 passed**.
 
 Plan 005 required zero `agent_core` changes. The implementation uses the existing
 Plan 004 tool execution context, durable message boundary, session configuration,
@@ -20,53 +20,74 @@ and employment registry interfaces.
   identical replay or typed `idempotency_conflict`; unrelated integrity errors
   remain visible. A deterministic two-process barrier regression covers both
   same-payload replay and differing-payload conflict.
-- Added Job 49 fake conversation trajectories for direct skip, later skip-to-save
-  correction, explicit apply, same-scope resume recall, and apply's intent-only
-  boundary. The model-suggestion test now records a real assessment before proving
-  that a non-decision reply creates no decision.
+- Added a deterministic Job 49 session trajectory that records a real assessment
+  before the user's skip decision, verifies no decision exists after assessment,
+  persists the skip through `record_job_decision`, resumes the same configured
+  session, and recalls both separate projections through `get_job`.
+- Retained the Job 49 correction, apply, and ambiguous-reference trajectories.
+  The model-suggestion test records a real assessment before proving that a
+  non-decision reply creates no decision.
 - Kept `tool_call_id` and `source_user_message_id` durable in store/action models,
   while removing them from model-facing `get_job` assessment and decision recall
   projections.
 - Routed `recall-flow.drawio` connectors around, rather than through, the boxes
   and text; regenerated its PNG and validated XML and cell bounds.
 - Restamped current README, product/technical/getting-started docs, and the
-  delivery README/ledger to describe candidate reality and the 273-test count.
+  delivery README/ledger to describe candidate reality and the 274-test count.
   `plans/README.md` remains controller-owned and was not changed.
 
-## Changed paths
+`src/haxjobs/employment/errors.py` is a necessary small shared typed-conflict
+location introduced after the Plan 004 equivalent type was moved out of
+`job_actions.py`. It lets the durable store and actions share the existing typed
+conflict result; it is not a new abstraction.
+
+## Complete changed-path inventory
+
+This is the complete 23-path set from `git diff --name-only fe9f315..HEAD`:
 
 ### Application code
 
-- `src/haxjobs/employment/store.py`
+- `src/haxjobs/employment/errors.py`
 - `src/haxjobs/employment/job_actions.py`
+- `src/haxjobs/employment/schema.py`
+- `src/haxjobs/employment/store.py`
 - `src/haxjobs/employment/tools.py`
 
 ### Tests
 
 - `tests/test_employment_tools.py`
+- `tests/test_job_actions.py`
 - `tests/test_job_decisions.py`
 - `tests/test_trajectory_job_328.py`
 
-### Current documentation and delivery evidence
+### Current documentation
 
 - `README.md`
 - `docs/GETTING_STARTED.md`
 - `docs/HAXJOBS.md`
 - `docs/PRODUCT.md`
+
+### Plan 005 delivery artifacts
+
 - `deliverables/005-job-decisions/README.md`
-- `deliverables/005-job-decisions/report.md`
-- `deliverables/005-job-decisions/review-ledger.md`
+- `deliverables/005-job-decisions/decision-model.drawio`
+- `deliverables/005-job-decisions/decision-model.png`
+- `deliverables/005-job-decisions/manual-proof.md`
+- `deliverables/005-job-decisions/plan.md`
 - `deliverables/005-job-decisions/recall-flow.drawio`
 - `deliverables/005-job-decisions/recall-flow.png`
+- `deliverables/005-job-decisions/report.md`
+- `deliverables/005-job-decisions/review-ledger.md`
+- `deliverables/005-job-decisions/rubric.md`
 
-No `agent_core`, `plans`, `state`, private fixture, credential, provider, or
-public-network path was changed.
+No `src/haxjobs/agent_core/`, `plans/README.md`, `state/`, private fixture,
+credential, provider, or public-network path was changed.
 
 ## Verification
 
-- `PYTHONPATH=src:. uv run python3 -m pytest -q tests/` — **273 passed**.
+- `PYTHONPATH=src:. uv run python3 -m pytest -q tests/` — **274 passed**.
 - Focused Plan 005 suite (`test_job_actions.py`, `test_employment_tools.py`,
-  `test_job_decisions.py`, `test_trajectory_job_328.py`) — **48 passed**.
+  `test_job_decisions.py`, `test_trajectory_job_328.py`) — **49 passed**.
 - `PYTHONPATH=src:. uv run python3 -m py_compile $(find src tests -name '*.py')` — passed.
 - `uv lock --check` — passed.
 - `git diff --check` — passed.
@@ -77,8 +98,9 @@ public-network path was changed.
 
 ## Evidence and residual controller-owned proof
 
-The deterministic tests prove durable skip/save/apply writes, correction history,
-current-track recall after resume, omission of internal IDs from recall, and no
+The deterministic tests prove assessment-before-decision ordering in the Job 49
+session trajectory, durable skip/save/apply writes, correction history, same-scope
+recall after resume, omission of internal IDs from recall, and no
 submission/outreach/pack/queue surface for `apply`. They do not prove natural
 language model reliability beyond the scripted fake trajectories. Controller-owned
 work remains: independent review sessions, any approved private/live interaction

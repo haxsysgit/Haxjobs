@@ -13,8 +13,8 @@ live provider proof, or merge.
 | `decision-model.drawio` / `.png` | Assessment/decision separation and append-only lifecycle |
 | `recall-flow.drawio` / `.png` | Durable decision write and later `get_job` recall |
 
-The current full suite has **273 passed tests**; the focused Plan 005 suite has
-**48 passed**. The PNGs were regenerated locally with the installed `drawio`
+The current full suite has **274 passed tests**; the focused Plan 005 suite has
+**49 passed**. The PNGs were regenerated locally with the installed `drawio`
 command. The source XML parses, cell bounds are valid, and the recall connectors
 route around boxes and text. No provider, public network, private fixture,
 operator state, or live database was used for deterministic proof.

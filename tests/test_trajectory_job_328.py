@@ -400,6 +400,151 @@ async def test_model_recommendation_not_saved_as_decision():
 
 
 @pytest.mark.asyncio
+async def test_job_49_assessment_then_user_skip_persists_and_recalls_on_resume():
+    """Assess Job 49, record the user's skip, then recall both in the same scope."""
+    store = _setup_career_store()
+    session_store = SessionStore(":memory:")
+    try:
+        host = EmploymentHost(
+            store=store, person_id="p1", track_id="t1", job_source_fetcher=_no_network_fetcher()
+        )
+        sid = "job-49-assessment-decision-recall"
+        session_store.create_session(
+            sid, configuration_json=json.dumps({"person_id": "p1", "track_id": "t1"})
+        )
+        session = AgentSession(
+            session_id=sid,
+            session_store=session_store,
+            model=FakeModelClient(
+                stream_events=[
+                    [
+                        ModelStreamEvent(
+                            event_type=ModelStreamEventType.COMPLETE_TOOL_CALL,
+                            call_id="call-job-49-get-before-assessment",
+                            tool_name="get_job",
+                            arguments=json.dumps({"job_id": "job-49"}),
+                        ),
+                        ModelStreamEvent(
+                            event_type=ModelStreamEventType.RESPONSE_COMPLETED,
+                            finish_reason="tool_calls",
+                        ),
+                    ],
+                    [
+                        ModelStreamEvent(
+                            event_type=ModelStreamEventType.COMPLETE_TOOL_CALL,
+                            call_id="call-job-49-assessment",
+                            tool_name="record_job_assessment",
+                            arguments=json.dumps({
+                                "job_id": "job-49",
+                                "recommendation": "skip",
+                                "summary": "The role conflicts with a hard track constraint.",
+                                "constraint_checks": [{
+                                    "constraint_id": "location",
+                                    "constraint_text": "London-based role",
+                                    "result": "fail",
+                                }],
+                            }),
+                        ),
+                        ModelStreamEvent(
+                            event_type=ModelStreamEventType.RESPONSE_COMPLETED,
+                            finish_reason="tool_calls",
+                        ),
+                    ],
+                    [
+                        ModelStreamEvent(
+                            event_type=ModelStreamEventType.TEXT_DELTA,
+                            delta="I assessed job 49 as a mismatch.",
+                        ),
+                        ModelStreamEvent(
+                            event_type=ModelStreamEventType.RESPONSE_COMPLETED,
+                            finish_reason="stop",
+                        ),
+                    ],
+                    [
+                        ModelStreamEvent(
+                            event_type=ModelStreamEventType.COMPLETE_TOOL_CALL,
+                            call_id="call-job-49-user-skip",
+                            tool_name="record_job_decision",
+                            arguments=json.dumps({"job_id": "job-49", "label": "skip"}),
+                        ),
+                        ModelStreamEvent(
+                            event_type=ModelStreamEventType.RESPONSE_COMPLETED,
+                            finish_reason="tool_calls",
+                        ),
+                    ],
+                    [
+                        ModelStreamEvent(
+                            event_type=ModelStreamEventType.TEXT_DELTA,
+                            delta="Got it — skipping job 49.",
+                        ),
+                        ModelStreamEvent(
+                            event_type=ModelStreamEventType.RESPONSE_COMPLETED,
+                            finish_reason="stop",
+                        ),
+                    ],
+                ]
+            ),
+            system_prompt=host.system_prompt,
+            context_messages=host.context_messages,
+            tool_registry_fn=host.registered_tools,
+            active_tool_names_fn=host.active_tool_names,
+        )
+
+        await session.prompt("What do you think of job 49?")
+        assert len(store.list_assessments("job-49", "t1")) == 1
+        assert store.list_decisions("job-49", "t1") == []
+
+        await session.prompt("Yeah, skip job 49.")
+        decisions = store.list_decisions("job-49", "t1")
+        assert len(decisions) == 1
+        assert decisions[0]["label"] == "skip"
+        assert decisions[0]["reason"] == ""
+        assert decisions[0]["source_user_message_id"]
+
+        # A resumed session uses the immutable person/track scope and recalls
+        # employment state through get_job, rather than transcript-only memory.
+        resumed = AgentSession.resume(
+            session_id=sid,
+            session_store=session_store,
+            model=FakeModelClient(
+                stream_events=_fake_stream_with_tool_and_text(
+                    (
+                        "call-job-49-resume-recall",
+                        "get_job",
+                        json.dumps({"job_id": "job-49"}),
+                    ),
+                    "You decided to skip job 49.",
+                )
+            ),
+            system_prompt=host.system_prompt,
+            context_messages=host.context_messages,
+            tool_registry_fn=host.registered_tools,
+            active_tool_names_fn=host.active_tool_names,
+        )
+        await resumed.prompt("What did I decide about job 49?")
+
+        recall_results = [
+            row["payload_json"]
+            for row in session_store.load_messages(sid)
+            if row["payload_json"].get("kind") == "tool_result"
+            and row["payload_json"].get("tool_name") == "get_job"
+        ]
+        recalled = recall_results[-1]["result"]
+        assert recalled["latest_assessment"]["recommendation"] == "skip"
+        assert recalled["latest_decision"]["label"] == "skip"
+        assert recalled["latest_assessment"]["summary"] != recalled["latest_decision"]["reason"]
+        assert len(store.list_assessments("job-49", "t1")) == 1
+        assert len(store.list_decisions("job-49", "t1")) == 1
+        assert store.list_assessments("job-49", "t1")[0]["assessment_id"] != decisions[0]["decision_id"]
+        assert session_store.get_session_configuration(sid) == json.dumps(
+            {"person_id": "p1", "track_id": "t1"}
+        )
+    finally:
+        store.close()
+        session_store.close()
+
+
+@pytest.mark.asyncio
 async def test_job_49_direct_skip_then_save_correction_trajectory():
     """Direct skip followed later by save appends both user decisions."""
     store = _setup_career_store()

@@ -2,7 +2,7 @@
 
 A career agent platform. One job: get the user interviews and make them more employable.
 
-Plan 005 is a candidate on this branch. The greenfield runtime has four layers (model → agent_core → employment → interfaces), conversational chat with durable tool effects, typed job assessments, append-only user job decisions, and 273 tests. Final controller review is pending.
+Plan 005 is a candidate on this branch. The greenfield runtime has four layers (model → agent_core → employment → interfaces), conversational chat with durable tool effects, typed job assessments, append-only user job decisions, and 274 tests. Final controller review is pending.
 
 ## Current state
 
