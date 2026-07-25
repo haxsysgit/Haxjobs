@@ -42,7 +42,7 @@ Other execution facts:
 | [005](005-user-job-decisions-and-conversation-recall.md) | User job decisions and conversation recall | P1 | L | Plan 004 DONE | DONE | `b4eda93` | deliverables/005-job-decisions/report.md | Append-only user decisions, safe cross-process idempotency, track-scoped recall, and intent-only apply. 274 tests passed before final index update. |
 | [006](006-global-cli-packaging.md) | Global CLI packaging | P1 | M | Plan 005 DONE | DONE | `0cd94fa` | - | `~/.haxjobs` runtime home, `haxjobs setup`, wheel verifier passes. 290 tests. |
 | [007](007-clean-wheel.md) | Clean wheel for PyPI publish | P1 | S | Plan 006 DONE | DONE | `2a11954` | - | Wheel excludes personal data, __version__ 0.1.0, LICENSE, classifiers, README for installed users. 290 tests. |
-| [008](008-dev-prod-ux.md) | Dev/prod separation and first-run UX | P1 | M | Plan 007 DONE | TODO | - | - | Dev-mode guard, remove hardcoded personal values, better first-run messages. |
+| [008](008-dev-prod-ux.md) | Dev/prod separation and first-run UX | P1 | M | Plan 007 DONE | DONE | `40c9321` | - | Dev-mode guard, remove hardcoded personal values, better first-run messages. 290 tests. |
 | [009](009-code-quality-hardening.md) | Code quality hardening | P1 | L | Plan 008 DONE | DONE | `9e4fdf2` | - | TurnResultBuilder, settlement dedup, MessageProjector class, __all__ exports, module docstrings. 290 tests. |
 
 The advisor/operator owns this table. Executors do not edit it.
