@@ -1,2 +1,2 @@
-"""HaxJobs — self-hosted job search platform."""
-__version__ = "1.0.0.dev0"
+"""HaxJobs — conversational career agent."""
+__version__ = "0.1.0"

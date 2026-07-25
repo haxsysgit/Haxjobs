@@ -1,17 +1,33 @@
 [project]
 name = "haxjobs"
 version = "0.1.0"
-description = "Self-hosted job search platform"
+description = "Conversational career agent — your personal job-search harness"
 requires-python = ">=3.12"
 license = {text = "MIT"}
 authors = [{name = "Arinze Elenasulu"}]
 readme = "README.md"
+keywords = ["career", "job-search", "agent", "cli", "employment"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business",
+    "Environment :: Console",
+]
+
 dependencies = [
     "openai>=2.44.0",
     "prompt-toolkit>=3.0,<4.0",
     "pydantic>=2.13,<3",
     "rich>=13,<15",
 ]
+
+[project.urls]
+Homepage = "https://github.com/haxsysgit/Haxjobs"
+Repository = "https://github.com/haxsysgit/Haxjobs"
+Issues = "https://github.com/haxsysgit/Haxjobs/issues"
 
 [project.scripts]
 haxjobs = "haxjobs.cli:main"
@@ -22,6 +38,14 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/haxjobs"]
+exclude = [
+    "src/haxjobs/cv_variants",
+    "src/haxjobs/profile",
+    "src/haxjobs/application_templates",
+    "src/haxjobs/cv_profile.typed.json",
+    "src/haxjobs/cv_template.html",
+    "src/haxjobs/scripts",
+]
 
 [dependency-groups]
 dev = [
