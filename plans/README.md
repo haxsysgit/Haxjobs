@@ -41,8 +41,8 @@ Other execution facts:
 | [004](004-saved-job-assessment-and-durable-tool-effects.md) | Saved job assessment and durable tool effects | P1 | L | Plan 003-corrected DONE | DONE | `8511c0b` | deliverables/004-saved-job-assessment/report.md | 248 tests passed before final documentation count correction. Luna final review found no remaining code blocker after the final repair; controller-owned live provider proof remains deferred. |
 | [005](005-user-job-decisions-and-conversation-recall.md) | User job decisions and conversation recall | P1 | L | Plan 004 DONE | DONE | `b4eda93` | deliverables/005-job-decisions/report.md | Append-only user decisions, safe cross-process idempotency, track-scoped recall, and intent-only apply. 274 tests passed before final index update. |
 | [006](006-global-cli-packaging.md) | Global CLI packaging | P1 | M | Plan 005 DONE | DONE | `0cd94fa` | - | `~/.haxjobs` runtime home, `haxjobs setup`, wheel verifier passes. 290 tests. |
-| [007](007-wheel-cleanup-packaging-metadata.md) | Clean wheel for PyPI publish | P1 | S | Plan 006 DONE | TODO | - | - | Exclude personal data from wheel, fix __version__ and description, add classifiers/keywords/LICENSE, declare markdown dep. |
-| [008](008-dev-prod-separation-docs.md) | Dev/prod separation and documentation | P1 | M | Plan 007 DONE | TODO | - | - | Dev-mode guard script, README rewrite for installed users, better first-run error messages. |
+| [007](007-clean-wheel.md) | Clean wheel for PyPI publish | P1 | S | Plan 006 DONE | DONE | `2a11954` | - | Wheel excludes personal data, __version__ 0.1.0, LICENSE, classifiers, README for installed users. 290 tests. |
+| [008](008-dev-prod-ux.md) | Dev/prod separation and first-run UX | P1 | M | Plan 007 DONE | TODO | - | - | Dev-mode guard, remove hardcoded personal values, better first-run messages. |
 | [009](009-code-quality-hardening.md) | Code quality hardening | P1 | L | Plan 008 DONE | TODO | - | - | TurnResultBuilder, settlement dedup, MessageProjector class, __all__ exports, module docstrings. No logic changes. |
 
 The advisor/operator owns this table. Executors do not edit it.
@@ -92,7 +92,7 @@ Plan 005: User Job Decisions and Conversation Recall
   cross-session recall, apply-as-intent-only
 ```
 
-Plans 004 and 005 are written and remain TODO. Plan 004 executes first. Plan 005 must be reconciled and restamped after Plan 004 is accepted.
+Plan 004 and 005 are DONE. Plan 004 delivered saved job assessment and durable tool effects. Plan 005 delivered user job decisions and conversation recall with append-only decisions and cross-process idempotency. Both are merged to main.
 
 Tests passing alone do not admit Plan 002. Arinze's completed Job 328 rubric and the Plan 001 report must identify source inspection as the next missing capability.
 
