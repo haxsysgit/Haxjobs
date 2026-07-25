@@ -93,11 +93,16 @@ Ctrl+C to clear (or exit if empty), Ctrl+D to exit when empty.
 
 ## Employment tools
 
-Hax has three tools available in conversation:
+Hax has four tools available in conversation:
 
-- `get_job(job_id)` — retrieve a saved job
+- `get_job(job_id)` — retrieve a saved job and current-track recall
 - `inspect_job_source(job_id)` — fetch current source page for a job
 - `record_job_assessment(...)` — record a typed assessment
+- `record_job_decision(job_id, label, reason)` — record the user's append-only choice
+
+Plan 005 is currently a candidate implementation on this branch. `apply` records
+intent only; it does not submit, contact, send, create a pack, or queue work.
+Final controller review is pending.
 
 Ask about jobs naturally: "What do you think of job 49?" or "Should I pursue job 328?"
 
@@ -127,8 +132,10 @@ HAXJOBS_SESSION_DB=/tmp/haxjobs-dev.db haxjobs chat --fake
 - Context is not compacted. Long sessions may hit token limits.
 - No approval workflows, background operations, or sub-agents yet.
 - No source observation history (current snapshot only).
-- No user decisions (Plan 005).
-- Concurrent same-session processes are not locked.
+- Decision parsing remains model-mediated; direct-user authority is guarded by
+  the tool contract and durable user-message provenance.
+- Concurrent same-session processes are not locked. Decision writes do recover
+  SQLite idempotency races across independent connections.
 - No web or desktop UI.
 
 ## Verify the current code

@@ -1,138 +1,87 @@
-# Plan 005 implementation report
+# Plan 005 candidate repair report
 
-## Status and baseline
+## Status
 
-Plan 004 is accepted in the live repository: its implementation was finalized at
-`8511c0b`, and the current documentation-restamped baseline is `fe9f315`.
-The clean pre-change suite passed **248 tests**. Plan 004's plan file still says
-`TODO`, but `plans/README.md`, the accepted commit history, and the live code are
-the authority; this was reconciled rather than treated as a blocker.
+Plan 005 is a candidate implementation on branch `advisor/005-user-job-decisions`.
+Final controller review is pending. This report does not claim controller approval,
+live provider proof, or merge.
 
-Plan 005 required **zero agent core changes**. All new behavior uses the existing
-Plan 004 `ToolExecutionContext`, durable persistence callback, immutable session
-scope, and employment registry interfaces.
+The Plan 004 baseline was 269 passing tests at the start of this repair. The
+current full suite is **273 passed**. The focused Plan 005 files are **48 passed**.
 
-## Reconciled live-code drift
+Plan 005 required zero `agent_core` changes. The implementation uses the existing
+Plan 004 tool execution context, durable message boundary, session configuration,
+and employment registry interfaces.
 
-The written plan described a dict-returning `get_job` action and a full latest
-assessment projection. Live Plan 004 callers rely on the no-track action returning
-a `Job`, while the tool contract already exposed `latest_recommendation`. The
-implementation preserves that existing no-track action contract, adds an explicit
-track-scoped projection, and additively extends the tool output with nullable
-`latest_assessment` and `latest_decision` fields. No compatibility wrapper or
-agent-core adaptation was added.
+## Repair list
 
-## What changed
+- Repaired `record_job_decision` SQLite idempotency across independent processes.
+  A unique-constraint race now reads the committed winner and returns either an
+  identical replay or typed `idempotency_conflict`; unrelated integrity errors
+  remain visible. A deterministic two-process barrier regression covers both
+  same-payload replay and differing-payload conflict.
+- Added Job 49 fake conversation trajectories for direct skip, later skip-to-save
+  correction, explicit apply, same-scope resume recall, and apply's intent-only
+  boundary. The model-suggestion test now records a real assessment before proving
+  that a non-decision reply creates no decision.
+- Kept `tool_call_id` and `source_user_message_id` durable in store/action models,
+  while removing them from model-facing `get_job` assessment and decision recall
+  projections.
+- Routed `recall-flow.drawio` connectors around, rather than through, the boxes
+  and text; regenerated its PNG and validated XML and cell bounds.
+- Restamped current README, product/technical/getting-started docs, and the
+  delivery README/ledger to describe candidate reality and the 273-test count.
+  `plans/README.md` remains controller-owned and was not changed.
 
-- Added typed `JobDecision` with labels `apply`, `maybe`, `save`, `skip`, and
-  `reject`; stable decision IDs derive from the tool call ID.
-- Added the append-only `job_decisions` table with monotonic `sequence`, unique
-  `decision_id`, and unique `tool_call_id`.
-- Added transactional decision insert/replay/conflict handling. Identical call
-  IDs replay the original row; different semantic payloads write nothing and
-  return a typed `IdempotencyConflict`.
-- Added plain actions for recording, latest retrieval, and ordered history.
-- Added `record_job_decision` with `INTERNAL_WRITE` and `retry_safe=False`.
-  Track scope comes from the employment host and audit provenance comes from
-  `ToolExecutionContext.user_message_id`; neither is model input.
-- Added explicit natural-language authority instructions and the apply intent
-  boundary. No submission, contact, send, queue, pack, or outreach code exists.
-- Extended `get_job` tool output with full latest assessment and latest decision
-  projections while retaining the Plan 004 compact recommendation field.
-
-## Exact changed paths
+## Changed paths
 
 ### Application code
 
-- `src/haxjobs/employment/errors.py` — shared typed idempotency conflict.
-- `src/haxjobs/employment/schema.py` — `JobDecision` model.
-- `src/haxjobs/employment/store.py` — decision DDL and transactional/history methods.
-- `src/haxjobs/employment/job_actions.py` — decision actions and track projection.
-- `src/haxjobs/employment/tools.py` — decision input/output, handler, description,
-  and recalled job projections.
+- `src/haxjobs/employment/store.py`
+- `src/haxjobs/employment/job_actions.py`
+- `src/haxjobs/employment/tools.py`
 
 ### Tests
 
-- `tests/test_job_actions.py` — action-level append/read regression.
-- `tests/test_employment_tools.py` — tool validation, scope, conflict, and recall.
-- `tests/test_job_decisions.py` — model/store/action/replay/correction/apply/history tests.
-- `tests/test_trajectory_job_328.py` — no-decision and ambiguous-reference fake trajectories.
+- `tests/test_job_decisions.py`
+- `tests/test_trajectory_job_328.py`
 
-### Deliverables
+### Current documentation and delivery evidence
 
+- `README.md`
+- `docs/GETTING_STARTED.md`
+- `docs/HAXJOBS.md`
+- `docs/PRODUCT.md`
 - `deliverables/005-job-decisions/README.md`
-- `deliverables/005-job-decisions/plan.md`
 - `deliverables/005-job-decisions/report.md`
 - `deliverables/005-job-decisions/review-ledger.md`
-- `deliverables/005-job-decisions/manual-proof.md`
-- `deliverables/005-job-decisions/rubric.md`
-- `deliverables/005-job-decisions/decision-model.drawio`
-- `deliverables/005-job-decisions/decision-model.png`
 - `deliverables/005-job-decisions/recall-flow.drawio`
 - `deliverables/005-job-decisions/recall-flow.png`
 
-## Test and check results
+No `agent_core`, `plans`, `state`, private fixture, credential, provider, or
+public-network path was changed.
 
-- Pre-change Plan 004 baseline: **248 passed**.
-- Focused Plan 005 set after implementation: **44 passed**.
-- Full suite after implementation: **269 passed**.
-- `PYTHONPATH=src:. uv run -- python3 -m py_compile $(find src tests -name '*.py')`: passed.
-- `uv lock --check`: passed.
-- `git diff --check`: passed.
-- CLI help checks for `haxjobs --help` and `haxjobs chat --help`: passed.
-- No test calls a live model, public network, private fixture, or operator database.
+## Verification
 
-## Manual proof
+- `PYTHONPATH=src:. uv run python3 -m pytest -q tests/` — **273 passed**.
+- Focused Plan 005 suite (`test_job_actions.py`, `test_employment_tools.py`,
+  `test_job_decisions.py`, `test_trajectory_job_328.py`) — **48 passed**.
+- `PYTHONPATH=src:. uv run python3 -m py_compile $(find src tests -name '*.py')` — passed.
+- `uv lock --check` — passed.
+- `git diff --check` — passed.
+- CLI help checks for `haxjobs --help` and `haxjobs chat --help` — passed.
+- Draw.io XML parse/cell-bound validation and PNG export validation — passed.
+- Tests use fake models, isolated SQLite, and harness fixtures only; no provider,
+  public network, private fixture, credential, or operator database was used.
 
-`manual-proof.md` records the isolated SQLite proof metadata and observed
-behavior. It intentionally does not claim live provider, private-profile, or
-PTY proof. The safe proof covered a skip write, same-call replay, skip-to-save
-append correction, empty reason preservation, source user-message linkage, and
-`get_job` latest-decision recall.
+## Evidence and residual controller-owned proof
 
-## Diagrams
+The deterministic tests prove durable skip/save/apply writes, correction history,
+current-track recall after resume, omission of internal IDs from recall, and no
+submission/outreach/pack/queue surface for `apply`. They do not prove natural
+language model reliability beyond the scripted fake trajectories. Controller-owned
+work remains: independent review sessions, any approved private/live interaction
+proof, human acceptance, and final status/merge decisions.
 
-- `decision-model.drawio` and `decision-model.png`: JobAssessment remains Hax's
-  analysis; JobDecision is a separate append-only user record, keyed by tool call
-  ID and linked to the persisted user message ID for audit provenance.
-- `recall-flow.drawio` and `recall-flow.png`: a later same-scope session retrieves
-  latest assessment and latest decision from employment state through `get_job`.
-
-## Review findings and repairs
-
-The writer's review found and repaired the initial code-shape risks before the
-final verification pass: the Plan 004 compact `latest_recommendation` output was
-preserved while adding the new nullable projections; idempotency comparison was
-made transactional in the decision store; decision scope/audit fields remained
-outside the input model; and the diagrams were regenerated after removing
-edge-label overlap and literal newline artifacts. No agent-core or state files
-were changed.
-
-No independent DeepSeek reviewer sessions or live controller review were run by
-this worktree executor; the review ledger says so explicitly rather than claiming
-approval that did not occur.
-
-## Deferred controller steps
-
-- Run controller-owned live/provider and human conversation proof with approved
-  private fixtures, if desired; do not expose raw career/model text.
-- Obtain the three independent review approvals and record their session IDs.
-- Record the final commit SHA and artifact hashes in the plan index after review.
-- Update the plan/index status only through the controller; this worktree did not
-  edit plans.
-
-## Residual risks
-
-1. Natural-language decision parsing is model-mediated; the handler cannot prove
-   that a structured call came from a direct user statement.
-2. `apply` is intentionally an intent marker only, but future code must preserve
-   the absence of submission/outreach side effects.
-3. Decision history is append-only and can grow without a retention or archival
-   policy.
-4. The current single-process SQLite assumption does not provide cross-process
-   session locking.
-
-## Final commit
-
-The exact final commit SHA is recorded by the controller after the implementation
-commit and any final review. The writer does not self-claim a controller verdict.
+The final commit SHA is supplied in the completion report after commit; this writer
+does not claim a controller verdict.

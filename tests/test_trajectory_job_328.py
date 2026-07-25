@@ -346,17 +346,35 @@ async def test_job_328_assessment_survives_resume():
 
 @pytest.mark.asyncio
 async def test_model_recommendation_not_saved_as_decision():
-    """A model assessment/reply alone does not create a user decision."""
+    """An existing assessment and a non-decision reply create no user decision."""
     store = _setup_career_store()
     session_store = SessionStore(":memory:")
     try:
         host = EmploymentHost(store=store, person_id="p1", track_id="t1", job_source_fetcher=_no_network_fetcher())
         sid = "no-decision-session"
         session_store.create_session(sid, configuration_json=json.dumps({"person_id": "p1", "track_id": "t1"}))
-        fake = FakeModelClient(stream_events=[[
-            ModelStreamEvent(event_type=ModelStreamEventType.TEXT_DELTA, delta="The role looks like a mismatch."),
-            ModelStreamEvent(event_type=ModelStreamEventType.RESPONSE_COMPLETED, finish_reason="stop"),
-        ]])
+        fake = FakeModelClient(stream_events=[
+            [
+                ModelStreamEvent(
+                    event_type=ModelStreamEventType.COMPLETE_TOOL_CALL,
+                    call_id="assessment-before-reply",
+                    tool_name="record_job_assessment",
+                    arguments=json.dumps({
+                        "job_id": "job-328",
+                        "recommendation": "skip",
+                        "summary": "The role looks like a mismatch.",
+                    }),
+                ),
+                ModelStreamEvent(
+                    event_type=ModelStreamEventType.RESPONSE_COMPLETED,
+                    finish_reason="tool_calls",
+                ),
+            ],
+            [
+                ModelStreamEvent(event_type=ModelStreamEventType.TEXT_DELTA, delta="The role looks like a mismatch."),
+                ModelStreamEvent(event_type=ModelStreamEventType.RESPONSE_COMPLETED, finish_reason="stop"),
+            ],
+        ])
         session = AgentSession(
             session_id=sid,
             session_store=session_store,
@@ -367,12 +385,129 @@ async def test_model_recommendation_not_saved_as_decision():
             active_tool_names_fn=host.active_tool_names,
         )
         await session.prompt("What do you think of job 328?")
+        assessments = store.list_assessments("job-328", "t1")
+        assert len(assessments) == 1
+        assert assessments[0]["recommendation"] == "skip"
         assert store.list_decisions("job-328", "t1") == []
         assert not any(
             row["payload_json"].get("tool_name") == "record_job_decision"
             for row in session_store.load_messages(sid)
             if row["payload_json"].get("kind") == "tool_call"
         )
+    finally:
+        store.close()
+        session_store.close()
+
+
+@pytest.mark.asyncio
+async def test_job_49_direct_skip_then_save_correction_trajectory():
+    """Direct skip followed later by save appends both user decisions."""
+    store = _setup_career_store()
+    session_store = SessionStore(":memory:")
+    try:
+        host = EmploymentHost(
+            store=store, person_id="p1", track_id="t1", job_source_fetcher=_no_network_fetcher()
+        )
+        sid = "job-49-decision-correction"
+        session_store.create_session(sid, configuration_json=json.dumps({"person_id": "p1", "track_id": "t1"}))
+        fake = FakeModelClient(
+            stream_events=(
+                _fake_stream_with_tool_and_text(
+                    ("call-job-49-skip", "record_job_decision", json.dumps({"job_id": "job-49", "label": "skip"})),
+                    "Skipped.",
+                )
+                + _fake_stream_with_tool_and_text(
+                    ("call-job-49-save", "record_job_decision", json.dumps({"job_id": "job-49", "label": "save"})),
+                    "Saved for later.",
+                )
+            ),
+        )
+        session = AgentSession(
+            session_id=sid,
+            session_store=session_store,
+            model=fake,
+            system_prompt=host.system_prompt,
+            context_messages=host.context_messages,
+            tool_registry_fn=host.registered_tools,
+            active_tool_names_fn=host.active_tool_names,
+        )
+        await session.prompt("Yeah, skip job 49.")
+        await session.prompt("Actually, save this one for later.")
+
+        history = store.list_decisions("job-49", "t1")
+        assert [row["label"] for row in history] == ["skip", "save"]
+        assert history[0]["source_user_message_id"] != history[1]["source_user_message_id"]
+        assert job_actions.get_latest_decision(store, "job-49", "t1").label == "save"
+    finally:
+        store.close()
+        session_store.close()
+
+
+@pytest.mark.asyncio
+async def test_explicit_apply_recalls_in_same_scope_without_external_effects():
+    """Apply is durable intent only and is recalled by a resumed same-scope session."""
+    store = _setup_career_store()
+    session_store = SessionStore(":memory:")
+    try:
+        host = EmploymentHost(
+            store=store, person_id="p1", track_id="t1", job_source_fetcher=_no_network_fetcher()
+        )
+        sid = "job-49-apply-recall"
+        session_store.create_session(sid, configuration_json=json.dumps({"person_id": "p1", "track_id": "t1"}))
+        first = AgentSession(
+            session_id=sid,
+            session_store=session_store,
+            model=FakeModelClient(
+                stream_events=_fake_stream_with_tool_and_text(
+                    ("call-job-49-apply", "record_job_decision", json.dumps({"job_id": "job-49", "label": "apply"})),
+                    "Recorded as intent.",
+                )
+            ),
+            system_prompt=host.system_prompt,
+            context_messages=host.context_messages,
+            tool_registry_fn=host.registered_tools,
+            active_tool_names_fn=host.active_tool_names,
+        )
+        await first.prompt("I want to apply for job 49.")
+
+        resumed = AgentSession.resume(
+            session_id=sid,
+            session_store=session_store,
+            model=FakeModelClient(
+                stream_events=_fake_stream_with_tool_and_text(
+                    ("call-job-49-recall", "get_job", json.dumps({"job_id": "job-49"})),
+                    "You recorded apply as your intent.",
+                )
+            ),
+            system_prompt=host.system_prompt,
+            context_messages=host.context_messages,
+            tool_registry_fn=host.registered_tools,
+            active_tool_names_fn=host.active_tool_names,
+        )
+        await resumed.prompt("What did I decide about job 49?")
+
+        assert [row["label"] for row in store.list_decisions("job-49", "t1")] == ["apply"]
+        tool_names = [
+            row["payload_json"]["tool_name"]
+            for row in session_store.load_messages(sid)
+            if row["payload_json"].get("kind") == "tool_call"
+        ]
+        assert tool_names == ["record_job_decision", "get_job"]
+        recall_results = [
+            row["payload_json"]
+            for row in session_store.load_messages(sid)
+            if row["payload_json"].get("kind") == "tool_result"
+            and row["payload_json"].get("tool_name") == "get_job"
+        ]
+        decision_projection = recall_results[-1]["result"]["latest_decision"]
+        assert decision_projection["label"] == "apply"
+        assert "tool_call_id" not in decision_projection
+        assert "source_user_message_id" not in decision_projection
+        tables = {
+            row["name"]
+            for row in store._conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+        assert not tables.intersection({"submissions", "outreach", "packs", "queues"})
     finally:
         store.close()
         session_store.close()

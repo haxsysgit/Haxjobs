@@ -1,22 +1,23 @@
-# Plan 005 review ledger
+# Plan 005 candidate repair ledger
 
 This is the writer-owned ledger. No independent reviewer sessions were spawned,
-and no live/private review was claimed.
+and no live/private review was claimed. Final controller review is pending.
 
 | ID | Finding | Decision | Evidence |
 |---|---|---|---|
-| R-001 | Plan 004 plan text is stale (`TODO`) while the live accepted baseline is complete. | Reconciled from live `plans/README.md`, commit history, and 248-test baseline; no code blocker. | `fe9f315`, `8511c0b`, pre-change pytest |
-| R-002 | Live Plan 004 action callers expect `get_job(store, id)` to return `Job`, while Plan 005 describes a dict projection. | Preserve the no-track `Job` contract and add an explicit track-scoped projection; tool output is additively extended. | `src/haxjobs/employment/job_actions.py`, existing `tests/test_job_actions.py` |
-| R-003 | Decision idempotency must not rely on an insert exception or timestamps. | Accepted repair: lookup and insert occur in one store transaction; sequence orders history; semantic conflicts return typed data. | `src/haxjobs/employment/store.py`, `tests/test_job_decisions.py` |
-| R-004 | Model must not supply track or audit provenance. | Accepted: input schema has exactly `job_id`, `label`, and `reason`; host/context supply the rest. | `src/haxjobs/employment/tools.py`, tool schema tests |
-| R-005 | `apply` could accidentally imply an external application action. | Accepted: only a `JobDecision` row is written; tool description explicitly says intent only; deterministic test checks no external-action surface was added. | `tests/test_job_decisions.py`, `RecordJobDecisionOutput` |
-| R-006 | Literal `\\n` diagram text and edge labels reduced readability. | Accepted repair: XML line breaks changed to `&#xa;`, edge labels removed, PNGs regenerated locally. | `decision-model.png`, `recall-flow.png` |
-| R-007 | Required independent Flash review and controller-owned live proof are not available to the sole writer. | Deferred honestly; report/manual proof do not claim approval or live/private evidence. | `report.md`, `manual-proof.md` |
+| R-001 | The Plan 004 baseline was documented as 248 tests, while the live baseline was 269. | Restamped current docs and report to the measured 273-test post-repair suite. | `README.md`, `docs/HAXJOBS.md`, `report.md` |
+| R-002 | A two-connection SQLite race could leak `sqlite3.IntegrityError` from `record_job_decision`. | Recover the unique constraint winner by `tool_call_id`; classify same payload as replay and differing payload as typed conflict. | `src/haxjobs/employment/store.py`, `tests/test_job_decisions.py` |
+| R-003 | The original decision trajectory coverage omitted the requested Job 49 direct skip/correction/apply/resume paths. | Added fake, no-network trajectories with durable history and same-scope recall assertions. | `tests/test_trajectory_job_328.py` |
+| R-004 | The model-suggestion test did not first create an assessment. | Scripted a real `record_job_assessment` call before the non-decision reply assertion. | `tests/test_trajectory_job_328.py` |
+| R-005 | Model-facing `get_job` recall exposed internal call and audit provenance IDs. | Removed `tool_call_id` and `source_user_message_id` only from recall projections; typed action/store reads retain them. | `src/haxjobs/employment/job_actions.py`, `src/haxjobs/employment/tools.py`, tests |
+| R-006 | `recall-flow.drawio` connectors could route through lower boxes/text. | Added explicit around-the-outside orthogonal waypoints and re-exported PNG; XML/bounds checks pass. | `recall-flow.drawio`, `recall-flow.png` |
+| R-007 | Current docs and delivery text overstated completion and had stale test counts. | Updated current docs and delivery report/README/ledger to candidate reality, 273 tests, and pending review. Left `plans/README.md` untouched. | `README.md`, `docs/`, `deliverables/005-job-decisions/` |
+| R-008 | Independent reviewer approval, controller-owned live/provider proof, and merge status are unavailable to the sole writer. | Deferred honestly; no approval, live proof, or merge claim is made. | `report.md`, `manual-proof.md` |
 
 ## Scope checks
 
 - No `src/haxjobs/agent_core/` path changed.
-- No `state/`, credentials, private fixtures, providers, public network, plans,
-  migration, fixture loader, CLI, or dependency lock path changed.
+- No `plans/README.md`, `state/`, credentials, private fixtures, provider, public
+  network, or operator database was used or changed.
 - No application submission, outreach, pack generation, queue, or external effect
-  was implemented.
+  was implemented. `apply` remains an intent-only decision.

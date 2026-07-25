@@ -523,7 +523,12 @@ class CareerStore:
     # ── Plan 005: Job decisions ──
 
     def upsert_decision(self, decision: JobDecision) -> JobDecision | IdempotencyConflict:
-        """Insert a decision, replay an identical call, or return a typed conflict."""
+        """Insert a decision, replay an identical call, or return a typed conflict.
+
+        The initial lookup is only an optimisation. A second connection can win
+        the unique insert between that lookup and our insert, so the constraint
+        failure is recovered by reading the committed row by its idempotency key.
+        """
         semantic = decision.model_dump(
             exclude={"decision_id", "sequence", "created_at"}
         )
@@ -533,40 +538,62 @@ class CareerStore:
                 (decision.tool_call_id,),
             ).fetchone()
             if row is not None:
-                existing = JobDecision.model_validate(dict(row))
-                existing_semantic = existing.model_dump(
-                    exclude={"decision_id", "sequence", "created_at"}
-                )
-                if existing_semantic == semantic:
-                    existing._replayed = True
-                    return existing
-                return IdempotencyConflict(
-                    existing_decision_id=existing.decision_id,
-                    existing_label=existing.label,
-                    conflict_detail=(
-                        f"Same tool_call_id ({decision.tool_call_id}) "
-                        "with different payload"
+                return self._decision_replay_or_conflict(row, semantic, decision.tool_call_id)
+
+            try:
+                cursor = self._conn.execute(
+                    """INSERT INTO job_decisions (
+                        decision_id, job_id, track_id, tool_call_id,
+                        source_user_message_id, label, reason, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        decision.decision_id,
+                        decision.job_id,
+                        decision.track_id,
+                        decision.tool_call_id,
+                        decision.source_user_message_id,
+                        decision.label,
+                        decision.reason,
+                        decision.created_at,
                     ),
                 )
+            except sqlite3.IntegrityError:
+                # The failed statement is rolled back before looking up the
+                # winner. This keeps the recovery safe across independent
+                # connections and leaves unrelated constraint errors visible.
+                self._conn.rollback()
+                row = self._conn.execute(
+                    "SELECT * FROM job_decisions WHERE tool_call_id = ?",
+                    (decision.tool_call_id,),
+                ).fetchone()
+                if row is None:
+                    raise
+                return self._decision_replay_or_conflict(row, semantic, decision.tool_call_id)
 
-            cursor = self._conn.execute(
-                """INSERT INTO job_decisions (
-                    decision_id, job_id, track_id, tool_call_id,
-                    source_user_message_id, label, reason, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                (
-                    decision.decision_id,
-                    decision.job_id,
-                    decision.track_id,
-                    decision.tool_call_id,
-                    decision.source_user_message_id,
-                    decision.label,
-                    decision.reason,
-                    decision.created_at,
-                ),
-            )
             decision.sequence = cursor.lastrowid
             return decision
+
+    @staticmethod
+    def _decision_replay_or_conflict(
+        row: dict,
+        semantic: dict,
+        tool_call_id: str,
+    ) -> JobDecision | IdempotencyConflict:
+        """Classify a durable row found for a decision idempotency key."""
+        existing = JobDecision.model_validate(dict(row))
+        existing_semantic = existing.model_dump(
+            exclude={"decision_id", "sequence", "created_at"}
+        )
+        if existing_semantic == semantic:
+            existing._replayed = True
+            return existing
+        return IdempotencyConflict(
+            existing_decision_id=existing.decision_id,
+            existing_label=existing.label,
+            conflict_detail=(
+                f"Same tool_call_id ({tool_call_id}) with different payload"
+            ),
+        )
 
     def get_latest_decision(self, job_id: str, track_id: str) -> dict | None:
         """Return the latest decision for a job and track by monotonic sequence."""

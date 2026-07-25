@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import multiprocessing
 
 import pytest
 from pydantic import ValidationError
@@ -13,6 +14,36 @@ from haxjobs.employment import job_actions
 from haxjobs.employment.schema import CareerTrack, JobDecision, Person
 from haxjobs.employment.store import CareerStore
 from haxjobs.employment.tools import RecordJobDecisionInput, build_employment_tool_registry
+
+
+def _concurrent_decision_worker(db_path: str, label: str, barrier, results) -> None:
+    """Hold two independent processes at the lookup before their inserts."""
+    store = CareerStore(db_path)
+    first_lookup = True
+
+    def trace(sql: str) -> None:
+        nonlocal first_lookup
+        if first_lookup and "SELECT * FROM job_decisions WHERE tool_call_id" in sql:
+            first_lookup = False
+            barrier.wait(timeout=10)
+
+    store._conn.set_trace_callback(trace)
+    try:
+        result = job_actions.record_decision(
+            store,
+            JobDecision(
+                job_id="job-49",
+                track_id="t1",
+                tool_call_id="cross-process-call",
+                source_user_message_id="cross-process-user",
+                label=label,  # type: ignore[arg-type]
+            ),
+        )
+        results.put((type(result).__name__, result.replayed if isinstance(result, JobDecision) else None))
+    except Exception as exc:  # report failures without hiding them in the parent
+        results.put(("error", repr(exc)))
+    finally:
+        store.close()
 
 
 @pytest.fixture
@@ -77,6 +108,53 @@ def test_decision_idempotency_conflict_different_payload(store: CareerStore):
     assert len(job_actions.list_decisions(store, "job-49", "t1")) == 1
 
 
+@pytest.mark.parametrize(
+    ("labels", "expected_types"),
+    [
+        (("skip", "skip"), {"JobDecision"}),
+        (("skip", "apply"), {"JobDecision", "IdempotencyConflict"}),
+    ],
+)
+def test_decision_idempotency_across_independent_processes(
+    tmp_path, labels, expected_types
+):
+    """Two connections racing after lookup recover as replay or conflict."""
+    db_path = str(tmp_path / "career.db")
+    setup = CareerStore(db_path)
+    job_actions.import_job_from_fixture(setup, "discussion/fixtures/harness/job-49.json")
+    now = "2026-07-21T00:00:00+00:00"
+    setup.upsert_person(Person(person_id="p1", name="Test", location="L", created_at=now, updated_at=now))
+    setup.upsert_track(CareerTrack(track_id="t1", person_id="p1", name="Backend", created_at=now, updated_at=now))
+    setup.close()
+
+    context = multiprocessing.get_context("fork")
+    barrier = context.Barrier(2)
+    results = context.Queue()
+    processes = [
+        context.Process(
+            target=_concurrent_decision_worker,
+            args=(db_path, label, barrier, results),
+        )
+        for label in labels
+    ]
+    for process in processes:
+        process.start()
+    observed = [results.get(timeout=15) for _ in processes]
+    for process in processes:
+        process.join(timeout=15)
+        assert process.exitcode == 0
+
+    assert {item[0] for item in observed} == expected_types
+    assert all(item[0] != "error" for item in observed)
+    check = CareerStore(db_path)
+    try:
+        rows = check.list_decisions("job-49", "t1")
+        assert len(rows) == 1
+        assert rows[0]["label"] in labels
+    finally:
+        check.close()
+
+
 def test_decision_correction_appends_not_mutates(store: CareerStore):
     first = _decision(store, "decision-skip", "user-1", "skip")
     second = _decision(store, "decision-save", "user-2", "save")
@@ -115,7 +193,11 @@ def test_decision_survives_new_session(store: CareerStore):
     # A later host/session reads the employment store, rather than transcript memory.
     projected = job_actions.get_job(store, "job-49", "t1")
     assert projected["latest_decision"]["label"] == "skip"
-    assert projected["latest_decision"]["source_user_message_id"] == "session-a-user"
+    assert "tool_call_id" not in projected["latest_decision"]
+    assert "source_user_message_id" not in projected["latest_decision"]
+    # The durable action model still carries audit provenance.
+    stored = job_actions.get_latest_decision(store, "job-49", "t1")
+    assert stored.source_user_message_id == "session-a-user"
 
 
 def test_get_job_without_decision(store: CareerStore):
@@ -150,5 +232,8 @@ async def test_tool_binds_track_and_user_message(store: CareerStore):
     stored = job_actions.get_latest_decision(store, "job-49", "t1")
     assert stored.track_id == "t1"
     assert stored.source_user_message_id == "message-b"
+    recalled = job_actions.get_job(store, "job-49", "t1")
+    assert "tool_call_id" not in recalled["latest_decision"]
+    assert "source_user_message_id" not in recalled["latest_decision"]
     assert "track_id" not in RecordJobDecisionInput.model_json_schema()["properties"]
     assert "user_message_id" not in RecordJobDecisionInput.model_json_schema()["properties"]

@@ -19,12 +19,12 @@ The model boundary knows nothing about careers. The agent core knows nothing abo
 
 - `src/haxjobs/model/` — `ModelClient` protocol, `OpenAIModelClient` (max_retries=0), `FakeModelClient`, normalized `ModelRequest`/`ModelResponse`/`ModelFailure` types
 - `src/haxjobs/agent_core/` — domain-free messages, tool registry with execution context, bounded turn runtime with durable tool boundaries, session persistence with dangling call detection, content-free measurement
-- `src/haxjobs/employment/` — Pydantic models (Person, CareerTrack, Skill, Evidence, Job, JobAssessment), career graph store, migration, job source fetcher, employment tools (get_job, inspect_job_source, record_job_assessment), career context assembly with evidence content
+- `src/haxjobs/employment/` — Pydantic models (Person, CareerTrack, Skill, Evidence, Job, JobAssessment, JobDecision), career graph store, migration, job source fetcher, employment tools (get_job, inspect_job_source, record_job_assessment, record_job_decision), career context assembly with evidence content
 - `src/haxjobs/interfaces/` — `haxjobs chat` (interactive terminal), `haxjobs profile` (CLI management)
 - `src/haxjobs/config.py` — paths from `haxjobs.toml`
 - `src/haxjobs/cv_variants/` — user CV variant templates, registry, renderer (data, not code to rebuild)
 
-248 tests pass (all tests, including PTY terminal tests with isolated temp career DB). Stage 0/1 experiment runtime deleted after conversational runtime trajectories passed.
+273 tests pass locally (all tests, including PTY terminal tests with isolated temp career DB). This includes the Plan 005 candidate's decision trajectories and cross-process SQLite idempotency regression. Stage 0/1 experiment runtime was deleted after conversational runtime trajectories passed. Final controller review is pending.
 
 ### What was deleted
 
@@ -64,7 +64,7 @@ All of these rebuild from scratch on the greenfield runtime, one stage at a time
 1. **No context compaction.** No token tracking, compaction triggers, or context-window awareness.
 2. **No cross-process session locking.** Concurrent same-session processes are explicitly deferred.
 3. **No source observation history.** Current snapshot only; assessment hash preserves which snapshot was used.
-4. **No user decisions.** Append-only assessments exist. User decisions are Plan 005.
+4. **Plan 005 candidate status.** Append-only user decisions and current-track recall exist in this branch. `apply` is intent only, and model-facing recall omits internal call and provenance IDs. Final controller review is pending.
 
 ### Deferred features
 

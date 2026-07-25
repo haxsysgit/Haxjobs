@@ -333,6 +333,9 @@ async def test_get_job_includes_latest_assessment_and_decision(store: CareerStor
     assert result["ok"] is True
     assert result["data"]["latest_assessment"]["recommendation"] == "skip"
     assert result["data"]["latest_decision"]["label"] == "skip"
+    assert "tool_call_id" not in result["data"]["latest_assessment"]
+    assert "tool_call_id" not in result["data"]["latest_decision"]
+    assert "source_user_message_id" not in result["data"]["latest_decision"]
 
 
 @pytest.mark.asyncio

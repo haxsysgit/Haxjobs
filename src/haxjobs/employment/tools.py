@@ -201,8 +201,8 @@ def build_employment_tool_registry(
 
     # ── get_job ──
     async def get_job_handler(input_obj: GetJobInput, ctx: ToolExecutionContext) -> dict[str, Any]:
-        job = job_actions.get_job(store, input_obj.job_id)
-        if job is None:
+        projection = job_actions.get_job(store, input_obj.job_id, track_id)
+        if projection is None:
             # Keep failures in the standard top-level envelope. The job ID is
             # model input, not a safe diagnostic to copy into public errors.
             return {
@@ -211,21 +211,19 @@ def build_employment_tool_registry(
                 "error": "job lookup failed",
             }
 
-        latest = job_actions.get_latest_assessment(store, job.job_id, track_id)
-        latest_decision = job_actions.get_latest_decision(store, job.job_id, track_id)
-
+        latest = projection["latest_assessment"]
         return GetJobOutput(
             ok=True,
-            job_id=job.job_id,
-            title=job.title,
-            employer_name=job.employer_name or "",
-            location=job.location,
-            description=job.description,
-            description_complete=job.description_complete,
-            source_status=job.source_status,
-            latest_recommendation=latest.recommendation if latest else "",
-            latest_assessment=latest.model_dump() if latest else None,
-            latest_decision=latest_decision.model_dump() if latest_decision else None,
+            job_id=projection["job_id"],
+            title=projection["title"],
+            employer_name=projection["employer_name"] or "",
+            location=projection["location"],
+            description=projection["description"],
+            description_complete=projection["description_complete"],
+            source_status=projection["source_status"],
+            latest_recommendation=latest["recommendation"] if latest else "",
+            latest_assessment=latest,
+            latest_decision=projection["latest_decision"],
         ).model_dump()
 
     registry.register(ToolDefinition(

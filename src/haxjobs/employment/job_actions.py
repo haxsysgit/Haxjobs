@@ -80,8 +80,16 @@ def get_job(store, job_id: str, track_id: str | None = None) -> Job | dict[str, 
     result = job.model_dump()
     assessment = get_latest_assessment(store, job_id, track_id)
     decision = get_latest_decision(store, job_id, track_id)
-    result["latest_assessment"] = assessment.model_dump() if assessment else None
-    result["latest_decision"] = decision.model_dump() if decision else None
+    # Idempotency and audit identifiers remain in the typed action/store
+    # models, but are not part of the model-facing recall projection.
+    result["latest_assessment"] = (
+        assessment.model_dump(exclude={"tool_call_id"}) if assessment else None
+    )
+    result["latest_decision"] = (
+        decision.model_dump(
+            exclude={"tool_call_id", "source_user_message_id"}
+        ) if decision else None
+    )
     return result
 
 
