@@ -40,6 +40,7 @@ Other execution facts:
 | [003-corrected](003-career-graph-schema.md) | Career graph and first real conversation (corrected) | P1 | M | Plan 003 career graph DONE | DONE | `d6fa361` | deliverables/003-career-graph/ | Four fresh DeepSeek V4 Pro release reviewers approved the same commit. Real provider PTY conversation and same-session resume passed. Baseline 0c412b0 verified at 217 passed. |
 | [004](004-saved-job-assessment-and-durable-tool-effects.md) | Saved job assessment and durable tool effects | P1 | L | Plan 003-corrected DONE | DONE | `8511c0b` | deliverables/004-saved-job-assessment/report.md | 248 tests passed before final documentation count correction. Luna final review found no remaining code blocker after the final repair; controller-owned live provider proof remains deferred. |
 | [005](005-user-job-decisions-and-conversation-recall.md) | User job decisions and conversation recall | P1 | L | Plan 004 DONE | DONE | `b4eda93` | deliverables/005-job-decisions/report.md | Append-only user decisions, safe cross-process idempotency, track-scoped recall, and intent-only apply. 274 tests passed before final index update. |
+| [006](006-global-cli-packaging.md) | Global CLI packaging | P1 | M | Plan 005 DONE | TODO | - | - | Installable global `haxjobs` command, `~/.haxjobs` runtime home, attended provider setup, and clean-wheel proof outside the checkout. |
 
 The advisor/operator owns this table. Executors do not edit it.
 
