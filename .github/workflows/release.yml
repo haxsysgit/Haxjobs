@@ -30,11 +30,13 @@ jobs:
 
       - name: Verify wheel contents
         run: |
-          WHEEL=$(ls dist/*.whl)
           python3 -c "
-          import zipfile, sys, os
-          wheel = os.environ['WHEEL']
-          z = zipfile.ZipFile(wheel)
+          import zipfile, sys, glob
+          wheels = glob.glob('dist/*.whl')
+          if not wheels:
+              print('No wheel found', file=sys.stderr)
+              sys.exit(1)
+          z = zipfile.ZipFile(wheels[0])
           names = sorted(z.namelist())
           for n in names:
               print(n)
