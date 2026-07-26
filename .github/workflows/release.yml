@@ -30,9 +30,11 @@ jobs:
 
       - name: Verify wheel contents
         run: |
+          WHEEL=$(ls dist/*.whl)
           python3 -c "
-          import zipfile, sys
-          z = zipfile.ZipFile('dist/haxjobs-*.whl')
+          import zipfile, sys, os
+          wheel = os.environ['WHEEL']
+          z = zipfile.ZipFile(wheel)
           names = sorted(z.namelist())
           for n in names:
               print(n)
