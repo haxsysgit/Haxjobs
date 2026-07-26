@@ -47,11 +47,14 @@ jobs:
           print('Wheel audit: CLEAN')
           "
 
+      - name: Get tag message
+        run: git tag -l --format='%(contents:body)' ${{ github.ref_name }} > /tmp/release-body.md
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*.whl
-          generate_release_notes: true
+          body_path: /tmp/release-body.md
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
