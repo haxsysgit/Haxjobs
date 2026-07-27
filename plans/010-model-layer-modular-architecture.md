@@ -29,7 +29,8 @@ From the Hermes architecture study (`discussion/research/provider-architecture-h
 
 Must become:
 - `model/protocol.py` — `ModelClient` protocol (extracted)
-- `model/profiles.py` — `ProviderProfile` dataclass + `register_profile()` + `get_profile()`
+- `model/profiles/base.py` — `ProviderProfile` dataclass + `register_profile()` + `get_profile()`
+- `model/profiles/__init__.py` — imports deepseek to trigger self-registration, re-exports from base
 - `model/profiles/deepseek.py` — `DeepSeekProfile` (~50 lines, thinking mode + reasoning_effort)
 - `model/adapters/openai_compat.py` — Generic adapter (~200 lines, replaces `OpenAIModelClient`)
 - `model/schemas.py` — tool schema conversion (extracted from client.py duplicate code)
@@ -63,11 +64,12 @@ Must add:
 
 **New files:**
 - `model/protocol.py` — `ModelClient` protocol extracted from `client.py`
-- `model/profiles.py` — `ProviderProfile` dataclass + `_REGISTRY` + `register_profile()`, `get_profile()`
+- `model/profiles/base.py` — `ProviderProfile` dataclass + `_REGISTRY` + `register_profile()`, `get_profile()`
+- `model/profiles/__init__.py` — imports deepseek, re-exports from base
 - `model/schemas.py` — `tool_schemas_to_provider(tools: list[ToolSchema]) → list[dict]` extracted from `client.py`
 
 **Changed files:**
-- `model/types.py` — add `THINKING_DELTA`, `reasoning_content` to `ModelResponse`
+- `model/types.py` — add `THINKING_DELTA`, `reasoning_content` to `ModelResponse` and `ModelMessage`
 - `model/__init__.py` — add exports for new modules, change `ModelClient` import to `protocol`
 
 **ProviderProfile dataclass:**
@@ -76,7 +78,6 @@ Must add:
 class ProviderProfile:
     name: str
     aliases: tuple[str, ...] = ()
-    base_url: str = ""
     default_max_tokens: int | None = None
 
     def build_extra_body(self, *, model: str = "", **context) -> dict[str, Any]:
@@ -191,9 +192,12 @@ class OpenAICompatAdapter:
 
 **Changed files:**
 - `model/__init__.py` — export `OpenAICompatAdapter` instead of `OpenAIModelClient`
-- `employment/composition.py` — import and construct `OpenAICompatAdapter` instead of `OpenAIModelClient`
+- `employment/composition.py` — construct `OpenAICompatAdapter(ProviderConfig.from_file(PROVIDER_CONFIG_PATH))`
+  instead of the no-arg `OpenAIModelClient()` call at line 72
 
-**Deleted:** `model/client.py`
+**Deleted:** `model/client.py`. All imports of `ModelClient` move to `model.protocol`.
+`agent_core/session.py`, `agent_core/turn.py`, and `model/fake.py` import
+`ModelClient` from `client.py` — update these to `model.protocol`.
 
 **Tests:**
 - Adapter builds correct kwargs with DeepSeek profile (thinking + reasoning_effort in extra_body)
@@ -233,25 +237,28 @@ class OpenAICompatAdapter:
 | File | Change |
 |---|---|
 | `model/protocol.py` | New — ModelClient protocol extracted |
-| `model/profiles.py` | New — ProviderProfile + registry |
-| `model/profiles/__init__.py` | New — imports deepseek to trigger registration |
+| `model/profiles/base.py` | New — ProviderProfile + registry |
+| `model/profiles/__init__.py` | New — imports deepseek, re-exports base |
 | `model/profiles/deepseek.py` | New — DeepSeekProfile |
 | `model/schemas.py` | New — tool schema conversion |
 | `model/provider.py` | New — ProviderConfig |
 | `model/adapters/__init__.py` | New |
 | `model/adapters/openai_compat.py` | New — generic adapter (replaces client.py) |
 | `model/client.py` | Deleted |
-| `model/types.py` | THINKING_DELTA + reasoning_content on ModelResponse |
+| `model/types.py` | THINKING_DELTA + reasoning_content on ModelResponse and ModelMessage |
 | `model/__init__.py` | Updated exports |
-| `agent_core/messages.py` | reasoning_content on AssistantMessage, projector carries it |
+| `model/fake.py` | Update ModelClient import to protocol |
+| `agent_core/session.py` | Update ModelClient import to protocol |
 | `agent_core/turn.py` | Accumulate reasoning, THINKING_DELTA branch, set on both message paths |
-| `employment/composition.py` | Import OpenAICompatAdapter |
+| `agent_core/messages.py` | reasoning_content on AssistantMessage, projector carries it |
+| `employment/composition.py` | Construct OpenAICompatAdapter from ProviderConfig |
 | `tests/` | New tests for all new modules |
 
 ## Files NOT touched
 
 - `agent_core/session.py`
 - `agent_core/live_events.py`
+- `agent_core/session.py` (ModelClient import update only)
 - `agent_core/tools.py`
 - `agent_core/dispatch.py`
 - `employment/*` (except composition.py wire-up)
