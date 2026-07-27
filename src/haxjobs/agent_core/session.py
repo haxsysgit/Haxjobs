@@ -27,7 +27,7 @@ from haxjobs.agent_core.messages import (
 )
 from haxjobs.agent_core.session_store import SessionStore
 from haxjobs.agent_core.turn import TurnExitReason, TurnResult, run_turn
-from haxjobs.model.client import ModelClient
+from haxjobs.model import ModelClient
 
 logger = logging.getLogger(__name__)
 

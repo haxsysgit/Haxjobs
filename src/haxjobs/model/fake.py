@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from typing import AsyncIterator
 
-from haxjobs.model.client import ModelClient
+from haxjobs.model.protocol import ModelClient
 from haxjobs.model.types import (
     ModelFailure,
     ModelRequest,

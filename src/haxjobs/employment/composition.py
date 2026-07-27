@@ -15,8 +15,15 @@ from haxjobs.agent_core.session_store import SessionStore
 from haxjobs.config import CAREER_DB_PATH, SESSION_DB_PATH
 from haxjobs.employment.host import EmploymentHost, EmploymentSetupError
 from haxjobs.employment.store import CareerStore
-from haxjobs.model.client import ModelClient, OpenAIModelClient
-from haxjobs.model.fake import FakeModelClient
+from haxjobs.model import (
+    FakeModelClient,
+    GenericAdapter,
+    ModelClient,
+    ProviderConfig,
+    ProviderProfile,
+    detect_profile,
+    load_provider_config,
+)
 from haxjobs.model.types import ModelResponse, ModelStreamEvent, ModelStreamEventType
 
 
@@ -72,7 +79,9 @@ def compose_session(
         if fake:
             model = _fake_model(delay_ms=fake_delay_ms)
         else:
-            model = OpenAIModelClient()
+            config = load_provider_config()
+            profile = detect_profile(config.provider, config.base_url)
+            model = GenericAdapter(config, profile)
 
         if session_id:
             session = AgentSession.resume(

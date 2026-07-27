@@ -1,6 +1,7 @@
 """Model streaming tests — delta order, tool-call assembly, cancellation, existing complete() unchanged.
 
 Plan 003 Phase 3: provider-neutral stream events with cancellation. No live provider calls.
+Plan 010: Updated for GenericAdapter provider abstraction.
 """
 
 from __future__ import annotations
@@ -10,8 +11,10 @@ from unittest import mock
 
 import pytest
 
-from haxjobs.model.client import OpenAIModelClient
+from haxjobs.model import GenericAdapter
 from haxjobs.model.fake import FakeModelClient
+from haxjobs.model.profiles import DEFAULT_PROFILE, ProviderProfile
+from haxjobs.model.provider import ProviderConfig
 from haxjobs.model.types import (
     ModelFailure,
     ModelMessage,
@@ -307,23 +310,23 @@ async def test_mocked_openai_stream_assembles_tool_calls():
         for chunk in chunks:
             yield chunk
 
-    # Patch the client's internal method
-    with mock.patch.object(
-        OpenAIModelClient, "_ensure_client", autospec=True
-    ) as mock_ensure:
-        mock_client = mock.AsyncMock()
-        mock_client.chat.completions.create.return_value = _mock_stream()
-        mock_ensure.return_value = mock_client
+    config = ProviderConfig(
+        provider="deepseek",
+        model="deepseek-v4-flash",
+        base_url="https://api.deepseek.com/v1",
+        api_key="test-key",
+    )
+    adapter = GenericAdapter(config, DEFAULT_PROFILE)
 
-        # Set required attributes
-        client = OpenAIModelClient.__new__(OpenAIModelClient)
-        client._client = mock_client
-        client._model = "test-model"
-        client._provider = "test-provider"
+    # Patch the internal client's create method
+    with mock.patch.object(adapter._client.chat.completions, "create") as mock_create:
+        async def _awaitable_stream():
+            return _mock_stream()
+        mock_create.return_value = _awaitable_stream()
 
         cancel = asyncio.Event()
         collected: list[ModelStreamEvent] = []
-        async for evt in client.stream(_fake_request(), cancel):
+        async for evt in adapter.stream(_fake_request(), cancel):
             collected.append(evt)
 
         # Should have: text delta, complete tool call, response completed
@@ -376,66 +379,27 @@ async def test_mocked_openai_stream_cancels():
             yield chunk
             await asyncio.sleep(0)  # yield control
 
-    # Patch
-    async def _stream_patch(self, request, cancel_event):
-        stream = _mock_stream()
-        accumulated_text = ""
-        finish_reason = ""
-        usage = None
-        tool_call_builders: dict[int, dict] = {}
-        completed_tool_calls: set[str] = set()
+    config = ProviderConfig(
+        provider="deepseek",
+        model="deepseek-v4-flash",
+        base_url="https://api.deepseek.com/v1",
+        api_key="test-key",
+    )
+    adapter = GenericAdapter(config, DEFAULT_PROFILE)
 
-        try:
-            async for chunk in stream:
-                if cancel_event.is_set():
-                    try:
-                        await stream.aclose()
-                    except Exception:
-                        pass
-                    yield ModelStreamEvent(
-                        event_type=ModelStreamEventType.RESPONSE_FAILED,
-                        error="cancelled",
-                        category="cancelled",
-                    )
-                    return
+    # Patch the internal client's create method
+    with mock.patch.object(adapter._client.chat.completions, "create") as mock_create:
+        async def _awaitable_stream():
+            return _mock_stream()
+        mock_create.return_value = _awaitable_stream()
 
-                if not chunk.choices:
-                    continue
-
-                choice = chunk.choices[0]
-                delta = choice.delta
-
-                if choice.finish_reason:
-                    finish_reason = choice.finish_reason
-
-                if delta.content:
-                    accumulated_text += delta.content
-                    yield ModelStreamEvent(
-                        event_type=ModelStreamEventType.TEXT_DELTA,
-                        delta=delta.content,
-                    )
-        except asyncio.CancelledError:
-            yield ModelStreamEvent(
-                event_type=ModelStreamEventType.RESPONSE_FAILED,
-                error="cancelled",
-                category="cancelled",
-            )
-            return
-
-        yield ModelStreamEvent(
-            event_type=ModelStreamEventType.RESPONSE_COMPLETED,
-            finish_reason=finish_reason,
-        )
-
-    with mock.patch.object(OpenAIModelClient, "stream", _stream_patch):
-        client = OpenAIModelClient.__new__(OpenAIModelClient)
         cancel = asyncio.Event()
         collected: list[ModelStreamEvent] = []
         count = 0
 
         async def _collect_and_cancel():
             nonlocal count
-            async for evt in client.stream(_fake_request(), cancel):
+            async for evt in adapter.stream(_fake_request(), cancel):
                 collected.append(evt)
                 count += 1
                 if count >= 1:

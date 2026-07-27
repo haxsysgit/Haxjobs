@@ -39,6 +39,7 @@ class AssistantMessage(BaseModel):
     turn_id: str
     content: str
     status: Literal["complete", "interrupted", "failed"]
+    reasoning_content: str = ""
     created_at: str = Field(default_factory=_utcnow)
 
     model_config = {"extra": "forbid"}
@@ -92,6 +93,7 @@ class MessageProjector:
         self._result: list[ModelMessage] = []
         self._pending_text: str | None = None
         self._pending_tool_calls: list[dict[str, Any]] = []
+        self._pending_reasoning_content: str = ""
 
     def _flush(self) -> None:
         if self._pending_text is not None or self._pending_tool_calls:
@@ -101,9 +103,12 @@ class MessageProjector:
             )
             if self._pending_tool_calls:
                 msg.tool_calls = list(self._pending_tool_calls)
+            if self._pending_reasoning_content:
+                msg.reasoning_content = self._pending_reasoning_content
             self._result.append(msg)
         self._pending_text = None
         self._pending_tool_calls = []
+        self._pending_reasoning_content = ""
 
     def project(
         self,
@@ -130,6 +135,7 @@ class MessageProjector:
             elif msg.kind == "assistant":
                 self._flush()
                 self._pending_text = msg.content
+                self._pending_reasoning_content = getattr(msg, "reasoning_content", "")
 
             elif msg.kind == "tool_call":
                 if self._pending_text is None and not self._pending_tool_calls:

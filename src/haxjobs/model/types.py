@@ -29,6 +29,7 @@ class ModelMessage(BaseModel):
     content: str
     tool_calls: list[dict] | None = None
     tool_call_id: str | None = None
+    reasoning_content: str | None = None
 
 
 class ModelRequest(BaseModel):
@@ -57,6 +58,7 @@ class ModelResponse(BaseModel):
     usage: ModelUsage | None = None
     model: str
     provider: str
+    reasoning_content: str = ""
 
 
 class ModelFailure(BaseModel):
@@ -76,6 +78,7 @@ class ModelFailure(BaseModel):
 
 class ModelStreamEventType(str, Enum):
     TEXT_DELTA = "text_delta"
+    THINKING_DELTA = "thinking_delta"
     COMPLETE_TOOL_CALL = "complete_tool_call"
     RESPONSE_COMPLETED = "response_completed"
     RESPONSE_FAILED = "response_failed"

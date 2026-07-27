@@ -36,7 +36,7 @@ from haxjobs.agent_core.messages import (
     project_messages,
 )
 from haxjobs.agent_core.tools import ToolExecutionContext, ToolRegistry
-from haxjobs.model.client import ModelClient
+from haxjobs.model import ModelClient
 from haxjobs.model.types import (
     ModelMessage,
     ModelRequest,
@@ -196,6 +196,7 @@ async def run_turn(
 
         model_steps += 1
         accumulated_text = ""
+        accumulated_reasoning = ""
         model_failed = False
         tool_call_events: list[ModelStreamEvent] = []
         finish_reason = ""
@@ -270,6 +271,10 @@ async def run_turn(
                             delta=stream_event.delta,
                         )
                     )
+
+                elif stream_event.event_type == ModelStreamEventType.THINKING_DELTA:
+                    accumulated_reasoning += stream_event.delta
+                    # Not forwarded to LiveEvent (thinking is internal to the model)
 
                 elif stream_event.event_type == ModelStreamEventType.COMPLETE_TOOL_CALL:
                     if stream_event.tool_calls_unsafe:
@@ -515,6 +520,7 @@ async def run_turn(
             turn_id=turn_id,
             content=accumulated_text,
             status="complete",
+            reasoning_content=accumulated_reasoning,
         )
         new_messages.append(assistant_msg)
         try:
@@ -552,6 +558,7 @@ async def run_turn(
                 role="assistant",
                 content=accumulated_text,
                 tool_calls=provider_tool_calls,
+                reasoning_content=accumulated_reasoning or None,
             )
         )
 
