@@ -1,234 +1,217 @@
-# Plan 010 — Provider architecture: profiles, adapter, streaming fix
+# Plan 010 — Provider abstraction layer
 
 > **Baseline:** `8f10995` (current main)
 > **Drift stamp:** 2026-07-26
-> **Status:** ACCEPTED (architecture decision from Hermes study)
+> **Status:** ACCEPTED (codex-reviewed, round 3)
 > **Depends on:** Plan 009 DONE
 
 ## Goal
 
-Rebuild the model layer around Hermes' provider profile pattern — a declarative abstraction where each provider is a small plugin file, the adapter is a generic transport, and provider-specific behavior (thinking mode, reasoning_effort, auth) lives in profile hooks, never in `if provider == "deepseek"` branches. Fix the DeepSeek streaming bug as a natural consequence of properly modeling the provider boundary.
+Build a proper provider abstraction layer that supports multiple LLM providers (DeepSeek, OpenAI, Anthropic, Kimi, etc.) and isolates all provider-specific behavior behind compat flags. Currently only DeepSeek is connected, but adding a new provider should be one adapter class, not scattered if-statements in the agent loop.
 
-## Architecture decision
+This is also the fix for the broken DeepSeek streaming. The root cause is that `reasoning_content` chunks are silently dropped. The fix flows naturally from a proper adapter architecture.
 
-From the Hermes architecture study (`discussion/research/provider-architecture-hermes-study.md`):
+## Architecture (inspired by Pi v0.80.6 and Hermes v0.16.0)
 
-1. **ProviderProfile** — pure declarative dataclass. Describes what makes a provider different. Does NOT own HTTP clients, does NOT import OpenAI, does NOT know about messages.
+Both Pi and Hermes use the same fundamental pattern: **compat flags on the model definition, not provider-specific code in the agent loop.** The agent loop calls `model.stream(request)` and handles `ModelStreamEvent` objects. It never knows which provider is behind the call. The adapter owns every provider-specific detail.
 
-2. **Profile hooks** — `build_extra_body(model, **context) → dict` and `build_api_kwargs(model, **context) → dict`. The adapter calls these at request time. Providers that need nothing special don't override them.
+```
+model/                                  provider boundary
+├── __init__.py                         re-exports
+├── types.py                            ModelMessage, ModelRequest, ModelResponse,
+│                                       ModelStreamEvent, ModelFailure — unchanged API
+├── protocol.py                         ModelClient protocol (extracted from client.py)
+├── provider_config.py                  ModelConfig — loaded from haxjobs.toml
+│                                       compat flags per model, not per provider
+├── adapters/
+│   ├── __init__.py
+│   ├── base.py                         BaseAdapter — shared logic
+│   └── openai_compat.py                OpenAICompatAdapter — any OpenAI-compatible endpoint
+├── fake.py                             FakeModelClient — unchanged
+└── (client.py deleted)
 
-3. **One file per provider, ~40-85 lines.** Adding Anthropic, OpenAI later means one new profile file with zero changes to the transport.
-
-4. **The adapter is generic.** It reads the profile, applies the hooks, handles streaming/non-streaming, accumulates tool calls and reasoning, and exposes a provider-neutral interface. No provider branches.
-
----
-
-## Current state — what must change
-
-### `model/client.py` (300 lines, one class doing six things)
-
-Must become:
-- `model/protocol.py` — `ModelClient` protocol (extracted)
-- `model/profiles/base.py` — `ProviderProfile` dataclass + `register_profile()` + `get_profile()`
-- `model/profiles/__init__.py` — imports deepseek to trigger self-registration, re-exports from base
-- `model/profiles/deepseek.py` — `DeepSeekProfile` (~50 lines, thinking mode + reasoning_effort)
-- `model/adapters/openai_compat.py` — Generic adapter (~200 lines, replaces `OpenAIModelClient`)
-- `model/schemas.py` — tool schema conversion (extracted from client.py duplicate code)
-- `model/provider.py` — `ProviderConfig` dataclass (extracted from client.py inline TOML loading)
-
-### `model/types.py`
-
-Must add to support the provider abstraction:
-- `THINKING_DELTA` to `ModelStreamEventType`
-- `reasoning_content: str = ""` to `ModelResponse`
-
-### `agent_core/messages.py`
-
-Must add to support reasoning preservation:
-- `reasoning_content: str = ""` field to `AssistantMessage`
-- `_pending_reasoning_content` to `MessageProjector`
-- Reasoning content carried through `_flush()` onto projected `ModelMessage`
-
-### `agent_core/turn.py`
-
-Must add:
-- `accumulated_reasoning` inside the loop
-- `THINKING_DELTA` branch in the stream handler
-- Reasoning content set on both the canonical `AssistantMessage` and the direct in-loop `ModelMessage`
-
----
-
-## Implementation
-
-### Phase 1 — Provider infrastructure (3 new files, 2 changed)
-
-**New files:**
-- `model/protocol.py` — `ModelClient` protocol extracted from `client.py`
-- `model/profiles/base.py` — `ProviderProfile` dataclass + `_REGISTRY` + `register_profile()`, `get_profile()`
-- `model/profiles/__init__.py` — imports deepseek, re-exports from base
-- `model/schemas.py` — `tool_schemas_to_provider(tools: list[ToolSchema]) → list[dict]` extracted from `client.py`
-
-**Changed files:**
-- `model/types.py` — add `THINKING_DELTA`, `reasoning_content` to `ModelResponse` and `ModelMessage`
-- `model/__init__.py` — add exports for new modules, change `ModelClient` import to `protocol`
-
-**ProviderProfile dataclass:**
-```python
-@dataclass
-class ProviderProfile:
-    name: str
-    aliases: tuple[str, ...] = ()
-    default_max_tokens: int | None = None
-
-    def build_extra_body(self, *, model: str = "", **context) -> dict[str, Any]:
-        return {}
-
-    def build_api_kwargs(self, *, model: str = "", **context) -> dict[str, Any]:
-        return {}
+agent_core/                             unchanged except reasoning_content in messages.py + turn.py
+employment/composition.py               wires ModelConfig → adapter → session
 ```
 
-**Registry:**
-- `_REGISTRY: dict[str, ProviderProfile] = {}`
-- `_ALIASES: dict[str, str] = {}`
-- `register_profile(profile)` — insert by name + aliases
-- `get_profile(name)` — lookup by name or alias, returns None for generic
+### How compat flags work (the Pi pattern)
 
-**Tests:** 5 tests — register + lookup by name, lookup by alias, get_profile returns None for unknown, build_extra_body default returns empty, build_api_kwargs default returns empty.
-
-### Phase 2 — DeepSeek profile (1 new file)
-
-**New file:**
-- `model/profiles/deepseek.py` — `DeepSeekProfile`
-
-```python
-class DeepSeekProfile(ProviderProfile):
-    def build_extra_body(self, *, model: str = "", **context) -> dict:
-        if not model.startswith("deepseek-v4"):
-            return {}
-        return {"thinking": {"type": "enabled"}}
-
-    def build_api_kwargs(self, *, model: str = "", **context) -> dict:
-        if not model.startswith("deepseek-v4"):
-            return {}
-        return {"reasoning_effort": "high"}
-
-# Module-level instance + self-registration
-deepseek = DeepSeekProfile(
-    name="deepseek",
-    aliases=("deepseek-chat", "deepseek-reasoner"),
-    base_url="https://api.deepseek.com/v1",
-)
-register_profile(deepseek)
-```
-
-Import at startup: `model/__init__.py` imports `model.profiles.deepseek` to trigger self-registration, or `model/profiles/__init__.py` does it. Hermes uses lazy discovery — for HaxJobs with one provider, eager import at `__init__.py` is simpler.
-
-**Tests:** 2 tests — v4 model gets thinking + reasoning_effort, non-v4 model gets empty dicts.
-
-### Phase 3 — Provider config extraction (1 new file, 1 changed)
-
-**New file:**
-- `model/provider.py` — `ProviderConfig` dataclass extracted from `client.py:36-56`
+Each model config carries a flat set of boolean/string flags:
 
 ```python
 @dataclass
-class ProviderConfig:
-    name: str
-    model: str
+class ModelConfig:
+    provider: str              # "deepseek", "openai", "anthropic"
+    model_id: str              # "deepseek-v4-pro", "gpt-5.6"
+    api_type: str              # "openai_completions" or "anthropic_messages"
+    base_url: str
     api_key: str
-    base_url: str = "https://api.deepseek.com/v1"
+
+    # Capability flags — the adapter reads these, the agent loop does not
+    supports_thinking: bool = False
+    supports_reasoning_content: bool = False
+    requires_reasoning_on_tool_turns: bool = False
+    supports_streaming: bool = True
+    supports_tool_calls: bool = True
+    supports_json_mode: bool = False
+
+    # Provider-specific request body additions
+    extra_body: dict | None = None
+
+    # Limits
+    context_window: int = 128_000
+    max_output_tokens: int = 32_768
 
     @classmethod
-    def from_file(cls, path: Path) -> "ProviderConfig": ...
+    def from_file(cls, path: Path) -> "ModelConfig": ...
 ```
 
-**Changed file:**
-- `model/client.py` — delete inline TOML loading, import from `provider.py`
+When `extra_body` is `{"thinking": {"type": "enabled"}}` for DeepSeek, the adapter injects it. When `requires_reasoning_on_tool_turns` is True, the projection layer preserves reasoning_content. The adapter reads flags. The agent loop reads `ModelStreamEvent`. They meet only through the protocol.
 
-**Tests:** 3 tests — load from valid TOML, missing model key raises, missing api_key raises.
+### Why this matters (adding a new provider)
 
-### Phase 4 — Generic OpenAI-compatible adapter (1 new file)
+Adding Anthropic later:
 
-**New file:**
-- `model/adapters/openai_compat.py` — replaces `OpenAIModelClient`
+1. Add `anthropic_messages` adapter class in `adapters/anthropic.py` (~150 lines)
+2. Add `ModelConfig(provider="anthropic", model_id="claude-opus-4-8", api_type="anthropic_messages", ...)` 
+3. Agent loop, tool dispatch, session store, terminal — **zero changes.**
 
-Constructor takes `ProviderConfig`. Gets profile via `get_profile(config.name)` (None → generic behavior). The adapter calls `profile.build_extra_body()` and `profile.build_api_kwargs()` in every request.
+Without this architecture, adding Anthropic means: check `self._provider == "deepseek"` in the stream handler, check it again in response parsing, check it in tool schema conversion, check it in error handling. The if-statements spread everywhere. That's the current trajectory.
+
+---
+
+## Phases
+
+### Phase 1 — ModelConfig from haxjobs.toml
+
+**New file: `model/provider_config.py`**
+
+`ModelConfig` dataclass with the fields above plus `from_file(path)` classmethod that reads `~/.haxjobs/haxjobs.toml` and builds a config:
+
+```toml
+[provider]
+name = "deepseek"
+model = "deepseek-v4-pro"
+api_key = "..."
+base_url = "https://api.deepseek.com/v1"
+```
+
+Defaults are sensible for DeepSeek. The `api_type` defaults to `"openai_completions"`. `extra_body` is `{"thinking": {"type": "enabled"}}` when provider is `"deepseek"`. Other providers get empty `extra_body`.
+
+**Tests:** Load from valid TOML, missing file, missing required keys, defaults, DeepSeek gets thinking extra_body, non-DeepSeek does not.
+
+---
+
+### Phase 2 — ModelClient protocol extraction
+
+**New file: `model/protocol.py`**
 
 ```python
-class OpenAICompatAdapter:
-    def __init__(self, config: ProviderConfig):
-        self._config = config
-        self._profile = get_profile(config.name)
-        self._client = AsyncOpenAI(
-            api_key=config.api_key,
-            base_url=config.base_url,
-            max_retries=0,
-        )
-
-    def _build_kwargs(self, request: ModelRequest) -> dict:
-        kwargs = {
-            "model": self._config.model,
-            "messages": [...],
-            "max_tokens": request.max_tokens,
-        }
-        if request.tools:
-            kwargs["tools"] = tool_schemas_to_provider(request.tools)
-
-        # Apply profile hooks
-        if self._profile:
-            extra = self._profile.build_extra_body(model=self._config.model)
-            if extra:
-                kwargs.setdefault("extra_body", {}).update(extra)
-            kwargs.update(self._profile.build_api_kwargs(model=self._config.model))
-
-        return kwargs
+class ModelClient(Protocol):
+    async def complete(self, request: ModelRequest) -> ModelResponse | ModelFailure: ...
+    def stream(self, request: ModelRequest, cancel_event: asyncio.Event) -> AsyncIterator[ModelStreamEvent]: ...
 ```
 
-**Stream method:** same logic as current `client.py` stream but adds:
-- `reasoning_content` capture → `THINKING_DELTA` events
-- Profile hooks applied via `_build_kwargs()`
+Extracted from `model/client.py`. No new logic.
 
-**Complete method:** same as current but adds `reasoning_content` to `ModelResponse`.
+**Changed:** `model/client.py` imports from protocol instead of defining it inline. `model/__init__.py` export path changes.
 
-**Changed files:**
-- `model/__init__.py` — export `OpenAICompatAdapter` instead of `OpenAIModelClient`
-- `employment/composition.py` — construct `OpenAICompatAdapter(ProviderConfig.from_file(PROVIDER_CONFIG_PATH))`
-  instead of the no-arg `OpenAIModelClient()` call at line 72
+---
 
-**Deleted:** `model/client.py`. All imports of `ModelClient` move to `model.protocol`.
-`agent_core/session.py`, `agent_core/turn.py`, and `model/fake.py` import
-`ModelClient` from `client.py` — update these to `model.protocol`.
+### Phase 3 — OpenAICompatAdapter (replaces OpenAIModelClient)
 
-**Tests:**
-- Adapter builds correct kwargs with DeepSeek profile (thinking + reasoning_effort in extra_body)
-- Adapter builds correct kwargs without profile (no extra_body)
-- Stream yields THINKING_DELTA for reasoning_content chunks
-- Stream correctly accumulates tool calls
-- Complete() captures reasoning_content in ModelResponse
-- Cancellation handling unchanged
+**New file: `model/adapters/base.py`** — `BaseAdapter` with shared `_tool_schemas_to_provider()` and `_model_dump_messages()`.
 
-### Phase 5 — Reasoning preservation in messages and turn loop (2 changed)
+**New file: `model/adapters/openai_compat.py`** — `OpenAICompatAdapter(BaseAdapter)`:
+
+- Constructor takes `ModelConfig`, creates `AsyncOpenAI(config.base_url, config.api_key)`
+- `_build_request(request)` returns the full kwargs dict including:
+  - Standard: `model`, `messages`, `max_tokens`, `tools`
+  - Config-driven: `extra_body` from `config.extra_body`
+  - Streaming: `stream=True`, `stream_options={"include_usage": True}`
+- `complete(request)` — non-stream call, returns `ModelResponse` with `reasoning_content`
+- `stream(request, cancel_event)` — opens stream, yields `ModelStreamEvent` objects:
+  - `delta.content` → `TEXT_DELTA`
+  - `delta.reasoning_content` → `THINKING_DELTA` (when `config.supports_reasoning_content`)
+  - Accumulated tool calls → `COMPLETE_TOOL_CALL`
+  - Stream end → `RESPONSE_COMPLETED` or `RESPONSE_FAILED`
+
+Key design: the adapter checks `config.supports_reasoning_content` before handling `delta.reasoning_content`. The agent loop handles `THINKING_DELTA` events unconditionally. If a provider doesn't support reasoning, the event is never emitted.
+
+**Changed file:** `model/__init__.py` — export `OpenAICompatAdapter` instead of `OpenAIModelClient`
+**Deleted:** Nothing yet. Old `client.py` still exists.
+
+**Tests:** 
+- Adapter builds correct API call with thinking extra_body
+- Stream yields THINKING_DELTA for reasoning_content chunks (when supported)
+- Stream correctly accumulates tool calls across multiple delta chunks  
+- Cancellation handled (cancel event → RESPONSE_FAILED)
+- Non-stream complete() populates reasoning_content field
+- Non-DeepSeek config omits thinking extra_body
+
+---
+
+### Phase 4 — Model types update (reasoning_content)
+
+**File: `model/types.py`**
+
+- Add `THINKING_DELTA` to `ModelStreamEventType` enum
+- Add `reasoning_content: str = ""` to `ModelResponse`
+- Add `reasoning_content: str | None = None` to `ModelMessage`
 
 **File: `agent_core/messages.py`**
 
-- Add `reasoning_content: str = ""` to `AssistantMessage`
-- Add `self._pending_reasoning_content = ""` to `MessageProjector.__init__`
-- In `project()`, carry reasoning from `AssistantMessage` when present
-- In `_flush()`, attach to projected `ModelMessage` if non-empty
+- Add `reasoning_content: str = ""` to `AssistantMessage` (remove `extra: forbid` constraint or add as explicit field)
+
+**Tests:** THINKING_DELTA serialization, AssistantMessage round-trip with new field, backward compat (old JSON without field parses).
+
+---
+
+### Phase 5 — Reasoning accumulation in turn loop + projector
 
 **File: `agent_core/turn.py`**
 
-- Add `accumulated_reasoning = ""` inside the loop alongside `accumulated_text`
-- Add `THINKING_DELTA` branch: `accumulated_reasoning += stream_event.delta`
-- Set `reasoning_content=accumulated_reasoning` on both:
-  - The canonical `AssistantMessage` (persisted to history)
-  - The direct in-loop `ModelMessage(role="assistant", tool_calls=...)` (immediate next request)
+In the main loop, reset `accumulated_reasoning = ""` alongside `accumulated_text = ""`.
 
-**Tests:**
-- Fake-stream test: `fake.requests[1]` contains reasoning_content on assistant message with tool calls
-- Multi-turn: first turn tool calls + reasoning, second turn projected messages include it
-- Backward compat: AssistantMessage without reasoning_content parses correctly
-- Thinking not leaked to LiveEvent
+In the stream event handler, add:
+
+```python
+elif stream_event.event_type == ModelStreamEventType.THINKING_DELTA:
+    accumulated_reasoning += stream_event.delta
+    # Not emitted as LiveEvent — reasoning is internal to the model
+```
+
+When persisting `AssistantMessage` after a tool call turn, include `reasoning_content=accumulated_reasoning`.
+
+**Critical:** when building the in-loop `ModelMessage` for the immediate next request (the one that bypasses the projector at turn.py ~line 551), include `reasoning_content=accumulated_reasoning or None`.
+
+**File: `agent_core/messages.py`**
+
+Add `_pending_reasoning_content: str = ""` to `MessageProjector.__init__`. Clear it in `project()` reset. Set it when processing `assistant` kind: `self._pending_reasoning_content = getattr(msg, "reasoning_content", "")`. In `_flush()`, set `msg.reasoning_content = self._pending_reasoning_content` when non-empty.
+
+**Tests:** 
+- Fake stream with tool call verifies next request has reasoning_content
+- Multi-turn conversation preserves reasoning across tool-call boundaries in projector
+- Thinking not leaked as LiveEvent
+
+---
+
+### Phase 6 — Wiring and cleanup
+
+**File: `employment/composition.py`**
+
+Change `from haxjobs.model.client import ModelClient, OpenAIModelClient` to `from haxjobs.model.protocol import ModelClient` and `from haxjobs.model.adapters.openai_compat import OpenAICompatAdapter`. Create adapter from config:
+
+```python
+config = ModelConfig.from_file(PROVIDER_CONFIG_PATH)
+model = OpenAICompatAdapter(config)
+```
+
+**File: `model/__init__.py`** — remove `OpenAIModelClient`, add `OpenAICompatAdapter`, `ModelConfig`, `ModelClient`
+
+**Deleted: `model/client.py`**
+
+**All existing tests must pass.** All imports in tests that reference `OpenAIModelClient` must change.
 
 ---
 
@@ -236,57 +219,47 @@ class OpenAICompatAdapter:
 
 | File | Change |
 |---|---|
-| `model/protocol.py` | New — ModelClient protocol extracted |
-| `model/profiles/base.py` | New — ProviderProfile + registry |
-| `model/profiles/__init__.py` | New — imports deepseek, re-exports base |
-| `model/profiles/deepseek.py` | New — DeepSeekProfile |
-| `model/schemas.py` | New — tool schema conversion |
-| `model/provider.py` | New — ProviderConfig |
-| `model/adapters/__init__.py` | New |
-| `model/adapters/openai_compat.py` | New — generic adapter (replaces client.py) |
+| `model/provider_config.py` | New — ModelConfig dataclass |
+| `model/protocol.py` | New — ModelClient protocol (extracted) |
+| `model/adapters/base.py` | New — shared adapter logic |
+| `model/adapters/openai_compat.py` | New — replaces OpenAIModelClient |
+| `model/types.py` | THINKING_DELTA, reasoning_content fields |
 | `model/client.py` | Deleted |
-| `model/types.py` | THINKING_DELTA + reasoning_content on ModelResponse and ModelMessage |
 | `model/__init__.py` | Updated exports |
-| `model/fake.py` | Update ModelClient import to protocol |
-| `agent_core/session.py` | Update ModelClient import to protocol |
-| `agent_core/turn.py` | Accumulate reasoning, THINKING_DELTA branch, set on both message paths |
+| `agent_core/turn.py` | Accumulate reasoning, reasoning on in-loop ModelMessage |
 | `agent_core/messages.py` | reasoning_content on AssistantMessage, projector carries it |
-| `employment/composition.py` | Construct OpenAICompatAdapter from ProviderConfig |
-| `tests/` | New tests for all new modules |
+| `employment/composition.py` | Wire ModelConfig → adapter |
+| `tests/` | New tests for ModelConfig, adapter, stream flow, reasoning preservation |
 
-## Files NOT touched
+## Out of scope
 
-- `agent_core/session.py`
-- `agent_core/live_events.py`
-- `agent_core/session.py` (ModelClient import update only)
-- `agent_core/tools.py`
-- `agent_core/dispatch.py`
-- `employment/*` (except composition.py wire-up)
-- `interfaces/*`
-- `model/fake.py`
-- `model/errors.py`
+- StreamAccumulator class (accumulation stays in adapter, simple enough for now)
+- Anthropic API format adapter (API type `"anthropic_messages"` is declared but not implemented)
+- Provider selection / multiple configured providers
+- Provider fallback / retry
+- Token usage tracking improvements
+- Context cache tracking (DeepSeek `prompt_cache_hit_tokens`)
+- TUI thinking indicator
+- Tool dispatch extraction from turn.py
+- `reasoning_effort` control (default "high" is fine)
 
 ## Verification
 
 ```bash
 PYTHONPATH=src:. uv run -- python3 -m pytest -q tests/
-PYTHONPATH=src:. uv run -- python3 -m py_compile $(find src -name '*.py')
+PYTHONPATH=src:. uv run -- python3 -m py_compile $(find src tests -name '*.py')
 uv lock --check
 git diff --check
 ```
 
-**Live validation:** `haxjobs chat --new` — streaming works, sentences complete, multi-turn tool calls don't break.
+**Live validation:** `haxjobs chat --new` with a message requiring tool calls. Verify sentences arrive complete, no 400 errors on multi-turn.
 
-## Out of scope
+## STOP conditions
 
-- user_id context caching (separate follow-up)
-- Token usage tracking improvements
-- Anthropic API format adapter (future profile plugin)
-- TUI thinking indicator
-- Reasoning effort user configuration (hardcoded "high" for now)
-- Provider fallback cascade
-- Live model catalog fetching
+- Any test regression in the 290-test suite
+- Import cycle between model/ and agent_core/ or employment/
+- Provider-specific logic leaks into agent_core (no `if self._provider == "deepseek"` outside model/adapters/)
 
 ---
 
-> **Warning for executor:** This plan introduces 8 new files and deletes 1. The `ModelClient` protocol moves from `client.py` to `protocol.py` — update every import. `employment/composition.py` is the only employment file touched and only for the adapter class name change. Verify no stale `from haxjobs.model.client import OpenAIModelClient` remains anywhere.
+> **Warning for executor:** This plan describes the target architecture. Before implementing, compare every claim against the live code at the current HEAD. The adapter replaces `OpenAIModelClient` — all callers must be updated. The `ModelClient` protocol shape must remain identical so `FakeModelClient` and all tests continue to work.
