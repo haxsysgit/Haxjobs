@@ -1,164 +1,201 @@
-# Plan 010 — DeepSeek thinking mode and streaming fix
+# Plan 010 — Provider abstraction layer
 
-> **Baseline:** `7a0f608` (current main)
+> **Baseline:** `8f10995` (current main)
 > **Drift stamp:** 2026-07-26
-> **Status:** ACCEPTED (codex-reviewed)
+> **Status:** TODO
 > **Depends on:** Plan 009 DONE
 
 ## Goal
 
-Fix the broken DeepSeek streaming that produces incomplete sentences and can't handle multi-turn tool calls. The root cause is that DeepSeek thinking mode sends `reasoning_content` chunks before `content` chunks, the current stream handler only reads `content`, and `reasoning_content` from tool-call turns is never passed back to the model in subsequent requests.
+Replace the single-provider `OpenAIModelClient` with a declarative provider layer. Each provider describes its quirks as flags (`thinkingFormat`, `requiresReasoningContentOnToolTurns`, etc.) and a single `UnifiedAdapter` reads those flags to adjust behavior. Adding a new provider means adding a config entry, not writing a new adapter class.
 
-This is NOT a modular refactor. This is a targeted bug fix in existing files. One atomic change.
+This also fixes the DeepSeek streaming bug as a side effect — `reasoning_content` capture and preservation is a compat flag, not hardcoded.
 
----
-
-## Root cause (verified against live code)
-
-1. **`model/client.py:213`** — only handles `delta.content`. DeepSeek thinking mode sends `delta.reasoning_content` first, then `delta.content` second. Reasoning chunks are silently dropped. The stream appears to stall, then content arrives in disconnected fragments.
-
-2. **`model/types.py:77-82`** — `ModelStreamEventType` has `TEXT_DELTA` but no `THINKING_DELTA`. Reasoning chunks have nowhere to go even if captured.
-
-3. **`model/types.py:26-31`** — `ModelMessage` has no `reasoning_content` field. Even if the adapter captured it, there's nowhere to put it in provider-bound messages.
-
-4. **`agent_core/messages.py:34-45`** — `AssistantMessage` has no `reasoning_content` field and `extra: forbid` blocks any attempt to store it. The canonical message history can't carry reasoning across turns.
-
-5. **`agent_core/messages.py:93-107`** — `MessageProjector._flush()` builds a `ModelMessage(role="assistant", ...)` with `content` and `tool_calls` but no `reasoning_content`.
-
-6. **DeepSeek requirement** (docs): When the model makes a tool call during thinking mode, `reasoning_content` from that turn MUST be passed back in all subsequent requests or the API returns 400. HaxJobs never preserves it, so multi-turn tool-call conversations break.
+Pattern stolen from Pi v0.80.6's `model-registry.js` and `provider-attribution`, which uses `OpenAICompletionsCompatSchema` with 12+ declarative flags instead of per-provider adapter classes.
 
 ---
 
-## Fix (one atomic change)
+## Architecture — what good looks like
 
-### Step 1 — Add `reasoning_content` to canonical types
+```
+model/
+├── __init__.py         # exports
+├── types.py            # ModelMessage, ModelRequest, ModelResponse, ModelStreamEvent
+│                        #   + THINKING_DELTA event type
+│                        #   + reasoning_content on ModelResponse and ModelMessage
+├── protocol.py          # ModelClient protocol (moved from client.py)
+├── compat.py            # ProviderCompat — declarative capability flags
+├── adapter.py           # UnifiedAdapter — one adapter, reads compat to adjust
+├── provider.py          # ProviderConfig — loads from haxjobs.toml, includes compat
+├── fake.py              # unchanged
+└── schemas.py           # tool schema conversion helpers (moved from client.py)
 
-**File: `model/types.py`**
-
-- Add `THINKING_DELTA` to `ModelStreamEventType` enum
-- Add `reasoning_content: str = ""` field to `ModelResponse`
-- Add `reasoning_content: str | None = None` field to `ModelMessage` (the provider-bound message type)
-
-**File: `agent_core/messages.py`**
-
-- Add `reasoning_content: str = ""` field to `AssistantMessage` with default
-- Keep `model_config = {"extra": "forbid"}` — the explicit field satisfies it
-
-Both fields default to empty/None so existing serialized messages parse without migration.
-
-### Step 2 — Capture reasoning_content in the adapter
-
-**File: `model/client.py`**
-
-In the `stream()` method, after the `async for chunk in stream:` line:
-
-```python
-# reasoning content delta
-if getattr(delta, "reasoning_content", None):
-    yield ModelStreamEvent(
-        event_type=ModelStreamEventType.THINKING_DELTA,
-        delta=delta.reasoning_content,
-        model=self._model,
-        provider=self._provider,
-    )
+agent_core/
+├── messages.py          # + reasoning_content on AssistantMessage
+│                        #   + _pending_reasoning_content in MessageProjector
+└── turn.py              # accumulate reasoning in loop, preserve on in-loop message
 ```
 
-In the `complete()` method, after `msg.content`:
+### Import rules (enforced)
+
+1. `model/` imports nothing above it — only `config` and stdlib
+2. `agent_core/` imports only `model/` and stdlib — never `employment/`, never `interfaces/`
+
+---
+
+## Core design — `ProviderCompat`
 
 ```python
-reasoning_content = getattr(msg, "reasoning_content", None) or ""
+class ProviderCompat(BaseModel):
+    """Declarative flags describing how a provider diverges from standard OpenAI."""
+
+    # Thinking mode
+    thinking_format: Literal["disabled", "openai", "deepseek"] = "disabled"
+    reasoning_effort_supported: bool = False
+
+    # DeepSeek requires reasoning_content on assistant messages that made tool calls
+    requires_reasoning_content_on_tool_turns: bool = False
+
+    # Field name for max output tokens (OpenAI uses max_completion_tokens)
+    max_tokens_field: Literal["max_tokens", "max_completion_tokens"] = "max_tokens"
+
+    # Whether stream_options works
+    supports_usage_in_streaming: bool = True
+
+    # Extra body params added to every request at the top level
+    extra_body: dict = Field(default_factory=dict)
 ```
 
-And include it in the returned `ModelResponse(reasoning_content=reasoning_content, ...)`.
-
-Also add `extra_body` to both stream and non-stream methods, gated to DeepSeek:
-
+DeepSeek entry:
 ```python
-if self._provider == "deepseek":
-    kwargs["extra_body"] = {"thinking": {"type": "enabled"}}
-```
-
-### Step 3 — Accumulate reasoning in the turn loop
-
-**File: `agent_core/turn.py`**
-
-Initialize `accumulated_reasoning` inside the main loop alongside `accumulated_text` (line 198-202):
-
-```python
-model_steps += 1
-accumulated_text = ""
-accumulated_reasoning = ""
-```
-
-In the stream event handler, add a branch for `THINKING_DELTA`:
-
-```python
-elif stream_event.event_type == ModelStreamEventType.THINKING_DELTA:
-    accumulated_reasoning += stream_event.delta
-    # Do NOT emit as LiveEvent (thinking is internal to the model)
-```
-
-When persisting the canonical AssistantMessage after a tool call turn, include reasoning_content:
-
-```python
-assistant_msg = AssistantMessage(
-    message_id=_mid(),
-    turn_id=turn_id,
-    content=accumulated_text,
-    status="complete",
-    reasoning_content=accumulated_reasoning,
+ProviderCompat(
+    thinking_format="deepseek",
+    reasoning_effort_supported=True,
+    requires_reasoning_content_on_tool_turns=True,
+    extra_body={"thinking": {"type": "enabled"}},
 )
 ```
 
-**Critical: the in-loop provider message also needs reasoning.** After a tool-call response, turn.py directly builds a `ModelMessage(role="assistant", tool_calls=...)` at line ~551 and appends it to `provider_messages` — the in-memory list used for the very next model request within the same turn. This message never goes through the projector. Without reasoning_content on it, the immediate next request drops it and DeepSeek returns 400.
-
+OpenAI entry (future):
 ```python
-provider_messages.append(
-    ModelMessage(
-        role="assistant",
-        content=accumulated_text,
-        tool_calls=[...],
-        reasoning_content=accumulated_reasoning or None,
-    )
+ProviderCompat(
+    thinking_format="disabled",
+    max_tokens_field="max_completion_tokens",
+    supports_usage_in_streaming=True,
 )
 ```
 
-### Step 4 — Carry reasoning_content through the projector
-
-**File: `agent_core/messages.py`**
-
-In `MessageProjector.__init__`, add:
-
+Anthropic entry (future):
 ```python
-self._pending_reasoning_content: str = ""
+ProviderCompat(
+    thinking_format="disabled",
+    max_tokens_field="max_tokens",
+    supports_usage_in_streaming=False,
+)
 ```
 
-In `MessageProjector._flush()`, when building the assistant ModelMessage, include it:
+---
+
+## Core design — `ProviderConfig`
 
 ```python
-if self._pending_reasoning_content:
-    msg.reasoning_content = self._pending_reasoning_content
-self._pending_reasoning_content = ""
+class ProviderConfig(BaseModel):
+    """Per-provider config loaded from ~/.haxjobs/haxjobs.toml."""
+
+    name: str                               # "deepseek"
+    model: str                              # "deepseek-v4-pro"
+    api_key: str
+    base_url: str                           # "https://api.deepseek.com/v1"
+    compat: ProviderCompat = Field(default_factory=ProviderCompat)
+
+    @classmethod
+    def from_file(cls, path: Path) -> ProviderConfig: ...
 ```
 
-In `MessageProjector.project()`, when processing an `assistant` message:
+The existing `haxjobs.toml` format stays the same:
+```toml
+[provider]
+name = "deepseek"
+model = "deepseek-v4-pro"
+api_key = "sk-..."
+base_url = "https://api.deepseek.com/v1"
+```
+
+The `compat` is derived from the provider `name` internally, not stored in the TOML. A lookup table maps provider name → compat flags. Adding a new provider means adding one entry to that table plus a config entry in the TOML.
+
+---
+
+## Core design — `UnifiedAdapter`
 
 ```python
-elif msg.kind == "assistant":
-    self._flush()
-    self._pending_text = msg.content
-    self._pending_reasoning_content = getattr(msg, "reasoning_content", "")
+class UnifiedAdapter:
+    """Single adapter that reads ProviderCompat to adjust behavior.
+
+    Replaces OpenAIModelClient. No per-provider subclasses.
+    """
+
+    def __init__(self, config: ProviderConfig):
+        self._config = config
+        self._compat = config.compat
+        self._client = AsyncOpenAI(
+            api_key=config.api_key,
+            base_url=config.base_url,
+            max_retries=0,
+        )
+
+    def _build_request(self, request: ModelRequest, stream: bool) -> dict:
+        """Build the API call dict, respecting compat flags."""
+        body = {
+            "model": self._config.model,
+            "messages": [...],
+            self._compat.max_tokens_field: request.max_tokens,
+        }
+        if stream and self._compat.supports_usage_in_streaming:
+            body["stream_options"] = {"include_usage": True}
+        if self._compat.extra_body:
+            body["extra_body"] = self._compat.extra_body
+        if self._compat.reasoning_effort_supported:
+            body["reasoning_effort"] = "high"
+        if request.tools:
+            body["tools"] = tool_schemas_to_provider(request.tools)
+        return body
+
+    # complete() and stream() — same as current OpenAIModelClient
+    # but stream() routes reasoning_content when thinking_format != "disabled"
 ```
 
-In the `project()` reset block, clear it:
+---
 
-```python
-self._pending_reasoning_content = ""
+## Reasoning_content data flow (end to end)
+
 ```
+1. DeepSeek sends:          delta.reasoning_content ("Let me think...")
+                            delta.content ("The answer is...")
 
-### Step 5 — Projection emits reasoning_content on the provider message
+2. adapter.stream():        if compat.thinking_format == "deepseek":
+                                yield THINKING_DELTA(delta.reasoning_content)
+                            yield TEXT_DELTA(delta.content)
 
-The `ModelMessage` now has a `reasoning_content` field. When `_flush()` sets it and `client.py:68-71` dumps messages with `model_dump(exclude_none=True)`, a `None` default won't appear in non-tool-call messages. Only messages that had tool calls (where reasoning_content was set) will include the field.
+3. turn.py loop:            accumulated_reasoning += stream_event.delta  (THINKING_DELTA)
+                            accumulated_text += stream_event.delta      (TEXT_DELTA)
+
+4. After tool calls:        New AssistantMessage(
+                                content=accumulated_text,
+                                reasoning_content=accumulated_reasoning,  ← persists
+                            )
+
+5. In-loop provider msg:    ModelMessage(
+                                role="assistant",
+                                tool_calls=[...],
+                                reasoning_content=accumulated_reasoning or None,  ← immediate
+                            )
+
+6. On session resume:       MessageProjector reads AssistantMessage.reasoning_content
+                            → _pending_reasoning_content
+                            → _flush() sets it on projected ModelMessage
+
+7. model_dump(exclude_none=True): only sends reasoning_content when not None
+```
 
 ---
 
@@ -166,39 +203,73 @@ The `ModelMessage` now has a `reasoning_content` field. When `_flush()` sets it 
 
 | File | Change |
 |---|---|
-| `model/types.py` | `THINKING_DELTA` enum, `reasoning_content` field on ModelResponse + ModelMessage |
-| `model/client.py` | Capture `reasoning_content` in stream + complete, add `extra_body` with thinking mode |
-| `agent_core/turn.py` | Accumulate reasoning, persist on AssistantMessage with tool calls, THINKING_DELTA branch |
-| `agent_core/messages.py` | `reasoning_content` field on AssistantMessage, `_pending_reasoning_content` in projector |
-| `tests/` | New test file for thinking mode streaming |
+| `model/types.py` | Add THINKING_DELTA, reasoning_content on ModelResponse + ModelMessage |
+| `model/compat.py` | NEW — ProviderCompat model, provider name → compat lookup table |
+| `model/provider.py` | NEW — ProviderConfig, from_file() classmethod |
+| `model/protocol.py` | NEW — ModelClient protocol (moved from client.py) |
+| `model/schemas.py` | NEW — tool_schemas_to_provider(), provider_to_internal_tool_call() |
+| `model/adapter.py` | NEW — UnifiedAdapter implementing ModelClient |
+| `model/__init__.py` | Updated exports |
+| `model/client.py` | DELETED — superseded by protocol + adapter + provider |
+| `agent_core/messages.py` | reasoning_content on AssistantMessage, _pending_reasoning_content in projector |
+| `agent_core/turn.py` | THINKING_DELTA handler, accumulated_reasoning, set on both messages |
+| `employment/composition.py` | Import UnifiedAdapter instead of OpenAIModelClient |
+| `tests/` | New tests for compat, adapter, reasoning preservation |
 
 ## Files NOT touched
 
-- `employment/*` — zero employment-layer changes
-- `interfaces/*` — TUI only renders LiveEvent, THINKING_DELTA is intentionally not forwarded
 - `agent_core/session.py` — no session logic changes
-- `agent_core/live_events.py` — no new LiveEventType added
+- `agent_core/live_events.py` — no new LiveEventType (thinking is NOT forwarded)
 - `agent_core/tools.py` — no tool contract changes
 - `model/fake.py` — unchanged
+- `interfaces/*` — TUI only renders LiveEvents, THINKING_DELTA is intentionally silent
+- `employment/*` except composition.py
+
+---
+
+## Implementation phases
+
+### Phase 1 — New model modules (no behavior change yet)
+
+1. Create `model/compat.py` — ProviderCompat model, provider lookup table
+2. Create `model/provider.py` — ProviderConfig, from_file()
+3. Create `model/protocol.py` — ModelClient protocol (copy from client.py)
+4. Create `model/schemas.py` — helper functions (extract from client.py)
+5. Update `model/__init__.py` exports
+6. Tests: compat flags lookup, provider config loading, schema round-trip
+
+### Phase 2 — UnifiedAdapter
+
+1. Create `model/adapter.py` — UnifiedAdapter with `_build_request()` respecting compat flags
+2. adapter.stream() handles thinking_format for reasoning_content capture
+3. adapter.complete() captures reasoning_content in ModelResponse
+4. Tests: DeepSeek compat sends extra_body, OpenAI compat does not, reasoning capture
+
+### Phase 3 — Turn loop and projector
+
+1. Add reasoning_content to ModelMessage, ModelResponse, ModelStreamEventType in types.py
+2. Add reasoning_content to AssistantMessage in messages.py
+3. MessageProjector carries _pending_reasoning_content
+4. turn.py accumulates reasoning, sets on both canonical and in-loop messages
+5. Tests: in-loop message has reasoning, projector preserves it, backward compat
+
+### Phase 4 — Wiring and cleanup
+
+1. composition.py imports UnifiedAdapter instead of OpenAIModelClient
+2. Delete model/client.py
+3. Update all imports across codebase
+4. Full test suite pass
 
 ## Tests (must pass)
 
-1. **Mocked DeepSeek stream with reasoning** — adapter yields THINKING_DELTA chunks before TEXT_DELTA chunks, accumulated reasoning preserved on assistant message
-2. **Multi-turn tool call with reasoning preservation** — first turn has tool calls with reasoning, second turn's projected messages include reasoning_content on the assistant message
-3. **In-loop provider message carries reasoning** — fake-stream test with tool call asserting `fake.requests[1]` contains `reasoning_content` on the assistant message with tool calls; this is the critical path that bypasses the projector (turn.py line 551).
-4. **Canonical JSON round trip** — AssistantMessage with reasoning_content serializes and deserializes correctly
-5. **Backward compat** — AssistantMessage without reasoning_content field (old JSON) parses correctly
-6. **Thinking not leaked** — LiveEvent stream never contains THINKING_DELTA content
-7. **Existing test suite** — all 290 existing tests pass unchanged
-
-## Live validation
-
-```bash
-haxjobs chat --new
-# Send one message that requires multiple steps (tool calls)
-# Verify sentences arrive complete, no broken fragments
-# Verify multi-turn conversation works without 400 errors
-```
+1. `deepseek_compat = CompatRegistry.get("deepseek")` has thinking_format="deepseek" and requires_reasoning_content_on_tool_turns=True
+2. Adapter build_request() includes extra_body for DeepSeek, not for a provider with no extra_body
+3. Adapter stream yields THINKING_DELTA before TEXT_DELTA for DeepSeek
+4. In-loop provider message carries reasoning_content after tool calls (fake-stream test asserting `fake.requests[1]`)
+5. AssistantMessage with reasoning_content round-trips through canonical JSON
+6. Session resume: projector reads reasoning_content from persisted AssistantMessage
+7. Thinking content never appears in LiveEvent
+8. Existing test suite — all 290 tests pass
 
 ## Verification
 
@@ -209,18 +280,20 @@ uv lock --check
 git diff --check
 ```
 
+Live: `haxjobs chat --new` with multi-turn tool calls, verify streaming is smooth, no 400 errors.
+
 ## Out of scope
 
-- Modular file split (no protocol.py, no adapters/, no streaming.py, no schemas.py, no provider.py)
-- StreamAccumulator class
-- user_id context caching / session isolation
-- Context cache hit tracking (`prompt_cache_hit_tokens`)
+- Provider fallback cascade
+- Retry logic
 - Anthropic API format adapter
-- Token usage tracking improvements
+- Context caching (prompt_cache_hit_tokens tracking)
+- user_id session isolation
+- Token usage tracking dashboard
 - TUI thinking indicator
-- Tool dispatch extraction from turn.py
-- Reasoning effort control (`reasoning_effort` parameter — default "high" is fine for initial fix)
+- Runtime provider switching mid-session
+- Provider credentials migration
 
 ---
 
-> **Warning for executor:** This plan targets the exact bug in live code. Before implementing, check that `model/client.py:213` still only handles `delta.content` and that `agent_core/messages.py:34-45` still forbids extras on `AssistantMessage`. If either has changed since this plan was written, adjust accordingly. Do not create new modules — this is an in-place bug fix.
+> **Warning for executor:** This plan adds 5 new files to model/ and deletes 1. Before implementing, check that the files listed for creation don't already exist and that model/client.py still has the exact shape described. The compat flags model should be treated as a stable API — adding a flag should never break existing providers. Every new flag must have a safe default.
