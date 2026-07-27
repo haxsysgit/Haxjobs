@@ -145,15 +145,7 @@ def detect_profile(provider: str, base_url: str) -> ProviderProfile:
 ```python
 from typing import Protocol, runtime_checkable
 from collections.abc import AsyncIterator
-from .types import ModelResponse, ModelStreamEvent, ModelMessage, ToolDefinition
-
-class ModelRequest:
-    """Immutable request for one model call."""
-    messages: list[ModelMessage]
-    tools: list[ToolDefinition] | None
-    system: str | None
-    max_tokens: int
-    temperature: float
+from .types import ModelResponse, ModelStreamEvent, ModelRequest  # ModelRequest stays in types.py
 
 @runtime_checkable
 class ModelClient(Protocol):
@@ -162,8 +154,14 @@ class ModelClient(Protocol):
     Implementations: GenericAdapter (real), FakeModelClient (tests).
     """
     async def complete(self, request: ModelRequest) -> ModelResponse: ...
-    async def stream(self, request: ModelRequest) -> AsyncIterator[ModelStreamEvent]: ...
+    async def stream(self, request: ModelRequest, cancel_event: asyncio.Event | None = None) -> AsyncIterator[ModelStreamEvent]: ...
 ```
+
+**Design decisions carried forward:**
+- `complete()` returns `ModelResponse` (success) or raises an exception (failure). The old `ModelFailure` union return type is dropped — this is a Pythonic protocol, not a Result type. `FakeModelClient` also switches to raising exceptions for failures.
+- `cancel_event` stays on the protocol because the adapter cooperatively checks it between stream chunks (`if cancel_event and cancel_event.is_set(): await openai_stream.close()`). Task-based cancellation (`asyncio.CancelledError`) also works but cooperatively closing the upstream stream first is the correct behaviour.
+- `ModelRequest` stays in `types.py` where it already lives. The protocol imports it, no duplicate.
+- If `temperature` is needed later, add it to `ModelRequest` in `types.py`. It's not in the current code and not needed for this plan.
 
 ---
 
@@ -280,10 +278,13 @@ def load_provider_config(path: Path | None = None) -> ProviderConfig:
 Extract tool definition → OpenAI JSON schema conversion. Currently in `client.py` and `turn.py` as inline dict builders.
 
 ```python
-def tool_to_openai_schema(tool: ToolDefinition) -> dict:
-    """Convert a HaxJobs ToolDefinition to OpenAI JSON schema dict."""
+def tool_to_openai_schema(tool: ToolSchema) -> dict:
+    """Convert a HaxJobs ToolSchema to OpenAI JSON schema dict.
 
-def tools_to_openai_schemas(tools: list[ToolDefinition]) -> list[dict]:
+    ToolSchema has: name, description, input_schema (JSON Schema dict).
+    """
+
+def tools_to_openai_schemas(tools: list[ToolSchema]) -> list[dict]:
     """Convert all tools."""
 ```
 
@@ -352,8 +353,9 @@ Export `ModelClient`, `GenericAdapter`, `ProviderProfile`, `ProviderConfig`, `de
 | `agent_core/turn.py` | `THINKING_DELTA` branch, accumulate + persist + in-loop reasoning |
 | `agent_core/messages.py` | `reasoning_content` on `AssistantMessage`, `_pending_reasoning_content` in projector |
 | `agent_core/live_events.py` | Unchanged (THINKING_DELTA intentionally not forwarded) |
+| `agent_core/session.py` | Update import: ModelClient from model.client → from model |
 | `employment/composition.py` | Wire config → profile → adapter |
-| `tests/` | New tests + update existing adapter callers |
+| `tests/` | New tests + update existing adapter callers (see below) |
 
 ---
 
@@ -367,9 +369,9 @@ Export `ModelClient`, `GenericAdapter`, `ProviderProfile`, `ProviderConfig`, `de
 
 ### New tests in existing files
 
-4. **`tests/test_conversation_messages.py`** — `AssistantMessage` with `reasoning_content` round-trips through JSON; old JSON without the field parses fine
-5. **`tests/test_turn_runtime.py`** — fake-stream test with tool calls asserting `fake.requests[1]` contains `reasoning_content` on the assistant message with tool calls (critical: in-loop ModelMessage path)
-6. **`tests/test_model_streaming.py`** — mocked DeepSeek stream yielding reasoning deltas before text deltas, accumulated reasoning preserved on final message
+4. **`tests/test_model_streaming.py`** — import changed from `OpenAIModelClient` to `GenericAdapter`; test at line 241 (`test_mocked_openai_stream_assembles_tool_calls`) rewritten to mock the generic adapter instead of reaching into `OpenAIModelClient._client`
+5. **`tests/test_conversation_messages.py`** — `AssistantMessage` with `reasoning_content` round-trips through JSON; old JSON without the field parses fine
+6. **`tests/test_turn_runtime.py`** — fake-stream test with tool calls asserting `fake.requests[1]` contains `reasoning_content` on the assistant message with tool calls (critical: in-loop ModelMessage path)
 
 ### Required assertions
 
