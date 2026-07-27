@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="drawio" version="30.2.4">
+  <diagram name="Provider Layer Architecture">
+    <mxGraphModel dx="690" dy="672" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1160" pageHeight="820" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="title" value="HaxJobs Provider Abstraction Layer" style="text;html=1;strokeColor=none;fillColor=none;fontSize=18;fontFamily=Lato;align=center;" vertex="1" parent="1">
+          <mxGeometry x="280" y="10" width="600" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="subtitle" value="One GenericAdapter reads ProviderProfile flags. Adding a provider = one data constant." style="text;html=1;strokeColor=none;fillColor=none;fontSize=11;fontFamily=Lato;align=center;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="280" y="42" width="600" height="24" as="geometry" />
+        </mxCell>
+
+        <!-- Layer 0: Config -->
+        <mxCell id="sw-config" value="Config" style="swimlane;html=1;startSize=36;fillColor=#f5f5f5;strokeColor=#666666;swimlaneFillColor=#f5f5f5;fontSize=14;fontFamily=Lato;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="80" width="240" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="config-node" value="~/.haxjobs/haxjobs.toml&#xa;[provider] name/model/base_url/api_key" style="rounded=1;fillColor=#fafafa;strokeColor=#999999;fontSize=11;fontFamily=Lato;align=center;" vertex="1" parent="sw-config">
+          <mxGeometry x="10" y="46" width="220" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="provider-config" value="ProviderConfig.load()" style="rounded=1;fillColor=#fafafa;strokeColor=#999999;fontSize=11;fontFamily=Lato;align=center;" vertex="1" parent="sw-config">
+          <mxGeometry x="40" y="100" width="160" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Layer 1: Profiles (pure data) -->
+        <mxCell id="sw-profiles" value="Provider Profiles (pure data)" style="swimlane;html=1;startSize=36;fillColor=#fff2cc;strokeColor=#d6b656;swimlaneFillColor=#fff9e6;fontSize=14;fontFamily=Lato;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="320" y="80" width="260" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="profile-ds" value="DEEPSEEK_PROFILE&#xa;thinking=deepseek, reasoning_preserve=True" style="rounded=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;fontFamily=Lato;" vertex="1" parent="sw-profiles">
+          <mxGeometry x="10" y="46" width="240" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="profile-openai" value="OPENAI_PROFILE&#xa;thinking=disabled, reasoning_preserve=False" style="rounded=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;fontFamily=Lato;" vertex="1" parent="sw-profiles">
+          <mxGeometry x="10" y="90" width="240" height="36" as="geometry" />
+        </mxCell>
+
+        <!-- Layer 2: Adapter (flag-driven) -->
+        <mxCell id="sw-adapter" value="GenericAdapter (flag-driven)" style="swimlane;html=1;startSize=36;fillColor=#e1d5e7;strokeColor=#9673a6;swimlaneFillColor=#f3e8f7;fontSize=14;fontFamily=Lato;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="620" y="80" width="260" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="adapter-stream" value="stream() — reads thinking_format flag&#xa;captures reasoning_content if deepseek" style="rounded=1;fillColor=#f3e8f7;strokeColor=#9673a6;fontSize=10;fontFamily=Lato;" vertex="1" parent="sw-adapter">
+          <mxGeometry x="10" y="46" width="240" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="adapter-complete" value="complete() — reads max_tokens_field flag&#xa;max_tokens vs max_completion_tokens" style="rounded=1;fillColor=#f3e8f7;strokeColor=#9673a6;fontSize=10;fontFamily=Lato;" vertex="1" parent="sw-adapter">
+          <mxGeometry x="10" y="90" width="240" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="adapter-build" value="_build_params() — reads all flags&#xa;extra_body, reasoning_effort, stream_options" style="rounded=1;fillColor=#f3e8f7;strokeColor=#9673a6;fontSize=10;fontFamily=Lato;" vertex="1" parent="sw-adapter">
+          <mxGeometry x="10" y="134" width="240" height="36" as="geometry" />
+        </mxCell>
+
+        <!-- Layer 3: Protocol (boundary) -->
+        <mxCell id="sw-protocol" value="ModelClient Protocol (boundary)" style="swimlane;html=1;startSize=36;fillColor=#d5e8d4;strokeColor=#82b366;swimlaneFillColor=#e8f5e9;fontSize=14;fontFamily=Lato;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="260" width="240" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="proto-comp" value="complete(request) → ModelResponse" style="rounded=1;fillColor=#e8f5e9;strokeColor=#82b366;fontSize=11;fontFamily=Lato;" vertex="1" parent="sw-protocol">
+          <mxGeometry x="15" y="46" width="210" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="proto-stream" value="stream(request, cancel_event) → AsyncIterator[Events]" style="rounded=1;fillColor=#e8f5e9;strokeColor=#82b366;fontSize=11;fontFamily=Lato;" vertex="1" parent="sw-protocol">
+          <mxGeometry x="15" y="84" width="210" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Supporting modules -->
+        <mxCell id="sw-support" value="Supporting Modules" style="swimlane;html=1;startSize=36;fillColor=#f5f5f5;strokeColor=#666666;swimlaneFillColor=#fafafa;fontSize=14;fontFamily=Lato;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="320" y="260" width="260" height="155" as="geometry" />
+        </mxCell>
+        <mxCell id="supp-streaming" value="StreamAccumulator&#xa;pure sync, testable, handles text+thinking+tool deltas" style="rounded=1;fillColor=#fafafa;strokeColor=#999999;fontSize=10;fontFamily=Lato;" vertex="1" parent="sw-support">
+          <mxGeometry x="10" y="46" width="240" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="supp-schemas" value="schemas.py&#xa;tool_to_openai_schema() converters" style="rounded=1;fillColor=#fafafa;strokeColor=#999999;fontSize=10;fontFamily=Lato;" vertex="1" parent="sw-support">
+          <mxGeometry x="10" y="90" width="240" height="36" as="geometry" />
+        </mxCell>
+
+        <!-- Layer 4: agent_core (consumer) -->
+        <mxCell id="sw-agent" value="agent_core (consumer)" style="swimlane;html=1;startSize=36;fillColor=#dae8fc;strokeColor=#6c8ebf;swimlaneFillColor=#e3f2fd;fontSize=14;fontFamily=Lato;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="620" y="320" width="260" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="agent-turn" value="turn.py — reads stream events,&#xa;accumulates reasoning, attaches to&#xa;both canonical + in-loop messages" style="rounded=1;fillColor=#e3f2fd;strokeColor=#6c8ebf;fontSize=10;fontFamily=Lato;" vertex="1" parent="sw-agent">
+          <mxGeometry x="10" y="46" width="240" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="agent-projector" value="MessageProjector — carries&#xa;reasoning across session resume" style="rounded=1;fillColor=#e3f2fd;strokeColor=#6c8ebf;fontSize=10;fontFamily=Lato;" vertex="1" parent="sw-agent">
+          <mxGeometry x="10" y="98" width="240" height="32" as="geometry" />
+        </mxCell>
+
+        <!-- Arrows: Config → Adapter -->
+        <mxCell id="e1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=3;strokeColor=#9673a6;" edge="1" parent="1" source="provider-config" target="adapter-stream">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow: Profiles → Adapter -->
+        <mxCell id="e2" value="flags" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=2;strokeColor=#d6b656;fontSize=10;fontFamily=Lato;" edge="1" parent="1" source="profile-ds" target="adapter-stream">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow: Adapter → Protocol -->
+        <mxCell id="e3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=3;strokeColor=#82b366;" edge="1" parent="1" source="adapter-stream" target="proto-stream">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow: Protocol → agent_core -->
+        <mxCell id="e4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeWidth=3;strokeColor=#6c8ebf;" edge="1" parent="1" source="proto-stream" target="agent-turn">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Wire format indicator -->
+        <mxCell id="wire" value="OpenAI-compatible wire format&#xa;(DeepSeek, OpenAI, Groq, Together, ...)" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;fontFamily=Lato;align=center;size=14;" vertex="1" parent="1">
+          <mxGeometry x="620" y="240" width="260" height="44" as="geometry" />
+        </mxCell>
+
+        <!-- Events legend -->
+        <mxCell id="sw-legend" value="Stream Events" style="swimlane;html=1;startSize=28;fillColor=#f5f5f5;strokeColor=#999999;swimlaneFillColor=#fafafa;fontSize=12;fontFamily=Lato;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="430" width="280" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="leg-text" value="TEXT_DELTA" style="rounded=1;fillColor=#e8f5e9;strokeColor=#82b366;fontSize=9;fontFamily=Lato;" vertex="1" parent="sw-legend">
+          <mxGeometry x="8" y="36" width="82" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="leg-think" value="THINKING_DELTA" style="rounded=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=9;fontFamily=Lato;" vertex="1" parent="sw-legend">
+          <mxGeometry x="96" y="36" width="82" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="leg-tool" value="COMPLETE_TOOL_CALL" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;fontFamily=Lato;" vertex="1" parent="sw-legend">
+          <mxGeometry x="184" y="36" width="88" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="leg-done" value="RESPONSE_COMPLETED" style="rounded=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=9;fontFamily=Lato;" vertex="1" parent="sw-legend">
+          <mxGeometry x="40" y="66" width="120" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="leg-fail" value="RESPONSE_FAILED" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;fontFamily=Lato;" vertex="1" parent="sw-legend">
+          <mxGeometry x="168" y="66" width="100" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="leg-note" value="THINKING_DELTA never forwarded to LiveEvent" style="text;html=1;strokeColor=none;fillColor=none;fontSize=9;fontFamily=Lato;fontColor=#666666;" vertex="1" parent="sw-legend">
+          <mxGeometry x="8" y="96" width="264" height="16" as="geometry" />
+        </mxCell>
+
+        <!-- Key insight callout -->
+        <mxCell id="insight" value="Adding GPT 5.6 = one 6-line OPENAI_PROFILE constant. Zero adapter changes. Zero agent loop changes." style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;fontFamily=Lato;align=center;size=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="620" y="500" width="260" height="60" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
