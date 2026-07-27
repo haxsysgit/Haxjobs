@@ -71,20 +71,22 @@ reasoning_content = getattr(msg, "reasoning_content", None) or ""
 
 And include it in the returned `ModelResponse(reasoning_content=reasoning_content, ...)`.
 
-Also add `extra_body` to both stream and non-stream methods:
+Also add `extra_body` to both stream and non-stream methods, gated to DeepSeek:
 
 ```python
-extra_body = {"thinking": {"type": "enabled"}}
-kwargs["extra_body"] = extra_body
+if self._provider == "deepseek":
+    kwargs["extra_body"] = {"thinking": {"type": "enabled"}}
 ```
 
 ### Step 3 — Accumulate reasoning in the turn loop
 
 **File: `agent_core/turn.py`**
 
-In the main loop, before the stream handler, add:
+Initialize `accumulated_reasoning` inside the main loop alongside `accumulated_text` (line 198-202):
 
 ```python
+model_steps += 1
+accumulated_text = ""
 accumulated_reasoning = ""
 ```
 
@@ -96,7 +98,7 @@ elif stream_event.event_type == ModelStreamEventType.THINKING_DELTA:
     # Do NOT emit as LiveEvent (thinking is internal to the model)
 ```
 
-When persisting the assistant message after a tool call turn, include reasoning_content:
+When persisting the canonical AssistantMessage after a tool call turn, include reasoning_content:
 
 ```python
 assistant_msg = AssistantMessage(
@@ -105,6 +107,19 @@ assistant_msg = AssistantMessage(
     content=accumulated_text,
     status="complete",
     reasoning_content=accumulated_reasoning,
+)
+```
+
+**Critical: the in-loop provider message also needs reasoning.** After a tool-call response, turn.py directly builds a `ModelMessage(role="assistant", tool_calls=...)` at line ~551 and appends it to `provider_messages` — the in-memory list used for the very next model request within the same turn. This message never goes through the projector. Without reasoning_content on it, the immediate next request drops it and DeepSeek returns 400.
+
+```python
+provider_messages.append(
+    ModelMessage(
+        role="assistant",
+        content=accumulated_text,
+        tool_calls=[...],
+        reasoning_content=accumulated_reasoning or None,
+    )
 )
 ```
 
@@ -170,10 +185,11 @@ The `ModelMessage` now has a `reasoning_content` field. When `_flush()` sets it 
 
 1. **Mocked DeepSeek stream with reasoning** — adapter yields THINKING_DELTA chunks before TEXT_DELTA chunks, accumulated reasoning preserved on assistant message
 2. **Multi-turn tool call with reasoning preservation** — first turn has tool calls with reasoning, second turn's projected messages include reasoning_content on the assistant message
-3. **Canonical JSON round trip** — AssistantMessage with reasoning_content serializes and deserializes correctly
-4. **Backward compat** — AssistantMessage without reasoning_content field (old JSON) parses correctly
-5. **Thinking not leaked** — LiveEvent stream never contains THINKING_DELTA content
-6. **Existing test suite** — all 290 existing tests pass unchanged
+3. **In-loop provider message carries reasoning** — fake-stream test with tool call asserting `fake.requests[1]` contains `reasoning_content` on the assistant message with tool calls; this is the critical path that bypasses the projector (turn.py line 551).
+4. **Canonical JSON round trip** — AssistantMessage with reasoning_content serializes and deserializes correctly
+5. **Backward compat** — AssistantMessage without reasoning_content field (old JSON) parses correctly
+6. **Thinking not leaked** — LiveEvent stream never contains THINKING_DELTA content
+7. **Existing test suite** — all 290 existing tests pass unchanged
 
 ## Live validation
 
