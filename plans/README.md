@@ -59,6 +59,7 @@ folder can be archived or shared independently.
 Status values:
 
 - `TODO`
+- [Plan 010 — Model layer modular architecture, streaming fix, DeepSeek adapter](010-model-layer-modular-architecture.md)
 - `IN PROGRESS`
 - `DONE`
 - `BLOCKED: reason`
