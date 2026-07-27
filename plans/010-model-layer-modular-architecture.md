@@ -107,10 +107,16 @@ class ProviderProfile:
     requires_assistant_after_tool_result: bool
     max_tokens_field: str               # "max_tokens" | "max_completion_tokens"
 
-    # Chat template kwargs — variable interpolation for extra_body
-    # {"thinking": {"$var": "thinking.enabled"}, "$omitWhenOff": true}
-    # → when thinking is enabled: {"thinking": {"type": "enabled"}}
+    # Static dict merged into request body for this provider.
+    # DeepSeek: {"thinking": {"type": "enabled"}} (always send).
+    # OpenAI: None (no extra body by default).
+    # $var interpolation is deferred until a provider needs conditional extra_body.
     extra_body_template: dict | None
+    
+    # thinking_format labels what the provider expects in the thinking payload.
+    # Used for logging/display only. The adapter reads the boolean flags
+    # (supports_reasoning_content, supports_reasoning_effort) and
+    # extra_body_template to build the actual request.
 ```
 
 ### How the generic adapter uses profiles
@@ -246,11 +252,12 @@ def provider_tool_call_to_internal(raw) -> ToolCall: ...
 
 ---
 
-### Phase 4 — Generic adapter
+### Phase 4 — Generic adapter + protocol extraction
 
-**New file: `model/adapter.py`**
+**New files: `model/adapter.py`, `model/protocol.py`**
 
-Extracts the stream and complete logic from `client.py`, makes it profile-aware:
+Extracts the stream and complete logic from `client.py`, makes it profile-aware.
+Also moves the `ModelClient` protocol from `client.py` to `protocol.py` (mechanical extraction, ~10 lines).
 
 1. `_build_request(request)` — uses `profile.max_tokens_field`, calls `schemas.tool_schemas_to_provider()`, interpolates `profile.extra_body_template`
 2. `stream(request, cancel_event)` — uses `StreamAccumulator` for tool calls, checks `profile.supports_reasoning_content` before reading reasoning deltas, yields `THINKING_DELTA` events
@@ -260,21 +267,13 @@ Extracts the stream and complete logic from `client.py`, makes it profile-aware:
 - DeepSeek profile: stream yields THINKING_DELTA for reasoning_content
 - OpenAI profile (no reasoning support): reasoning_content branch skipped
 - Tool call accumulation works across multiple delta chunks
-- extra_body_template interpolation: thinking enabled → `{"thinking": {"type": "enabled"}}`
-- extra_body_template: when thinking disabled → nothing added (omitWhenOff)
+- Static extra_body_template merged correctly
 - Cancellation: cancel event set → RESPONSE_FAILED with "cancelled"
+- `test_model_streaming.py`: delete two old `OpenAIModelClient` mock tests (they test the deleted class internals). Replace with adapter-level equivalents testing `GenericAdapter.stream()` with `supports_reasoning_content` toggled.
 
 ---
 
-### Phase 5 — ModelClient protocol extraction
-
-**New file: `model/protocol.py`**
-
-Move `ModelClient` protocol from `client.py` → `protocol.py`. Fits in Phase 4 or can be done standalone. Tests already pass through the protocol.
-
----
-
-### Phase 6 — Wire the agent loop
+### Phase 5 — Wire the agent loop
 
 **File: `agent_core/turn.py`**
 
@@ -299,7 +298,7 @@ Move `ModelClient` protocol from `client.py` → `protocol.py`. Fits in Phase 4 
 
 ---
 
-### Phase 7 — Composition root and cleanup
+### Phase 6 — Composition root and cleanup
 
 **File: `employment/composition.py`**
 
